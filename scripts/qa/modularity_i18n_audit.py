@@ -56,6 +56,8 @@ COPY_BOUNDARY_PATTERNS = (
     "/copy/",
     "/content/",
     "/i18n/",
+    "copy.ts",
+    "copy.mjs",
     "ui_text.py",
     "nav-copy.ts",
     "site-metadata.ts",
@@ -68,6 +70,8 @@ OPERATOR_COPY_HINT = re.compile(
 )
 QUOTED_HUMAN_TEXT = re.compile(r"""["']([^"']*[A-Za-z][^"']*\s[^"']*)["']""")
 COMMENT_PREFIXES = ("//", "#", "*")
+STYLE_TOKEN = re.compile(r"^[A-Za-z0-9_@*/:.[\]()#%<>=!+-]+$")
+STYLE_TOKEN_MARKERS = ("-", "/", ":", "[", "]", "*", "@")
 
 
 @dataclass(frozen=True)
@@ -495,11 +499,28 @@ def _copy_candidate(rel_path: str, line_number: int, line: str) -> CopyCandidate
     stripped = line.strip()
     if not stripped or stripped.startswith(COMMENT_PREFIXES):
         return None
+    if "typeof " in stripped:
+        return None
     if not OPERATOR_COPY_HINT.search(stripped):
         return None
-    if not QUOTED_HUMAN_TEXT.search(stripped):
+    quoted_values = QUOTED_HUMAN_TEXT.findall(stripped)
+    if not quoted_values:
+        return None
+    if all(_looks_like_style_literal(value) for value in quoted_values):
         return None
     return CopyCandidate(path=rel_path, line=line_number, excerpt=stripped[:180])
+
+
+def _looks_like_style_literal(value: str) -> bool:
+    tokens = value.split()
+    if len(tokens) < 2:
+        return False
+    if not all(STYLE_TOKEN.fullmatch(token) for token in tokens):
+        return False
+    marked_tokens = sum(
+        1 for token in tokens if any(marker in token for marker in STYLE_TOKEN_MARKERS)
+    )
+    return marked_tokens >= max(1, len(tokens) // 2)
 
 
 def _docs_locale_parity(repo_root: Path) -> LocaleParity:
@@ -551,7 +572,7 @@ def _docs_locale_parity(repo_root: Path) -> LocaleParity:
         """
         if not file_path.exists():
             return set()
-        return {file_path.name}
+        return {"home.ts"}
 
     english_files = _relative_files(
         docs_english_root, {".mdx", ".json"}

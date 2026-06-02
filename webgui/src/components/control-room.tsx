@@ -1,46 +1,48 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
 'use client';
 
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  type SyntheticEvent,
-} from 'react';
+import
+  {
+    useCallback,
+    useMemo,
+    useRef,
+    useState,
+    type SyntheticEvent,
+  } from 'react';
 
 import type { ChatPersona } from '@/lib/chat-personas';
 
 import type {
   DashboardData,
   InstructionMode,
+  InstructionResult,
   TabId,
 } from './control-room.helpers';
 import { normalizeChatHistory } from './control-room.helpers';
 import { useControlRoomActions } from './control-room/actions';
 import { ActiveView } from './control-room/active-view';
 import { authenticateWebguiSession, errorMessage } from './control-room/api';
+import { ControlRoomContent } from './control-room/content';
 import { useDashboardPolling } from './control-room/dashboard-polling';
 import { controlRoomTabs, getControlRoomCopy } from './control-room/labels';
-import {
-  ControlRoomLoadingPanel,
-  ControlRoomUnavailablePanel,
-} from './control-room/loading-panel';
-import {
-  ControlRoomAuthShell,
-  ControlRoomShell,
-  type ControlRoomMessage,
-} from './control-room/shell';
-import {
-  useControlRoomLocaleState,
-  useLoadingSeconds,
-} from './control-room/state-hooks';
-import {
-  currentCycleItems,
-  systemStatusViewItems,
-} from './control-room/view-model';
+import
+  {
+    ControlRoomAuthShell,
+    ControlRoomShell,
+    type ControlRoomMessage,
+  } from './control-room/shell';
+import
+  {
+    useControlRoomLocaleState,
+    useLoadingSeconds,
+  } from './control-room/state-hooks';
+import
+  {
+    currentCycleItems,
+    systemStatusViewItems,
+  } from './control-room/view-model';
 
-export {
+export
+{
   canonicalLines,
   failedCheckNames,
   formatList,
@@ -60,24 +62,26 @@ export {
   sourceHealthSummaryLine,
   systemStatusItems,
   tradeContextLines,
-  unavailableSectionLines,
+  unavailableSectionLines
 } from './control-room.helpers';
 export type {
   DashboardData,
   InstructionMode,
+  InstructionResult,
   KeyValueItems,
   MessageTone,
   PanelAccent,
   ProposalActionKind,
   TabId,
-  ToolActionKind,
+  ToolActionKind
 } from './control-room.helpers';
 export { ActiveView } from './control-room/active-view';
 export { readJson, WebguiHttpError } from './control-room/api';
 export { ChatView } from './control-room/chat-view';
-export {
+export
+{
   ControlRoomLoadingPanel,
-  ControlRoomUnavailablePanel,
+  ControlRoomUnavailablePanel
 } from './control-room/loading-panel';
 export { MemoryView } from './control-room/memory-view';
 export { OverviewView } from './control-room/overview-view';
@@ -86,13 +90,15 @@ export { ProposalDeskView } from './control-room/proposal-desk-view';
 export { ReviewView } from './control-room/review-view';
 export { RuntimeView } from './control-room/runtime-view';
 export { SettingsView } from './control-room/settings-view';
-export {
+export
+{
   useControlRoomLocaleState,
-  useLoadingSeconds,
+  useLoadingSeconds
 } from './control-room/state-hooks';
-export {
+export
+{
   currentCycleItems,
-  systemStatusViewItems,
+  systemStatusViewItems
 } from './control-room/view-model';
 
 /**
@@ -119,10 +125,8 @@ export function ControlRoom() {
   const [instructionDraft, setInstructionDraft] = useState('');
   const [instructionMode, setInstructionMode] =
     useState<InstructionMode>('preview');
-  const [instructionResult, setInstructionResult] = useState<Record<
-    string,
-    any
-  > | null>(null);
+  const [instructionResult, setInstructionResult] =
+    useState<InstructionResult | null>(null);
   const [proposalNote, setProposalNote] = useState('');
   const [lastLoadedAt, setLastLoadedAt] = useState<string>('-');
   const [webguiToken, setWebguiToken] = useState('');
@@ -252,17 +256,15 @@ export function ControlRoom() {
       onProposalAction={runProposalAction}
     />
   ) : null;
-  const content = (() => {
-    if (loading) {
-      return (
-        <ControlRoomLoadingPanel copy={copy} loadingSeconds={loadingSeconds} />
-      );
-    }
-    if (dashboard) {
-      return activeView;
-    }
-    return <ControlRoomUnavailablePanel copy={copy} />;
-  })();
+  const content = (
+    <ControlRoomContent
+      activeView={activeView}
+      copy={copy}
+      dashboardAvailable={Boolean(dashboard)}
+      loading={loading}
+      loadingSeconds={loadingSeconds}
+    />
+  );
 
   if (authRequired) {
     return (

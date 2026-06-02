@@ -1,17 +1,14 @@
 import json
 import os
 import shutil
-import subprocess
-import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import cast
 from uuid import uuid4
 
 import typer
 from dotenv import set_key
-from rich.columns import Columns
+from pandas import DataFrame
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
@@ -32,6 +29,80 @@ from agentic_trader.cli_modules.common import (
 )
 from agentic_trader.cli_modules.common import emit_json as _emit_json
 from agentic_trader.cli_modules.common import open_db as _open_db
+from agentic_trader.cli_modules.dashboard_commands import (
+    DashboardCommandDeps,
+    register_dashboard_commands,
+)
+from agentic_trader.cli_modules.dashboard_commands import (
+    build_dashboard_snapshot_payload as _build_dashboard_snapshot_payload,
+)
+from agentic_trader.cli_modules.dashboard_commands import (
+    build_evidence_bundle as _build_dashboard_evidence_bundle,
+)
+from agentic_trader.cli_modules.dashboard_commands import (
+    build_observer_api_payload as _build_observer_api_payload,
+)
+from agentic_trader.cli_modules.doctor import run_doctor_command
+from agentic_trader.cli_modules.execution_rendering import render_execution_panels
+from agentic_trader.cli_modules.finance_status import (
+    broker_payload as _finance_broker_payload,
+)
+from agentic_trader.cli_modules.finance_status import (
+    finance_ops_payload as _finance_ops_payload_impl,
+)
+from agentic_trader.cli_modules.finance_status import (
+    portfolio_payload as _finance_portfolio_payload,
+)
+from agentic_trader.cli_modules.finance_status import (
+    render_finance_ops as _render_finance_ops_impl,
+)
+from agentic_trader.cli_modules.finance_status import (
+    render_position_plan_repair as _render_position_plan_repair_impl,
+)
+from agentic_trader.cli_modules.finance_status import (
+    risk_report_payload as _finance_risk_report_payload,
+)
+from agentic_trader.cli_modules.launch_commands import register_launch_commands
+from agentic_trader.cli_modules.market_commands import (
+    MarketCommandDeps,
+    register_market_commands,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    calendar_payload as _calendar_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    canonical_analysis_lines as _canonical_analysis_lines_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    canonical_analysis_payload as _canonical_analysis_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    chat_history_payload as _chat_history_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    market_cache_payload as _market_cache_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    market_context_payload as _market_context_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    memory_explorer_payload as _memory_explorer_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    news_payload as _news_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    retrieval_inspection_payload as _retrieval_inspection_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    run_replay_payload as _run_replay_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    runtime_status_payload as _runtime_status_payload_impl,
+)
+from agentic_trader.cli_modules.observer_payloads import (
+    service_supervisor_payload as _service_supervisor_payload_impl,
+)
 from agentic_trader.cli_modules.operator_readiness import (
     accelerator_payload as _operator_accelerator_payload,
 )
@@ -48,57 +119,79 @@ from agentic_trader.cli_modules.proposal_desk import (
     register_proposal_desk_commands,
     trade_proposals_payload,
 )
+from agentic_trader.cli_modules.record_commands import (
+    RecordCommandDeps,
+    register_record_commands,
+)
+from agentic_trader.cli_modules.research_commands import (
+    register_research_commands,
+)
+from agentic_trader.cli_modules.research_commands import (
+    research_sidecar_payload as _research_sidecar_payload,
+)
+from agentic_trader.cli_modules.run_reports import (
+    manager_override_notes as _manager_override_notes,
+)
+from agentic_trader.cli_modules.run_reports import (
+    manager_resolution_notes as _manager_resolution_notes,
+)
+from agentic_trader.cli_modules.runtime_modes import (
+    runtime_mode_transition_plan as _runtime_mode_transition_plan_impl,
+)
+from agentic_trader.cli_modules.service_control import run_stop_service_command
+from agentic_trader.cli_modules.system_commands import (
+    SystemCommandDeps,
+    register_system_commands,
+)
+from agentic_trader.cli_modules.status_commands import (
+    StatusCommandDeps,
+    register_status_commands,
+)
+from agentic_trader.cli_modules.system_rendering import (
+    render_operator_launcher_status as _render_operator_launcher_status,
+)
+from agentic_trader.cli_modules.system_rendering import (
+    render_webgui_service_status as _render_webgui_service_status,
+)
+from agentic_trader.cli_modules.tui_node import (
+    NodeCommandSet,
+    register_tui_command,
+    resolve_tui_node_commands as _resolve_tui_node_commands,
+)
+from agentic_trader.cli_modules.tui_node import (
+    tui_dependencies_installed as tui_dependencies_installed,
+)
 from agentic_trader.config import Settings, get_settings
 from agentic_trader.diagnostics import (
     provider_diagnostics_payload,
     v1_readiness_payload,
 )
-from agentic_trader.engine.broker import broker_runtime_payload, get_broker_adapter
+from agentic_trader.engine.broker import get_broker_adapter
 from agentic_trader.execution.intent import ExecutionOutcome
 from agentic_trader.finance.proposals import (
     refresh_trade_proposal_order,
     repair_missing_position_plans,
 )
-from agentic_trader.finance.strategy_catalog import (
-    finance_reconciliation_contract_payload,
-)
 from agentic_trader.json_utils import object_list as _object_list
 from agentic_trader.json_utils import object_mapping as _object_mapping
 from agentic_trader.json_utils import object_mapping_list as _object_mapping_list
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.market.data import fetch_ohlcv
-from agentic_trader.market.features import build_snapshot
-from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.memory.policy import memory_write_policy_snapshot
-from agentic_trader.memory.retrieval import retrieve_similar_memories
-from agentic_trader.observer_api import serve_observer_api
-from agentic_trader.researchd.control import (
-    get_research_cycle_control,
-    set_research_cycle_control,
-)
-from agentic_trader.researchd.crewai_setup import crewai_setup_status
 from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
 from agentic_trader.researchd.cycle_runner import run_research_cycle
 from agentic_trader.researchd.news_intelligence import (
     classify_source_tier,
     news_research_plan,
 )
-from agentic_trader.researchd.orchestrator import ResearchSidecar
-from agentic_trader.researchd.persistence import persist_research_result
-from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.runtime_feed import (
     append_chat_history,
-    read_chat_history,
-    read_latest_research_snapshot,
-    read_research_digest_replay,
     read_service_events,
     read_service_state,
     request_stop,
 )
 from agentic_trader.runtime_status import (
     RuntimeStatusView,
-    build_agent_activity_view,
     build_runtime_status_view,
     is_process_alive,
 )
@@ -109,29 +202,14 @@ from agentic_trader.schemas import (
     CanonicalAnalysisSnapshot,
     ChatHistoryEntry,
     ChatPersona,
-    DailyRiskReport,
-    HistoricalMemoryMatch,
     InvestmentPreferences,
-    ManagerDecision,
-    MarketSessionStatus,
     OperatorInstruction,
-    PortfolioSnapshot,
-    PositionSnapshot,
-    ResearchCycleControlAction,
-    RunArtifacts,
-    RunRecord,
-    RunReplay,
-    RunReplayStage,
     RuntimeMode,
-    RuntimeModeTransitionCheck,
     RuntimeModeTransitionPlan,
-    ServiceEvent,
     ServiceStateSnapshot,
-    TradeContextRecord,
-    TradeJournalEntry,
     TradeProposalRecord,
 )
-from agentic_trader.security import is_loopback_host, redact_sensitive_text
+from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.system.camofox_service import (
     build_camofox_service_status,
@@ -148,7 +226,6 @@ from agentic_trader.system.operator_launcher import (
     build_operator_launcher_status,
     start_operator_webgui,
 )
-from agentic_trader.system.runtime_tools import apply_app_owned_service_settings
 from agentic_trader.system.setup import build_setup_status
 from agentic_trader.system.tool_ownership import (
     OWNERSHIP_MODES,
@@ -162,551 +239,87 @@ from agentic_trader.system.webgui_service import (
 )
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.ui_text import (
-    HELP_BACKTEST_COMPARE_BASELINE,
-    HELP_BACKTEST_COMPARE_MEMORY,
-    HELP_BACKTEST_OUTPUT,
-    HELP_BACKTEST_WARMUP_BARS,
-    HELP_CALENDAR_STATUS_SYMBOL,
-    HELP_CAMOFOX_OWNER,
     HELP_CAMOFOX_SERVICE_APP,
-    HELP_CAMOFOX_SERVICE_HOST,
-    HELP_CAMOFOX_SERVICE_PORT,
     HELP_CHAT_MESSAGE,
     HELP_CHAT_PERSONA,
     HELP_CLI_APP,
-    HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
-    HELP_EVIDENCE_BUNDLE_LABEL,
-    HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
-    HELP_EXPORT_REPORT_OUTPUT,
-    HELP_EXPORT_REPORT_RUN_ID,
-    HELP_FIRECRAWL_OWNER,
     HELP_INSTRUCT_APPLY,
     HELP_INSTRUCT_MESSAGE,
-    HELP_INTERVAL,
     HELP_JSON,
-    HELP_LAUNCH_BACKGROUND,
-    HELP_LAUNCH_CONTINUOUS,
-    HELP_LAUNCH_MAX_CYCLES,
-    HELP_LAUNCH_POLL_SECONDS,
-    HELP_LAUNCH_SYMBOLS,
     HELP_LOCALE_OVERRIDE,
     HELP_LOCALE_PERSIST,
-    HELP_LOOKBACK,
-    HELP_MEMORY_EXPLORER_LIMIT,
-    HELP_MEMORY_EXPLORER_USE_LATEST_RUN,
-    HELP_MODEL_NAME_TO_PULL,
     HELP_MODEL_SERVICE_APP,
-    HELP_MODEL_SERVICE_HOST,
-    HELP_MODEL_SERVICE_PORT,
     HELP_MONITOR_REFRESH_SECONDS,
-    HELP_NEWS_BRIEF_SYMBOL,
-    HELP_NEWS_CLASSIFY_SOURCE,
-    HELP_NEWS_COMPANY_NAME,
-    HELP_NEWS_SECTOR,
-    HELP_OBSERVER_API_ALLOW_NONLOCAL,
-    HELP_OBSERVER_API_HOST,
-    HELP_OBSERVER_API_PORT,
-    HELP_OLLAMA_OWNER,
-    HELP_POSITION_PLAN_REPAIR_APPLY,
-    HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
-    HELP_PROVIDER_CHECK,
-    HELP_RESEARCH_CYCLE_PAUSE,
-    HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
-    HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE,
-    HELP_RESEARCH_CYCLE_PLAN_SYMBOLS,
-    HELP_RESEARCH_CYCLE_REASON,
-    HELP_RESEARCH_CYCLE_RESUME,
-    HELP_RESEARCH_CYCLE_RUN_CADENCE_SECONDS,
-    HELP_RESEARCH_CYCLE_RUN_CYCLES,
-    HELP_RESEARCH_CYCLE_RUN_MAX_PROPOSALS_PER_CYCLE,
-    HELP_RESEARCH_CYCLE_RUN_PERSIST,
-    HELP_RESEARCH_CYCLE_RUN_SLEEP,
-    HELP_RESEARCH_CYCLE_RUN_SYMBOLS,
-    HELP_RESEARCH_CYCLE_TRIGGER_NOW,
-    HELP_RESEARCH_PROBE,
-    HELP_RESEARCH_REFRESH_PERSIST,
     HELP_RESTART_SERVICE_GRACE_SECONDS,
-    HELP_RISK_REPORT_DATE,
-    HELP_RUN_ID,
-    HELP_RUN_REPLAY_ID,
-    HELP_RUNTIME_EVENT_LIMIT,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
     HELP_RUNTIME_MODE_TARGET,
-    HELP_SETUP_DRY_RUN,
     HELP_STOP_SERVICE_FORCE,
-    HELP_SYMBOL,
     HELP_TOOL_OWNERSHIP_APP,
-    HELP_TRADE_CONTEXT_ID,
-    HELP_TRADE_JOURNAL_LIMIT,
-    HELP_V1_PROVIDER_CHECK,
-    HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
-    LABEL_ADAPTER,
-    LABEL_AGENT,
-    LABEL_AGENT_PROFILE,
-    LABEL_AGENT_TONE,
     LABEL_ALLOWED,
-    LABEL_ALLOWED_ACTORS,
-    LABEL_ALPACA_CREDENTIALS_CONFIGURED,
-    LABEL_ALPACA_FEED,
-    LABEL_ALPACA_PAPER_ENDPOINT,
-    LABEL_API_KEY,
-    LABEL_APPROVED,
-    LABEL_ARTIFACT,
-    LABEL_ASSET_CLASS,
-    LABEL_AVAILABLE,
-    LABEL_AVERAGE_PRICE,
-    LABEL_BACKEND,
-    LABEL_BACKGROUND_MODE,
-    LABEL_BASE_URL,
-    LABEL_BASELINE,
-    LABEL_BEHAVIOR_PRESET,
-    LABEL_BIAS,
     LABEL_BLOCKING,
-    LABEL_CACHE_DIR,
-    LABEL_CAMOFOX,
-    LABEL_CASH,
-    LABEL_CATEGORY,
     LABEL_CHECK,
-    LABEL_CLOSED_TRADES,
-    LABEL_CONFIDENCE,
-    LABEL_CONSENSUS,
-    LABEL_CONTEXT,
     LABEL_CONTINUOUS,
-    LABEL_CORE_DEPENDENCY,
-    LABEL_CORE_READY,
-    LABEL_CREATED,
-    LABEL_CURRENCIES,
-    LABEL_CURRENCY,
     LABEL_CURRENT,
     LABEL_CURRENT_SYMBOL,
-    LABEL_CYCLE,
-    LABEL_CYCLE_CONTROL,
     LABEL_CYCLE_COUNT,
-    LABEL_CYCLES,
-    LABEL_DAILY_REALIZED_PNL,
-    LABEL_DATABASE,
-    LABEL_DB_STATUS,
-    LABEL_DECISION,
-    LABEL_DECISION_PATH,
-    LABEL_DEFAULT_MODEL,
-    LABEL_DELTA,
     LABEL_DETAILS,
-    LABEL_DIGEST_REPLAY,
-    LABEL_DOMAIN,
-    LABEL_DRAWDOWN_FROM_PEAK,
-    LABEL_ENABLED,
-    LABEL_ENDING_EQUITY,
-    LABEL_ENTRY,
-    LABEL_ENTRY_PX,
     LABEL_ENVIRONMENT,
-    LABEL_ENVIRONMENT_EXISTS,
-    LABEL_EQUITY,
-    LABEL_EXCHANGES,
-    LABEL_EXECUTION_ADAPTER,
-    LABEL_EXECUTION_BACKEND,
-    LABEL_EXECUTION_OUTCOME,
-    LABEL_EXECUTION_RATIONALE,
-    LABEL_EXIT,
-    LABEL_EXIT_CODE,
-    LABEL_EXIT_PX,
-    LABEL_EXPECTANCY,
-    LABEL_EXPOSURE,
-    LABEL_FALLBACK,
-    LABEL_FALLBACK_CYCLES,
-    LABEL_FEES,
     LABEL_FIELD,
-    LABEL_FILENAME,
-    LABEL_FILLS_TODAY,
-    LABEL_FINAL_RATIONALE,
-    LABEL_FINAL_SIDE,
-    LABEL_FLOW_DIR,
-    LABEL_FRESHNESS,
-    LABEL_GENERATED,
-    LABEL_GROSS_EXPOSURE,
-    LABEL_HEADLINES,
-    LABEL_HEALTHCHECK,
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
     LABEL_INTERVAL,
-    LABEL_INTERVENTION,
     LABEL_KEY,
-    LABEL_KILL_SWITCH_ACTIVE,
-    LABEL_KIND,
-    LABEL_LARGEST_POSITION,
-    LABEL_LAST_ERROR,
     LABEL_LAST_RECORDED_ERROR,
     LABEL_LAST_RECORDED_MESSAGE,
     LABEL_LAST_RECORDED_STATE,
-    LABEL_LAST_SUCCESSFUL_UPDATE,
-    LABEL_LAST_TERMINAL_AT,
-    LABEL_LAST_TERMINAL_STATE,
     LABEL_LATEST_ORDER,
-    LABEL_LAUNCH_COUNT,
-    LABEL_LEVEL,
-    LABEL_LIVE_EXECUTION_ENABLED,
     LABEL_LIVE_PROCESS,
-    LABEL_LIVE_READY,
-    LABEL_LIVE_REQUESTED,
-    LABEL_LLM,
-    LABEL_LLM_PROVIDER,
     LABEL_LOCALE,
-    LABEL_LOCKFILE_EXISTS,
     LABEL_LOOKBACK,
-    LABEL_MANAGER_RATIONALE,
-    LABEL_MARK_SOURCE,
-    LABEL_MARK_STATUS,
-    LABEL_MARKED_AT,
-    LABEL_MARKET_PRICE,
-    LABEL_MARKET_PROVIDER,
-    LABEL_MARKET_ROLE,
-    LABEL_MARKET_VALUE,
-    LABEL_MARKS_RECORDED,
-    LABEL_MATERIALITY,
     LABEL_MAX_CYCLES,
-    LABEL_MAX_DRAWDOWN,
-    LABEL_MEANING,
-    LABEL_MEMORIES,
     LABEL_MESSAGE,
-    LABEL_METRIC,
     LABEL_MODE,
-    LABEL_MODEL,
-    LABEL_MODEL_AVAILABLE,
-    LABEL_MODEL_ROUTING,
-    LABEL_MODIFIED,
-    LABEL_MULTI_TIMEFRAME,
-    LABEL_NEWS_MODE,
-    LABEL_NEXT,
     LABEL_NO,
-    LABEL_NOTE,
-    LABEL_NOTES,
-    LABEL_OBSERVER_MODE,
-    LABEL_OLLAMA_REACHABLE,
-    LABEL_OPEN_POSITIONS,
-    LABEL_OPENED,
-    LABEL_OPTIONAL_RUNTIME_READY,
-    LABEL_ORDER_ID,
-    LABEL_OUTPUT,
-    LABEL_OUTPUT_PREVIEW,
-    LABEL_OWNERSHIP,
     LABEL_PASSED,
-    LABEL_PATH,
     LABEL_PERSISTED,
-    LABEL_PHASE,
     LABEL_PID,
-    LABEL_PLATFORM,
-    LABEL_PNL,
     LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
-    LABEL_PRODUCES,
-    LABEL_PROPOSAL,
-    LABEL_PROVIDER,
-    LABEL_PURPOSE,
-    LABEL_PYTHON_VERSION,
-    LABEL_QUANTITY,
-    LABEL_QUERY,
     LABEL_RATIONALE,
-    LABEL_REALIZED_PNL,
-    LABEL_REASON,
-    LABEL_RECENT_RUNS,
-    LABEL_REGIONS,
-    LABEL_REJECTION_EVIDENCE,
-    LABEL_REJECTION_REASON,
     LABEL_REQUIRES_CONFIRMATION,
-    LABEL_RESEARCH_CYCLE_CONTROL,
-    LABEL_RESOLUTION_NOTES,
-    LABEL_RESTART_COUNT,
-    LABEL_RETRIEVED_MEMORIES,
-    LABEL_RETRIEVED_MEMORY_ROLES,
-    LABEL_RETURN,
-    LABEL_REVIEW_SUMMARY,
-    LABEL_RISK_PROFILE,
-    LABEL_ROLE,
-    LABEL_RUN_ID,
     LABEL_RUNTIME,
-    LABEL_RUNTIME_DAEMON,
-    LABEL_RUNTIME_DIR,
-    LABEL_SCAFFOLD_EXISTS,
-    LABEL_SCORE,
-    LABEL_SECTORS,
     LABEL_SERVICE,
-    LABEL_SETTING,
-    LABEL_SETUP,
-    LABEL_SHARED_BUS,
-    LABEL_SHARED_BUS_ROLES,
-    LABEL_SIDE,
-    LABEL_SIDECAR_AVAILABLE,
-    LABEL_SIMULATED,
-    LABEL_SIZE,
-    LABEL_SLIPPAGE,
-    LABEL_SNAPSHOT_COUNT,
-    LABEL_SOURCE,
-    LABEL_SPECIALIST,
-    LABEL_STAGE,
     LABEL_STARTED,
-    LABEL_STATE,
-    LABEL_STATUS,
     LABEL_STATUS_NOTE,
-    LABEL_STDERR,
-    LABEL_STDERR_LOG,
-    LABEL_STDOUT,
-    LABEL_STDOUT_LOG,
-    LABEL_STOP,
     LABEL_STOP_REQUESTED,
-    LABEL_STRATEGY,
-    LABEL_STRICTNESS,
-    LABEL_STRUCTURED_LLM,
     LABEL_SUMMARY,
     LABEL_SUPPORTED,
-    LABEL_SURFACE,
-    LABEL_SYMBOL,
     LABEL_SYMBOLS,
-    LABEL_TAKE,
-    LABEL_TAKE_PROFIT,
     LABEL_TARGET,
-    LABEL_TIMEZONE,
-    LABEL_TOOL,
-    LABEL_TOOL_OUTPUT_ROLES,
-    LABEL_TOOL_OUTPUTS,
-    LABEL_TOOLS,
-    LABEL_TOTAL_RETURN,
-    LABEL_TRADABLE_NOW,
-    LABEL_TRADE_MEMORY,
-    LABEL_TRADE_STYLE,
-    LABEL_TRADES,
-    LABEL_TRIGGER_NOW,
-    LABEL_TRIGGER_NOW_REQUESTED,
-    LABEL_TYPE,
-    LABEL_UNREALIZED_PNL,
     LABEL_UPDATE_PREFERENCES,
     LABEL_UPDATED,
-    LABEL_UPDATED_AT,
-    LABEL_UV_AVAILABLE,
-    LABEL_V1_SOURCE,
     LABEL_VALUE,
-    LABEL_VENUE,
-    LABEL_VERSION,
-    LABEL_VERSION_SOURCE,
-    LABEL_WARMUP_BARS,
-    LABEL_WARNINGS,
-    LABEL_WATCHED_SYMBOLS,
-    LABEL_WEB_GUI,
-    LABEL_WHY,
-    LABEL_WIN_RATE,
-    LABEL_WITH_MEMORY,
-    LABEL_WITHOUT_MEMORY,
-    LABEL_WORKSPACE,
     LABEL_YES,
-    LAUNCHER_OPTION_CONTINUE_TUI,
-    LAUNCHER_OPTION_EXIT,
-    LAUNCHER_OPTION_OPEN_WEB_GUI,
-    LAUNCHER_OPTION_REFRESH,
-    MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
-    MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
-    MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
     MESSAGE_BACKGROUND_SERVICE_RESTARTED,
-    MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON,
-    MESSAGE_BACKTEST_COMPARISON_WRITTEN,
-    MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN,
-    MESSAGE_BACKTEST_SUMMARY_WRITTEN,
-    MESSAGE_CACHE_STATUS,
-    MESSAGE_CALENDAR_STATUS_UNAVAILABLE,
-    MESSAGE_EVIDENCE_BUNDLE_WRITTEN,
-    MESSAGE_FALLBACK_USED_IN,
-    MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
-    MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY,
-    MESSAGE_INSTALLING_TUI_DEPENDENCIES,
-    MESSAGE_LARGEST_POSITION_ABOVE_EQUITY,
-    MESSAGE_LAUNCH_PLAN,
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
-    MESSAGE_MARK_TIME_UNAVAILABLE,
-    MESSAGE_MARKET_SNAPSHOT_CACHED,
-    MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE,
     MESSAGE_NO_ACTION_SELECTED,
-    MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
-    MESSAGE_NO_HISTORICAL_MEMORIES,
-    MESSAGE_NO_OPEN_POSITIONS,
     MESSAGE_NO_ORDERS_RECORDED,
-    MESSAGE_NO_PERSISTED_RUNS_EXPORT,
-    MESSAGE_NO_PERSISTED_RUNS_REPLAY,
-    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
-    MESSAGE_NO_PERSISTED_RUNS_TRACE,
-    MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
-    MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT,
-    MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
-    MESSAGE_NO_STDERR_LOG_LINES,
-    MESSAGE_NO_STDOUT_LOG_LINES,
-    MESSAGE_NO_TOOL_NEWS_HEADLINES,
-    MESSAGE_NO_TRADE_CONTEXT,
-    MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
-    MESSAGE_NODE_MISSING,
-    MESSAGE_OBSERVER_API_LISTENING,
-    MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
-    MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
-    MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
-    MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
-    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
-    MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
-    MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
-    MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY,
-    MESSAGE_RESEARCH_SNAPSHOT_RECORDED,
-    MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RISK_REPORT_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RUN_REPORT_WRITTEN,
-    MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RUNTIME_GATE_OPEN,
-    MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
-    MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
-    MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED,
-    MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT,
-    MESSAGE_SERVICE_STOP_REQUESTED,
-    MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
-    MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_TRADING_RUNTIME_BLOCKED,
-    MESSAGE_TRADING_RUNTIME_READY,
-    MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
-    MESSAGE_TUI_MISSING,
-    MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE,
-    MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
     PROMPT_SELECT_ACTION,
-    STAGE_CONSENSUS,
-    STAGE_COORDINATOR,
-    STAGE_EXECUTION,
-    STAGE_FUNDAMENTAL,
-    STAGE_MANAGER,
-    STAGE_REGIME,
-    STAGE_RISK,
-    STAGE_STRATEGY,
-    STATUS_ACTIVE,
-    STATUS_APP_OWNED,
-    STATUS_AVAILABLE,
-    STATUS_EXTERNAL,
-    STATUS_FAIL,
-    STATUS_NEEDS_ATTENTION,
-    STATUS_PASS,
-    STATUS_READY,
     STYLE_KEY_COLUMN,
     SUPPORTED_UI_LOCALES,
-    TITLE_AGENT_DECISIONS,
-    TITLE_AGENT_TRACE,
-    TITLE_ALPACA_PAPER_CHECKS,
-    TITLE_AVAILABLE_MODELS,
-    TITLE_BACKTEST_COMPARISON,
-    TITLE_BACKTEST_MEMORY_ABLATION,
-    TITLE_BACKTEST_TRADES,
-    TITLE_BROKER_STATUS,
-    TITLE_CACHE_STATUS,
-    TITLE_CALENDAR_STATUS,
-    TITLE_CAMOFOX_BROWSER_HELPER,
-    TITLE_CAMOFOX_START_FAILED,
-    TITLE_CAMOFOX_STDERR_TAIL,
-    TITLE_CANONICAL_ANALYSIS,
     TITLE_CHAT,
-    TITLE_CHOOSE_SURFACE,
-    TITLE_CONTEXT_SUMMARY,
-    TITLE_DAILY_RISK_REPORT,
-    TITLE_DESK_ACCOUNTING_CONTEXT,
-    TITLE_ENVIRONMENT_CHECK,
-    TITLE_EVIDENCE_BUNDLE,
-    TITLE_EXECUTION_SUMMARY,
     TITLE_EXIT,
-    TITLE_EXPORT_BLOCKED,
-    TITLE_EXPORTED,
-    TITLE_FINANCE_LEDGER_CATEGORIES,
-    TITLE_FINANCE_OPERATIONS,
-    TITLE_FINANCE_OPERATIONS_CHECKS,
-    TITLE_INSTALLING_TUI_DEPENDENCIES,
-    TITLE_INVESTMENT_PREFERENCES,
-    TITLE_LAUNCH_PLAN,
-    TITLE_LLM_STATUS,
-    TITLE_MANAGER_CONFLICT_REPLAY,
-    TITLE_MANAGER_CONFLICTS,
-    TITLE_MANAGER_OVERRIDE_NOTES,
-    TITLE_MARKET_SESSION,
-    TITLE_MARKET_SNAPSHOT_CACHE,
-    TITLE_MARKET_SNAPSHOT_CACHED,
-    TITLE_MEMORY_AWARE_REPLAY,
-    TITLE_MEMORY_EXPLORER,
-    TITLE_MEMORY_WRITE_POLICY,
-    TITLE_MODEL_PULL,
-    TITLE_MODEL_SERVICE_START_FAILED,
-    TITLE_MODEL_SERVICE_STDERR_TAIL,
-    TITLE_NEWS_BRIEF,
-    TITLE_NEWS_INTELLIGENCE,
-    TITLE_NEWS_QUERY_PLAN,
-    TITLE_NEWS_TOOL,
-    TITLE_NODE_MISSING,
-    TITLE_NOT_RUNNING,
-    TITLE_OBSERVER_API,
-    TITLE_OBSERVER_API_BLOCKED,
     TITLE_OPERATOR_INSTRUCTION,
-    TITLE_OPERATOR_LAUNCHER,
-    TITLE_PAPER_OPERATION_CHECKS,
-    TITLE_PIPELINE,
-    TITLE_PORTFOLIO,
-    TITLE_POSITION_PLAN_REPAIR,
-    TITLE_POSITIONS,
-    TITLE_PROVIDER_DIAGNOSTICS,
-    TITLE_PROVIDER_SOURCE_LADDER,
-    TITLE_QA_EVIDENCE_BUNDLE,
-    TITLE_RECOMMENDED_COMMANDS,
-    TITLE_RECOMMENDED_NEXT_COMMANDS,
-    TITLE_REPLAY_STAGES,
-    TITLE_RESEARCH_CREWAI_FLOW_SETUP,
-    TITLE_RESEARCH_CYCLE_CONTROL,
-    TITLE_RESEARCH_CYCLE_PHASES,
-    TITLE_RESEARCH_CYCLE_PLAN,
-    TITLE_RESEARCH_CYCLE_RUN,
-    TITLE_RESEARCH_SIDECAR_STATUS,
-    TITLE_RESEARCH_SNAPSHOT_PERSISTED,
-    TITLE_RESEARCH_SOURCE_HEALTH,
     TITLE_RESTART_BLOCKED,
-    TITLE_RETRIEVAL_INSPECTION,
-    TITLE_RETRIEVAL_INSPECTION_FOR_RUN,
-    TITLE_RETRIEVAL_STAGE,
-    TITLE_REVIEW_NOTE,
-    TITLE_RISK_WARNINGS,
-    TITLE_ROUTED_MODELS,
-    TITLE_RUN_ARTIFACTS,
-    TITLE_RUN_BLOCKED,
-    TITLE_RUN_REPLAY,
-    TITLE_RUN_REVIEW,
-    TITLE_RUNTIME_EVENTS,
-    TITLE_RUNTIME_GATE_OPEN,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_RESTARTED,
     TITLE_SERVICE_STATUS,
-    TITLE_SERVICE_STDERR_TAIL,
-    TITLE_SERVICE_STDOUT_TAIL,
-    TITLE_SERVICE_SUPERVISOR,
-    TITLE_SETUP_GUIDANCE,
-    TITLE_SETUP_STATUS,
-    TITLE_STALE_STATE_RECOVERED,
-    TITLE_STOP_REQUESTED,
-    TITLE_TOOL_OWNERSHIP,
-    TITLE_TOOL_READINESS,
-    TITLE_TRACE,
-    TITLE_TRADE_CONTEXT,
-    TITLE_TRADE_CONTEXT_DETAIL,
-    TITLE_TRADE_JOURNAL,
-    TITLE_TRAINING_DIAGNOSTIC_MODE,
-    TITLE_TUI_MISSING,
     TITLE_UI_LOCALE,
     TITLE_UPDATED_PREFERENCES,
-    TITLE_V1_READINESS,
-    TITLE_WALK_FORWARD_BACKTEST,
-    TITLE_WARNING,
-    TITLE_WEB_GUI_SERVICE,
     TITLE_WEB_GUI_START_FAILED,
-    TITLE_WEB_GUI_STDERR_TAIL,
     UI_LIST_SEPARATOR,
     UILocale,
 )
@@ -794,7 +407,72 @@ def _refresh_trade_proposal_order_provider(
     )
 
 
-LABEL_MODEL_SERVICE = "Model Service"
+def _validate_ownership_mode_provider(value: str) -> str:
+    return validate_ownership_mode(value)
+
+
+def _build_setup_status_provider(settings: Settings) -> object:
+    return build_setup_status(settings)
+
+
+def _read_tool_ownership_payload_provider(settings: Settings) -> object:
+    return read_tool_ownership_payload(settings)
+
+
+def _write_tool_ownership_provider(
+    settings: Settings, updates: dict[str, str], source: str
+) -> object:
+    return write_tool_ownership(settings, updates, source=source)
+
+
+def _build_model_service_status_provider(
+    settings: Settings, *, include_generation: bool = False
+) -> object:
+    return build_model_service_status(settings, include_generation=include_generation)
+
+
+def _start_model_service_provider(
+    settings: Settings, *, host: str | None = None, port: int | None = None
+) -> object:
+    return start_model_service(settings, host=host, port=port)
+
+
+def _stop_model_service_provider(settings: Settings) -> object:
+    return stop_model_service(settings)
+
+
+def _pull_model_provider(settings: Settings, model_name: str) -> dict[str, object]:
+    return pull_model(settings, model_name)
+
+
+def _build_webgui_service_status_provider(settings: Settings) -> object:
+    return build_webgui_service_status(settings)
+
+
+def _start_operator_webgui_provider(
+    settings: Settings, *, open_browser: bool = True
+) -> object:
+    return start_operator_webgui(settings, open_browser=open_browser)
+
+
+def _stop_webgui_service_provider(settings: Settings) -> object:
+    return stop_webgui_service(settings)
+
+
+def _build_camofox_service_status_provider(settings: Settings) -> object:
+    return build_camofox_service_status(settings)
+
+
+def _start_camofox_service_provider(
+    settings: Settings, *, host: str | None = None, port: int | None = None
+) -> object:
+    return start_camofox_service(settings, host=host, port=port)
+
+
+def _stop_camofox_service_provider(settings: Settings) -> object:
+    return stop_camofox_service(settings)
+
+
 model_service_app = typer.Typer(help=HELP_MODEL_SERVICE_APP)
 app.add_typer(model_service_app, name="model-service")
 webgui_service_app = typer.Typer(help=HELP_WEBGUI_SERVICE_APP)
@@ -803,6 +481,32 @@ camofox_service_app = typer.Typer(help=HELP_CAMOFOX_SERVICE_APP)
 app.add_typer(camofox_service_app, name="camofox-service")
 tool_ownership_app = typer.Typer(help=HELP_TOOL_OWNERSHIP_APP)
 app.add_typer(tool_ownership_app, name="tool-ownership")
+register_system_commands(
+    app=app,
+    tool_ownership_app=tool_ownership_app,
+    model_service_app=model_service_app,
+    webgui_service_app=webgui_service_app,
+    camofox_service_app=camofox_service_app,
+    deps=SystemCommandDeps(
+        get_settings=lambda: get_settings(),
+        emit_json=_emit_json,
+        ownership_modes=OWNERSHIP_MODES,
+        validate_ownership_mode=_validate_ownership_mode_provider,
+        build_setup_status=_build_setup_status_provider,
+        read_tool_ownership_payload=_read_tool_ownership_payload_provider,
+        write_tool_ownership=_write_tool_ownership_provider,
+        build_model_service_status=_build_model_service_status_provider,
+        start_model_service=_start_model_service_provider,
+        stop_model_service=_stop_model_service_provider,
+        pull_model=_pull_model_provider,
+        build_webgui_service_status=_build_webgui_service_status_provider,
+        start_operator_webgui=_start_operator_webgui_provider,
+        stop_webgui_service=_stop_webgui_service_provider,
+        build_camofox_service_status=_build_camofox_service_status_provider,
+        start_camofox_service=_start_camofox_service_provider,
+        stop_camofox_service=_stop_camofox_service_provider,
+    ),
+)
 register_proposal_desk_commands(
     app,
     settings_provider=lambda: get_settings(),
@@ -815,93 +519,27 @@ register_operator_readiness_commands(
     cpu_count_provider=lambda: os.cpu_count(),
     total_memory_provider=lambda: _total_memory_bytes(),
 )
-
-TUI_PACKAGE_NAME = "agentic-trader-tui"
+register_tui_command(app)
+register_research_commands(
+    app,
+    settings_provider=lambda: get_settings(),
+    emit_json=_emit_json,
+)
+register_launch_commands(
+    app,
+    settings_provider=lambda: get_settings(),
+    ensure_ready=lambda settings: ensure_llm_ready(settings),
+    run_once=run_once,
+    persist_run=persist_run,
+    run_service=run_service,
+    start_background_service=start_background_service,
+    render_execution=render_execution_panels,
+)
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
-type NodeCommandSet = tuple[list[str], list[str], Path, str]
 
 
 def resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
-    """
-    Determine the package manager and produce the install and start command vectors plus working directory for the bundled Ink TUI.
-
-    Parameters:
-        tui_dir (Path): Path to the bundled TUI directory.
-
-    Returns:
-        tuple[list[str], list[str], Path, str] | None:
-            A tuple (install_command, start_command, command_cwd, manager_name):
-            - install_command: command vector to install dependencies.
-            - start_command: command vector to start the TUI.
-            - command_cwd: directory where the start command should be executed.
-            - manager_name: short identifier for the chosen package manager/workflow.
-            Returns `None` if no supported Node package manager is available on PATH.
-    """
-    repo_root = tui_dir.parent
-    pnpm = shutil.which("pnpm")
-    if pnpm and (repo_root / "pnpm-workspace.yaml").exists():
-        return (
-            [pnpm, "install"],
-            [pnpm, "--filter", TUI_PACKAGE_NAME, "run", "start"],
-            repo_root,
-            "pnpm workspace",
-        )
-    if pnpm and (tui_dir / "pnpm-lock.yaml").exists():
-        return (
-            [pnpm, "install"],
-            [pnpm, "run", "start"],
-            tui_dir,
-            "pnpm",
-        )
-
-    npm = shutil.which("npm")
-    if npm and (tui_dir / "package-lock.json").exists():
-        return (
-            [npm, "install"],
-            [npm, "run", "start"],
-            tui_dir,
-            "npm",
-        )
-    if npm:
-        return (
-            [npm, "install", "--no-package-lock"],
-            [npm, "run", "start"],
-            tui_dir,
-            "npm",
-        )
-
-    yarn = shutil.which("yarn")
-    if yarn and (tui_dir / "yarn.lock").exists():
-        return (
-            [yarn, "install", "--frozen-lockfile"],
-            [yarn, "start"],
-            tui_dir,
-            "yarn",
-        )
-    if yarn:
-        return (
-            [yarn, "install", "--no-lockfile"],
-            [yarn, "start"],
-            tui_dir,
-            "yarn",
-        )
-
-    return None
-
-
-def tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
-    """
-    Check whether TUI-specific Node dependencies appear installed.
-
-    Parameters:
-        tui_dir (Path): Path to the bundled TUI directory.
-        command_cwd (Path): Working directory where the resolved package-manager commands will run; root workspace dependencies alone are not sufficient.
-
-    Returns:
-        bool: `True` only when the TUI package has its own `node_modules` link directory, `False` otherwise.
-    """
-    _ = command_cwd
-    return (tui_dir / "node_modules").exists()
+    return _resolve_tui_node_commands(tui_dir, which=shutil.which)
 
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
@@ -966,90 +604,6 @@ def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
         panel (Panel): A `rich.panel.Panel` containing `body`, titled with `status`, and using `border_style`.
     """
     return Panel(body, title=status, border_style=border_style)
-
-
-def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
-    """
-    Render execution summary panels for a completed run to the console.
-
-    Shows an "Execution Summary" table, a "Pipeline" table listing each agent stage and its source/notes, a warning panel if any stages used a fallback (otherwise an LLM-status panel), and a JSON "Run Artifacts" panel.
-
-    Parameters:
-        order_id (str): Identifier of the order shown in the summary.
-        artifacts (RunArtifacts): RunArtifacts containing coordinator, regime, strategy, risk, manager, and execution details used to populate the panels.
-    """
-    fallback_components: list[str] = artifacts.fallback_components()
-    summary = Table(title=TITLE_EXECUTION_SUMMARY)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_ORDER_ID, order_id)
-    summary.add_row(LABEL_APPROVED, str(artifacts.execution.approved))
-    summary.add_row(LABEL_SIDE, artifacts.execution.side)
-    summary.add_row(LABEL_CONFIDENCE, f"{artifacts.execution.confidence:.2f}")
-    summary.add_row(LABEL_ENTRY, f"{artifacts.execution.entry_price:.4f}")
-    summary.add_row(LABEL_STOP, f"{artifacts.execution.stop_loss:.4f}")
-    summary.add_row(LABEL_TAKE_PROFIT, f"{artifacts.execution.take_profit:.4f}")
-    summary.add_row(
-        LABEL_DECISION_PATH,
-        LABEL_FALLBACK if fallback_components else LABEL_LLM,
-    )
-
-    pipeline = Table(title=TITLE_PIPELINE)
-    pipeline.add_column(LABEL_STAGE)
-    pipeline.add_column(LABEL_SOURCE)
-    pipeline.add_column(LABEL_NOTES)
-    pipeline.add_row(
-        STAGE_COORDINATOR,
-        artifacts.coordinator.source,
-        artifacts.coordinator.fallback_reason or LABEL_STRUCTURED_LLM,
-    )
-    pipeline.add_row(
-        STAGE_REGIME,
-        artifacts.regime.source,
-        artifacts.regime.fallback_reason or LABEL_STRUCTURED_LLM,
-    )
-    pipeline.add_row(
-        STAGE_STRATEGY,
-        artifacts.strategy.source,
-        artifacts.strategy.fallback_reason or LABEL_STRUCTURED_LLM,
-    )
-    pipeline.add_row(
-        STAGE_RISK,
-        artifacts.risk.source,
-        artifacts.risk.fallback_reason or LABEL_STRUCTURED_LLM,
-    )
-    pipeline.add_row(
-        STAGE_MANAGER,
-        artifacts.manager.source,
-        artifacts.manager.fallback_reason or LABEL_STRUCTURED_LLM,
-    )
-    console.print(Columns([summary, pipeline]))
-
-    if fallback_components:
-        console.print(
-            Panel(
-                Text(
-                    f"{MESSAGE_FALLBACK_USED_IN}: {', '.join(fallback_components)}",
-                    style="yellow",
-                ),
-                title=TITLE_WARNING,
-                border_style="yellow",
-            )
-        )
-    else:
-        console.print(
-            Panel(
-                Text(MESSAGE_ALL_AGENT_STAGES_LLM_PATH, style="green"),
-                title=TITLE_LLM_STATUS,
-                border_style="green",
-            )
-        )
-    console.print(
-        Panel(
-            json.dumps(artifacts.model_dump(mode="json"), indent=2),
-            title=TITLE_RUN_ARTIFACTS,
-        )
-    )
 
 
 def _render_instruction(instruction: OperatorInstruction) -> None:
@@ -1125,807 +679,12 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     console.print(table)
 
 
-def _render_service_events(events: list[ServiceEvent]) -> None:
-    """
-    Render a list of runtime service events as a rich table, or show a yellow placeholder panel when no events exist.
-
-    Parameters:
-        events (list[ServiceEvent]): Sequence of service event records to display; each event should provide created time, level, type, cycle count, symbol, and message.
-    """
-    if not events:
-        console.print(
-            Panel(
-                MESSAGE_NO_RUNTIME_EVENTS,
-                title=TITLE_RUNTIME_EVENTS,
-                border_style="yellow",
-            )
-        )
-        return
-
-    table = Table(title=TITLE_RUNTIME_EVENTS)
-    table.add_column(LABEL_CREATED)
-    table.add_column(LABEL_LEVEL)
-    table.add_column(LABEL_TYPE)
-    table.add_column(LABEL_CYCLE)
-    table.add_column(LABEL_SYMBOL)
-    table.add_column(LABEL_MESSAGE)
-    for event in events:
-        table.add_row(
-            event.created_at,
-            event.level,
-            event.event_type,
-            str(event.cycle_count) if event.cycle_count is not None else "-",
-            event.symbol or "-",
-            event.message,
-        )
-    console.print(table)
-
-
-def _render_trade_journal(entries: list[TradeJournalEntry]) -> None:
-    if not entries:
-        console.print(
-            Panel(
-                MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
-                title=TITLE_TRADE_JOURNAL,
-                border_style="yellow",
-            )
-        )
-        return
-
-    table = Table(title=TITLE_TRADE_JOURNAL)
-    table.add_column(LABEL_OPENED)
-    table.add_column(LABEL_SYMBOL)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_SIDE)
-    table.add_column(LABEL_ENTRY)
-    table.add_column(LABEL_EXIT)
-    table.add_column(LABEL_PNL)
-    table.add_column(LABEL_NOTES)
-    for entry in entries:
-        table.add_row(
-            entry.opened_at,
-            entry.symbol,
-            entry.journal_status,
-            entry.planned_side,
-            f"{entry.entry_price:.4f}",
-            f"{entry.exit_price:.4f}" if entry.exit_price is not None else "-",
-            f"{entry.realized_pnl:.2f}" if entry.realized_pnl is not None else "-",
-            entry.exit_reason or entry.notes or "-",
-        )
-    console.print(table)
-
-
-def _render_risk_report(report: DailyRiskReport) -> None:
-    """
-    Render a DailyRiskReport to the console as a formatted table and a risk-warnings panel.
-
-    Displays a table for the report date with portfolio value, realized/unrealized PnL, activity counts, exposure metrics, largest position, and drawdown. After the table, prints a warnings panel when risk warnings exist, otherwise prints a green no-warning panel.
-
-    Parameters:
-        report (DailyRiskReport): The risk report data to render.
-    """
-    table = Table(title=TITLE_DAILY_RISK_REPORT + " / " + report.report_date)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_GENERATED, report.generated_at)
-    table.add_row(LABEL_CASH, f"{report.cash:.2f}")
-    table.add_row(LABEL_MARKET_VALUE, f"{report.market_value:.2f}")
-    table.add_row(LABEL_EQUITY, f"{report.equity:.2f}")
-    table.add_row(LABEL_REALIZED_PNL, f"{report.realized_pnl:.2f}")
-    table.add_row(LABEL_UNREALIZED_PNL, f"{report.unrealized_pnl:.2f}")
-    table.add_row(LABEL_OPEN_POSITIONS, str(report.open_positions))
-    table.add_row(LABEL_FILLS_TODAY, str(report.fills_today))
-    table.add_row(LABEL_MARKS_RECORDED, str(report.marks_recorded))
-    table.add_row(LABEL_DAILY_REALIZED_PNL, f"{report.daily_realized_pnl:.2f}")
-    table.add_row(LABEL_GROSS_EXPOSURE, f"{report.gross_exposure_pct:.2%}")
-    table.add_row(LABEL_LARGEST_POSITION, f"{report.largest_position_pct:.2%}")
-    table.add_row(LABEL_DRAWDOWN_FROM_PEAK, f"{report.drawdown_from_peak_pct:.2%}")
-    console.print(table)
-    if report.warnings:
-        console.print(
-            Panel(
-                "\n".join(f"- {warning}" for warning in report.warnings),
-                title=TITLE_RISK_WARNINGS,
-                border_style="yellow",
-            )
-        )
-    else:
-        console.print(
-            Panel(
-                MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
-                title=TITLE_RISK_WARNINGS,
-                border_style="green",
-            )
-        )
-
-
-def _render_run_review(record: RunRecord) -> None:
-    """
-    Render a human-readable run review to the console, showing metadata, agent decisions, manager override notes, manager conflicts, and the structured review note.
-
-    Parameters:
-        record (RunRecord): Persisted run record whose metadata and artifacts will be rendered.
-    """
-    metadata = Table(title=TITLE_RUN_REVIEW + " / " + record.run_id)
-    metadata.add_column(LABEL_FIELD)
-    metadata.add_column(LABEL_VALUE)
-    metadata.add_row(LABEL_CREATED, record.created_at)
-    metadata.add_row(LABEL_SYMBOL, record.symbol)
-    metadata.add_row(LABEL_INTERVAL, record.interval)
-    metadata.add_row(LABEL_APPROVED, str(record.approved))
-
-    analysis = Table(title=TITLE_AGENT_DECISIONS)
-    analysis.add_column(LABEL_STAGE)
-    analysis.add_column(LABEL_DECISION)
-    analysis.add_column(LABEL_NOTES)
-    analysis.add_row(
-        STAGE_COORDINATOR,
-        record.artifacts.coordinator.market_focus,
-        record.artifacts.coordinator.summary,
-    )
-    analysis.add_row(
-        STAGE_FUNDAMENTAL,
-        record.artifacts.fundamental.overall_bias,
-        (
-            f"{record.artifacts.fundamental.summary} | "
-            f"red_flags={UI_LIST_SEPARATOR.join(record.artifacts.fundamental.red_flags) or '-'}"
-        ),
-    )
-    analysis.add_row(
-        STAGE_REGIME, record.artifacts.regime.regime, record.artifacts.regime.reasoning
-    )
-    analysis.add_row(
-        STAGE_STRATEGY,
-        record.artifacts.strategy.strategy_family,
-        record.artifacts.strategy.entry_logic,
-    )
-    analysis.add_row(
-        STAGE_RISK,
-        f"size={record.artifacts.risk.position_size_pct:.2%}",
-        record.artifacts.risk.notes,
-    )
-    analysis.add_row(
-        STAGE_CONSENSUS,
-        record.artifacts.consensus.alignment_level,
-        record.artifacts.consensus.summary or "-",
-    )
-    analysis.add_row(
-        STAGE_MANAGER,
-        record.artifacts.manager.action_bias,
-        record.artifacts.manager.rationale,
-    )
-    analysis.add_row(
-        STAGE_EXECUTION,
-        record.artifacts.execution.side,
-        record.artifacts.execution.rationale,
-    )
-    console.print(Columns([metadata, analysis]))
-    console.print(
-        Panel(
-            "\n".join(
-                f"- {note}" for note in _manager_override_notes(record.artifacts)
-            ),
-            title=TITLE_MANAGER_OVERRIDE_NOTES,
-            border_style="yellow",
-        )
-    )
-    console.print(_manager_conflicts_panel(record.artifacts.manager))
-    console.print(
-        Panel(
-            record.artifacts.review.model_dump_json(indent=2),
-            title=TITLE_REVIEW_NOTE,
-            border_style="cyan",
-        )
-    )
-
-
-def _render_run_markdown(record: RunRecord) -> str:
-    """
-    Builds a Markdown-formatted run review document from a persisted RunRecord.
-
-    Generates a human-readable Markdown summary that includes metadata, coordinator,
-    fundamental analysis, regime, strategy, risk, consensus, manager decisions and
-    conflicts, execution details, and reviewer notes derived from the record's
-    artifacts.
-
-    Parameters:
-        record (RunRecord): Persisted run record containing artifacts to serialize.
-
-    Returns:
-        markdown (str): A Markdown document string summarizing the run review.
-    """
-    artifacts = record.artifacts
-    fundamental_evidence = artifacts.fundamental.evidence_vs_inference
-    manager_resolution_notes = _manager_resolution_notes(artifacts)
-    lines = [
-        "# " + TITLE_RUN_REVIEW + ": " + record.run_id,
-        "",
-        "## Metadata",
-        f"- Created: {record.created_at}",
-        f"- Symbol: {record.symbol}",
-        f"- Interval: {record.interval}",
-        f"- Approved: {record.approved}",
-        "",
-        "## Coordinator",
-        f"- Focus: {artifacts.coordinator.market_focus}",
-        f"- Summary: {artifacts.coordinator.summary}",
-        "",
-        "## Fundamental",
-        f"- Overall Bias: {artifacts.fundamental.overall_bias}",
-        f"- Growth Quality: {artifacts.fundamental.growth_quality}",
-        f"- Profitability Quality: {artifacts.fundamental.profitability_quality}",
-        f"- Cash Flow Quality: {artifacts.fundamental.cash_flow_quality}",
-        f"- Balance Sheet Quality: {artifacts.fundamental.balance_sheet_quality}",
-        f"- FX Risk: {artifacts.fundamental.fx_risk}",
-        f"- Business Quality: {artifacts.fundamental.business_quality}",
-        f"- Macro Fit: {artifacts.fundamental.macro_fit}",
-        f"- Forward Outlook: {artifacts.fundamental.forward_outlook}",
-        f"- Red Flags: {_join_or_dash(artifacts.fundamental.red_flags)}",
-        f"- Strengths: {_join_or_dash(artifacts.fundamental.strengths)}",
-        f"- Evidence: {_join_or_dash(fundamental_evidence.evidence)}",
-        f"- Inference: {_join_or_dash(fundamental_evidence.inference)}",
-        f"- Uncertainty: {_join_or_dash(fundamental_evidence.uncertainty)}",
-        f"- Summary: {artifacts.fundamental.summary}",
-        "",
-        "## Regime",
-        f"- Regime: {artifacts.regime.regime}",
-        f"- Direction Bias: {artifacts.regime.direction_bias}",
-        f"- Reasoning: {artifacts.regime.reasoning}",
-        "",
-        "## Strategy",
-        f"- Family: {artifacts.strategy.strategy_family}",
-        f"- Action: {artifacts.strategy.action}",
-        f"- Entry Logic: {artifacts.strategy.entry_logic}",
-        f"- Invalidation Logic: {artifacts.strategy.invalidation_logic}",
-        "",
-        "## Risk",
-        f"- Position Size: {artifacts.risk.position_size_pct:.2%}",
-        f"- Stop Loss: {artifacts.risk.stop_loss:.4f}",
-        f"- Take Profit: {artifacts.risk.take_profit:.4f}",
-        f"- Notes: {artifacts.risk.notes}",
-        "",
-        "## Consensus",
-        f"- Alignment: {artifacts.consensus.alignment_level}",
-        f"- Summary: {_value_or_dash(artifacts.consensus.summary)}",
-        f"- Supporting Roles: {_join_or_dash(artifacts.consensus.supporting_roles)}",
-        f"- Dissenting Roles: {_join_or_dash(artifacts.consensus.dissenting_roles)}",
-        f"- Reasons: {_join_or_dash(artifacts.consensus.reasons)}",
-        "",
-        "## Manager",
-        f"- Action Bias: {artifacts.manager.action_bias}",
-        f"- Confidence Cap: {artifacts.manager.confidence_cap:.2f}",
-        f"- Size Multiplier: {artifacts.manager.size_multiplier:.2f}",
-        f"- Rationale: {artifacts.manager.rationale}",
-        f"- Override Applied: {artifacts.manager.override_applied}",
-        "",
-        "## Manager Conflicts",
-    ]
-    if artifacts.manager.conflicts:
-        for conflict in artifacts.manager.conflicts:
-            lines.append(
-                f"- [{conflict.severity}] {conflict.conflict_type}: {conflict.summary}"
-            )
-            lines.append(f"  - Specialist: {conflict.specialist_view}")
-            lines.append(f"  - Manager: {conflict.manager_resolution}")
-    else:
-        lines.append("- None detected.")
-    lines.extend(
-        [
-            "",
-            "## Manager Resolution Notes",
-            *_markdown_bullets(
-                manager_resolution_notes,
-                fallback="No additional manager resolution notes.",
-            ),
-            "",
-            "## Execution",
-            f"- Approved: {artifacts.execution.approved}",
-            f"- Side: {artifacts.execution.side}",
-            f"- Entry Price: {artifacts.execution.entry_price:.4f}",
-            f"- Rationale: {artifacts.execution.rationale}",
-            "",
-            "## Review",
-            f"- Summary: {artifacts.review.summary}",
-            f"- Strengths: {_join_or_dash(artifacts.review.strengths)}",
-            "- " + LABEL_WARNINGS + ": " + _join_or_dash(artifacts.review.warnings),
-            f"- Next Checks: {_join_or_dash(artifacts.review.next_checks)}",
-            "",
-        ]
-    )
-    return "\n".join(lines)
-
-
-def _value_or_dash(value: object) -> str:
-    return str(value) if value else "-"
-
-
-def _join_or_dash(values: list[str] | tuple[str, ...]) -> str:
-    return UI_LIST_SEPARATOR.join(values) if values else "-"
-
-
-def _markdown_bullets(values: list[str], *, fallback: str) -> list[str]:
-    if not values:
-        return [f"- {fallback}"]
-    return [f"- {value}" for value in values]
-
-
-def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
-    """
-    Produce a list of human-readable notes describing any manager overrides present in the run artifacts.
-
-    Parameters:
-        artifacts (RunArtifacts): Run artifacts containing manager, strategy, and execution decisions to inspect.
-
-    Returns:
-        list[str]: A list of note strings describing each detected override. If no overrides are detected, returns a single-item list with an acceptance message.
-    """
-    notes: list[str] = []
-    if artifacts.manager.action_bias != artifacts.strategy.action:
-        notes.append(
-            f"Manager bias {artifacts.manager.action_bias} diverged from strategy action {artifacts.strategy.action}."
-        )
-    if artifacts.manager.confidence_cap < artifacts.strategy.confidence:
-        notes.append(
-            f"Manager confidence cap {artifacts.manager.confidence_cap:.2f} tightened strategy confidence {artifacts.strategy.confidence:.2f}."
-        )
-    if artifacts.manager.size_multiplier < 1.0:
-        notes.append(
-            f"Manager size multiplier {artifacts.manager.size_multiplier:.2f} reduced the planned position size."
-        )
-    if artifacts.execution.approved != artifacts.manager.approved:
-        notes.append(
-            f"Execution approval {artifacts.execution.approved} differed from manager approval {artifacts.manager.approved}."
-        )
-    if not notes:
-        notes.append(
-            "Manager accepted the specialist plan without additional overrides."
-        )
-    return notes
-
-
-def _manager_resolution_notes(artifacts: RunArtifacts) -> list[str]:
-    return artifacts.manager.resolution_notes or _manager_override_notes(artifacts)
-
-
-def _manager_conflicts_panel(manager: ManagerDecision) -> Panel:
-    if not manager.conflicts:
-        body = "\n".join(f"- {note}" for note in manager.resolution_notes) or (
-            "- Manager accepted the specialist plan without additional overrides."
-        )
-        return Panel(body, title=TITLE_MANAGER_CONFLICTS, border_style="green")
-
-    lines: list[str] = []
-    for conflict in manager.conflicts:
-        lines.append(
-            f"- [{conflict.severity}] {conflict.conflict_type}: {conflict.summary}"
-        )
-        lines.append(f"  Specialist: {conflict.specialist_view}")
-        lines.append(f"  Manager: {conflict.manager_resolution}")
-    if manager.resolution_notes:
-        lines.append("")
-        lines.append(LABEL_RESOLUTION_NOTES + ":")
-        lines.extend(f"- {note}" for note in manager.resolution_notes)
-    conflict_body = "\n".join(lines)
-    return Panel(conflict_body, title=TITLE_MANAGER_CONFLICTS, border_style="yellow")
-
-
-def _render_run_trace(record: RunRecord) -> None:
-    table = Table(title=TITLE_AGENT_TRACE + " / " + record.run_id)
-    table.add_column(LABEL_ROLE)
-    table.add_column(LABEL_MODEL)
-    table.add_column(LABEL_FALLBACK)
-    table.add_column(LABEL_OUTPUT_PREVIEW)
-    for trace in record.artifacts.agent_traces:
-        preview = trace.output_json.replace("\n", " ")[:120]
-        table.add_row(trace.role, trace.model_name, str(trace.used_fallback), preview)
-    console.print(table)
-    for trace in record.artifacts.agent_traces:
-        trace_body = "\n".join(
-            (
-                f"[bold]{LABEL_CONTEXT}[/bold]",
-                trace.context_json,
-                "",
-                f"[bold]{LABEL_OUTPUT}[/bold]",
-                trace.output_json,
-            )
-        )
-        console.print(
-            Panel(
-                trace_body,
-                title=TITLE_TRACE + " / " + trace.role,
-                border_style="cyan" if not trace.used_fallback else "yellow",
-            )
-        )
-
-
-def _render_run_replay(replay: RunReplay) -> None:
-    summary = Table(title=TITLE_MEMORY_AWARE_REPLAY + " / " + replay.run_id)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_CREATED, replay.created_at)
-    summary.add_row(LABEL_SYMBOL, replay.symbol)
-    summary.add_row(LABEL_INTERVAL, replay.interval)
-    summary.add_row(LABEL_APPROVED, str(replay.approved))
-    summary.add_row(LABEL_FINAL_SIDE, replay.final_side)
-    summary.add_row(LABEL_FINAL_RATIONALE, replay.final_rationale)
-    summary.add_row(STAGE_CONSENSUS, replay.consensus.alignment_level)
-    summary.add_row(
-        LABEL_MULTI_TIMEFRAME,
-        f"{replay.snapshot.mtf_alignment} @ {replay.snapshot.higher_timeframe} ({replay.snapshot.mtf_confidence:.2f})",
-    )
-    console.print(summary)
-    console.print(
-        Panel(
-            "\n".join(f"- {note}" for note in replay.manager_override_notes),
-            title=TITLE_MANAGER_OVERRIDE_NOTES,
-            border_style="yellow",
-        )
-    )
-    if replay.manager_conflicts:
-        lines: list[str] = []
-        for conflict in replay.manager_conflicts:
-            lines.append(
-                f"- [{conflict.severity}] {conflict.conflict_type}: {conflict.summary}"
-            )
-            lines.append(f"  {LABEL_SPECIALIST}: {conflict.specialist_view}")
-            lines.append(f"  {STAGE_MANAGER}: {conflict.manager_resolution}")
-        if replay.manager_resolution_notes:
-            lines.append("")
-            lines.append(LABEL_RESOLUTION_NOTES + ":")
-            lines.extend(f"- {note}" for note in replay.manager_resolution_notes)
-        console.print(
-            Panel(
-                "\n".join(lines),
-                title=TITLE_MANAGER_CONFLICT_REPLAY,
-                border_style="yellow",
-            )
-        )
-
-    stage_table = Table(title=TITLE_REPLAY_STAGES)
-    stage_table.add_column(LABEL_ROLE)
-    stage_table.add_column(LABEL_MODEL)
-    stage_table.add_column(LABEL_FALLBACK)
-    stage_table.add_column(LABEL_MEMORIES)
-    stage_table.add_column(LABEL_TOOLS)
-    stage_table.add_column(LABEL_OUTPUT_PREVIEW)
-    for stage in replay.stages:
-        output_preview = (
-            json.dumps(stage.output, indent=2)
-            if isinstance(stage.output, dict)
-            else stage.output
-        ).replace("\n", " ")[:120]
-        stage_table.add_row(
-            stage.role,
-            stage.model_name,
-            str(stage.used_fallback),
-            str(len(stage.retrieved_memories)),
-            str(len(stage.tool_outputs)),
-            output_preview,
-        )
-    console.print(stage_table)
-
-
-def _render_backtest_report(report: BacktestReport) -> None:
-    """
-    Render a walk-forward backtest summary and a table of recent trades to the console using rich tables.
-
-    The summary table shows key backtest metadata and aggregated metrics (interval, lookback, warmup bars, cycle and trade counts, win rate, expectancy, total return, max drawdown, exposure, and fallback cycles). The trades table lists up to the last 12 trades with entry/exit times, side, entry/exit prices, PnL, and exit reason.
-
-    Parameters:
-        report (BacktestReport): Backtest results and associated trade records to display.
-    """
-    summary = Table(title=TITLE_WALK_FORWARD_BACKTEST + " / " + report.symbol)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_INTERVAL, report.interval)
-    summary.add_row(LABEL_LOOKBACK, report.lookback)
-    summary.add_row(LABEL_WARMUP_BARS, str(report.warmup_bars))
-    summary.add_row(LABEL_CYCLES, str(report.total_cycles))
-    summary.add_row(LABEL_TRADES, str(report.total_trades))
-    summary.add_row(LABEL_CLOSED_TRADES, str(report.closed_trades))
-    summary.add_row(LABEL_WIN_RATE, f"{report.win_rate:.2%}")
-    summary.add_row(LABEL_EXPECTANCY, f"{report.expectancy:.2f}")
-    summary.add_row(LABEL_TOTAL_RETURN, f"{report.total_return_pct:.2%}")
-    summary.add_row(LABEL_MAX_DRAWDOWN, f"{report.max_drawdown_pct:.2%}")
-    summary.add_row(LABEL_EXPOSURE, f"{report.exposure_pct:.2%}")
-    summary.add_row(LABEL_FALLBACK_CYCLES, str(report.fallback_cycles))
-    console.print(summary)
-
-    trades = Table(title=TITLE_BACKTEST_TRADES)
-    trades.add_column(LABEL_ENTRY)
-    trades.add_column(LABEL_EXIT)
-    trades.add_column(LABEL_SIDE)
-    trades.add_column(LABEL_ENTRY_PX)
-    trades.add_column(LABEL_EXIT_PX)
-    trades.add_column(LABEL_PNL)
-    trades.add_column(LABEL_REASON)
-    if not report.trades:
-        trades.add_row("-", "-", "-", "-", "-", "-", "-")
-    else:
-        for trade in report.trades[-12:]:
-            trades.add_row(
-                trade.entry_at,
-                trade.exit_at or "-",
-                trade.side,
-                f"{trade.entry_price:.4f}",
-                f"{trade.exit_price:.4f}" if trade.exit_price is not None else "-",
-                f"{trade.pnl:.2f}" if trade.pnl is not None else "-",
-                trade.exit_reason or "-",
-            )
-    console.print(trades)
-
-
-def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
-    """
-    Render a Rich table comparing agent and baseline backtest metrics for the report's symbol.
-
-    Parameters:
-        report (BacktestComparisonReport): Comparison report containing the agent and baseline metrics and symbol.
-    """
-    table = Table(title=TITLE_BACKTEST_COMPARISON + " / " + report.symbol)
-    table.add_column(LABEL_METRIC)
-    table.add_column(LABEL_AGENT)
-    table.add_column(LABEL_BASELINE)
-    table.add_column(LABEL_DELTA)
-    table.add_row(
-        LABEL_TRADES,
-        str(report.agent.total_trades),
-        str(report.baseline.total_trades),
-        str(report.agent.total_trades - report.baseline.total_trades),
-    )
-    table.add_row(
-        LABEL_CLOSED_TRADES,
-        str(report.agent.closed_trades),
-        str(report.baseline.closed_trades),
-        str(report.agent.closed_trades - report.baseline.closed_trades),
-    )
-    table.add_row(
-        LABEL_WIN_RATE,
-        f"{report.agent.win_rate:.2%}",
-        f"{report.baseline.win_rate:.2%}",
-        f"{report.agent.win_rate - report.baseline.win_rate:.2%}",
-    )
-    table.add_row(
-        LABEL_EXPECTANCY,
-        f"{report.agent.expectancy:.2f}",
-        f"{report.baseline.expectancy:.2f}",
-        f"{report.agent.expectancy - report.baseline.expectancy:.2f}",
-    )
-    table.add_row(
-        LABEL_RETURN,
-        f"{report.agent.total_return_pct:.2%}",
-        f"{report.baseline.total_return_pct:.2%}",
-        f"{report.total_return_delta_pct:.2%}",
-    )
-    table.add_row(
-        LABEL_MAX_DRAWDOWN,
-        f"{report.agent.max_drawdown_pct:.2%}",
-        f"{report.baseline.max_drawdown_pct:.2%}",
-        f"{report.agent.max_drawdown_pct - report.baseline.max_drawdown_pct:.2%}",
-    )
-    table.add_row(
-        LABEL_EXPOSURE,
-        f"{report.agent.exposure_pct:.2%}",
-        f"{report.baseline.exposure_pct:.2%}",
-        f"{report.agent.exposure_pct - report.baseline.exposure_pct:.2%}",
-    )
-    table.add_row(
-        LABEL_ENDING_EQUITY,
-        f"{report.agent.ending_equity:.2f}",
-        f"{report.baseline.ending_equity:.2f}",
-        f"{report.ending_equity_delta:.2f}",
-    )
-    console.print(table)
-
-
-def _render_backtest_ablation(report: BacktestAblationReport) -> None:
-    """
-    Render a memory-ablation backtest comparison table to the console.
-
-    Parameters:
-        report (BacktestAblationReport): Backtest results containing `with_memory` and `without_memory` metrics and the tested symbol; used to populate metric rows (trades, win rate, expectancy, return, ending equity).
-    """
-    table = Table(title=TITLE_BACKTEST_MEMORY_ABLATION + " / " + report.symbol)
-    table.add_column(LABEL_METRIC)
-    table.add_column(LABEL_WITH_MEMORY)
-    table.add_column(LABEL_WITHOUT_MEMORY)
-    table.add_column(LABEL_DELTA)
-    table.add_row(
-        LABEL_TRADES,
-        str(report.with_memory.total_trades),
-        str(report.without_memory.total_trades),
-        str(report.with_memory.total_trades - report.without_memory.total_trades),
-    )
-    table.add_row(
-        LABEL_WIN_RATE,
-        f"{report.with_memory.win_rate:.2%}",
-        f"{report.without_memory.win_rate:.2%}",
-        f"{report.with_memory.win_rate - report.without_memory.win_rate:.2%}",
-    )
-    table.add_row(
-        LABEL_EXPECTANCY,
-        f"{report.with_memory.expectancy:.2f}",
-        f"{report.without_memory.expectancy:.2f}",
-        f"{report.with_memory.expectancy - report.without_memory.expectancy:.2f}",
-    )
-    table.add_row(
-        LABEL_RETURN,
-        f"{report.with_memory.total_return_pct:.2%}",
-        f"{report.without_memory.total_return_pct:.2%}",
-        f"{report.total_return_delta_pct:.2%}",
-    )
-    table.add_row(
-        LABEL_ENDING_EQUITY,
-        f"{report.with_memory.ending_equity:.2f}",
-        f"{report.without_memory.ending_equity:.2f}",
-        f"{report.ending_equity_delta:.2f}",
-    )
-    console.print(table)
-
-
-def _render_memory_matches(matches: Sequence[HistoricalMemoryMatch]) -> None:
-    if not matches:
-        console.print(
-            Panel(
-                MESSAGE_NO_HISTORICAL_MEMORIES,
-                title=TITLE_MEMORY_EXPLORER,
-                border_style="yellow",
-            )
-        )
-        return
-    table = Table(title=TITLE_MEMORY_EXPLORER)
-    table.add_column(LABEL_CREATED)
-    table.add_column(LABEL_SYMBOL)
-    table.add_column(LABEL_SCORE)
-    table.add_column(LABEL_SOURCE)
-    table.add_column(STAGE_REGIME)
-    table.add_column(LABEL_STRATEGY)
-    table.add_column(LABEL_BIAS)
-    table.add_column(LABEL_APPROVED)
-    table.add_column(LABEL_REASON)
-    for match in matches:
-        table.add_row(
-            match.created_at,
-            match.symbol,
-            f"{match.similarity_score:.2f}",
-            match.retrieval_source,
-            match.regime,
-            match.strategy_family,
-            match.manager_bias,
-            str(match.approved),
-            match.explanation.eligibility_reason,
-        )
-    console.print(table)
-
-
 def _portfolio_payload(settings: Settings) -> dict[str, object]:
-    """
-    Builds an observer-friendly portfolio payload containing the account snapshot, open positions, and accounting metadata.
-
-    The returned payload includes an availability flag and a redacted error message when data cannot be read. The `source` field identifies where data was retrieved from (e.g., broker adapter or runtime database) when available.
-
-    Returns:
-        dict: A mapping with the following keys:
-            - `available` (bool): `True` when a live snapshot was obtained, `False` on error.
-            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
-            - `source` (str): Data source identifier when available, otherwise `"unavailable"`.
-            - `snapshot` (dict): Account snapshot fields (cash, market_value, equity, realized_pnl, unrealized_pnl, open_positions) serialized as JSON.
-            - `positions` (list[dict]): List of open position objects serialized as JSON.
-            - `accounting` (dict): Accounting metadata with:
-                - `currency` (str): Primary account currency.
-                - `mark_created_at` (str | None): Timestamp of the latest account mark, if present.
-                - `mark_source` (str | None): Source label for the latest mark, if present.
-                - `mark_note` (str | None): Note attached to the latest mark, if present.
-                - `mark_status` (str): `"marked"` when a mark exists, otherwise `"mark_time_unavailable"`.
-    """
-    source = "unavailable"
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            if settings.execution_backend == "alpaca_paper":
-                broker = get_broker_adapter(db=db, settings=settings)
-                snapshot = broker.get_account_state()
-                positions = broker.get_positions()
-                source = "broker_adapter"
-            else:
-                snapshot = db.get_account_snapshot()
-                positions = db.list_positions()
-                source = "runtime_database"
-            latest_marks = db.list_account_marks(limit=1)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        snapshot = PortfolioSnapshot(
-            cash=0.0,
-            market_value=0.0,
-            equity=0.0,
-            realized_pnl=0.0,
-            unrealized_pnl=0.0,
-            open_positions=0,
-        )
-        positions = []
-        latest_marks = []
-        available = False
-        error = str(exc)
-    currency = _primary_account_currency(settings)
-    latest_mark = latest_marks[0].model_dump(mode="json") if latest_marks else None
-    return {
-        "available": available,
-        "error": error,
-        "source": source if available else "unavailable",
-        "snapshot": snapshot.model_dump(mode="json"),
-        "positions": [position.model_dump(mode="json") for position in positions],
-        "accounting": {
-            "currency": currency,
-            "mark_created_at": latest_mark["created_at"] if latest_mark else None,
-            "mark_source": latest_mark["source"] if latest_mark else None,
-            "mark_note": latest_mark["note"] if latest_mark else None,
-            "mark_status": "marked" if latest_mark else "mark_time_unavailable",
-        },
-    }
-
-
-def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
-    """
-    Compute coverage between currently open positions and configured position plans.
-
-    Returns:
-        payload (dict): A dictionary with:
-            available (bool): True if the underlying data source was read successfully, False on failure.
-            error (str | None): Error message when `available` is False, otherwise None.
-            source (str): Which source provided positions when available: "broker_adapter" or "runtime_database"; "unavailable" if data could not be read.
-            open_symbols (list[str]): Sorted list of symbols with a non-zero open position.
-            planned_symbols (list[str]): Sorted list of symbols that are both open and have a configured position plan.
-            missing_symbols (list[str]): Sorted list of open symbols that lack a corresponding position plan.
-            extra_plan_symbols (list[str]): Sorted list of symbols that have position plans but no open position.
-            coverage_ratio (float): Fraction of open symbols that have a position plan, rounded to 4 decimal places (1.0 when there are no open symbols).
-    """
-    source = "unavailable"
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            if settings.execution_backend == "alpaca_paper":
-                positions = get_broker_adapter(db=db, settings=settings).get_positions()
-                source = "broker_adapter"
-            else:
-                positions = db.list_positions()
-                source = "runtime_database"
-            plans = db.list_position_plans()
-        finally:
-            db.close()
-        available = True
-        error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
-        positions = []
-        plans = []
-        available = False
-        error = str(exc)
-
-    open_symbols = sorted(
-        position.symbol for position in positions if position.quantity != 0
+    return _finance_portfolio_payload(
+        settings,
+        open_db_provider=_open_db,
+        broker_adapter_provider=get_broker_adapter,
     )
-    open_symbol_set = set(open_symbols)
-    planned_symbol_set = {plan.symbol for plan in plans}
-    planned_open_symbols = sorted(open_symbol_set & planned_symbol_set)
-    missing_symbols = sorted(open_symbol_set - planned_symbol_set)
-    extra_plan_symbols = sorted(planned_symbol_set - open_symbol_set)
-    coverage_ratio = (
-        len(planned_open_symbols) / len(open_symbols) if open_symbols else 1.0
-    )
-    return {
-        "available": available,
-        "error": error,
-        "source": source if available else "unavailable",
-        "open_symbols": open_symbols,
-        "planned_symbols": planned_open_symbols,
-        "missing_symbols": missing_symbols,
-        "extra_plan_symbols": extra_plan_symbols,
-        "coverage_ratio": round(coverage_ratio, 4),
-    }
 
 
 def _preferences_payload(settings: Settings) -> dict[str, object]:
@@ -1953,47 +712,6 @@ def _preferences_payload(settings: Settings) -> dict[str, object]:
     payload["available"] = available
     payload["error"] = error
     return payload
-
-
-def _primary_account_currency(settings: Settings) -> str:
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            preferences = db.load_preferences()
-        finally:
-            db.close()
-    except Exception:
-        preferences = InvestmentPreferences()
-    return (preferences.currencies[0] if preferences.currencies else "USD").upper()
-
-
-def _execution_cost_model(settings: Settings) -> dict[str, object]:
-    if settings.execution_backend == "simulated_real":
-        return {
-            "fees": "not modeled",
-            "slippage_bps": settings.simulated_slippage_bps,
-            "spread_bps": settings.simulated_spread_bps,
-            "latency_ms": settings.simulated_latency_ms,
-            "partial_fill_probability": settings.simulated_partial_fill_probability,
-            "rejection_probability": settings.simulated_order_rejection_probability,
-        }
-    if settings.execution_backend == "alpaca_paper":
-        return {
-            "fees": "reported by external paper broker when available",
-            "slippage_bps": None,
-            "spread_bps": None,
-            "latency_ms": None,
-            "partial_fill_probability": None,
-            "rejection_probability": None,
-        }
-    return {
-        "fees": "not modeled",
-        "slippage_bps": 0.0,
-        "spread_bps": 0.0,
-        "latency_ms": 0,
-        "partial_fill_probability": 0.0,
-        "rejection_probability": 0.0,
-    }
 
 
 def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
@@ -2079,137 +797,15 @@ def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]
     }
 
 
-def _risk_report_from_portfolio(
-    *,
-    settings: Settings,
-    snapshot: PortfolioSnapshot,
-    positions: list[PositionSnapshot],
-    report_date: str | None = None,
-) -> DailyRiskReport:
-    """
-    Builds a DailyRiskReport summarizing portfolio exposure, concentration, and warnings derived from a portfolio snapshot and its positions.
-
-    Parameters:
-        settings (Settings): Runtime settings containing risk thresholds (e.g., max_open_positions, max_gross_exposure_pct, max_position_pct).
-        snapshot (PortfolioSnapshot): Current portfolio-level metrics (cash, equity, market_value, realized/unrealized P&L, open_positions).
-        positions (list[PositionSnapshot]): List of position snapshots used to compute exposure and concentration.
-        report_date (str | None): ISO date string to label the report; uses current UTC date when omitted.
-
-    Returns:
-        DailyRiskReport: Risk summary containing:
-          - report_date: report date (ISO string)
-          - generated_at: UTC timestamp of report generation
-          - cash, market_value, equity, realized_pnl, unrealized_pnl, open_positions
-          - fills_today, marks_recorded, daily_realized_pnl (numeric placeholders)
-          - gross_exposure_pct: gross exposure divided by equity
-          - largest_position_pct: largest position market value divided by equity
-          - portfolio_hhi: Herfindahl–Hirschman Index of position weight concentration
-          - top_position_symbols: list of up to five top position symbols by market value
-          - drawdown_from_peak_pct: placeholder drawdown percentage
-          - warnings: list of human-readable warnings triggered by configured thresholds
-    """
-    resolved_date = report_date or datetime.now(timezone.utc).date().isoformat()
-    gross_exposure = sum(abs(position.market_value) for position in positions)
-    largest_position = max(
-        (abs(position.market_value) for position in positions), default=0.0
-    )
-    top_positions = sorted(
-        positions, key=lambda position: abs(position.market_value), reverse=True
-    )
-    equity = snapshot.equity if snapshot.equity != 0 else 1.0
-    portfolio_hhi = (
-        sum(
-            (abs(position.market_value) / gross_exposure) ** 2 for position in positions
-        )
-        if gross_exposure > 0
-        else 0.0
-    )
-
-    warnings: list[str] = []
-    if snapshot.open_positions >= settings.max_open_positions:
-        warnings.append(MESSAGE_OPEN_POSITION_COUNT_ELEVATED)
-    if gross_exposure / equity > settings.max_gross_exposure_pct:
-        warnings.append(
-            MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY.format(
-                limit=f"{settings.max_gross_exposure_pct:.0%}"
-            )
-        )
-    if largest_position / equity > settings.max_position_pct:
-        warnings.append(
-            MESSAGE_LARGEST_POSITION_ABOVE_EQUITY.format(
-                limit=f"{settings.max_position_pct:.0%}"
-            )
-        )
-    if portfolio_hhi > 0.25:
-        warnings.append(MESSAGE_PORTFOLIO_CONCENTRATION_HHI.format(score=portfolio_hhi))
-
-    return DailyRiskReport(
-        report_date=resolved_date,
-        generated_at=datetime.now(timezone.utc).isoformat(),
-        cash=snapshot.cash,
-        market_value=snapshot.market_value,
-        equity=snapshot.equity,
-        realized_pnl=snapshot.realized_pnl,
-        unrealized_pnl=snapshot.unrealized_pnl,
-        open_positions=snapshot.open_positions,
-        fills_today=0,
-        marks_recorded=0,
-        daily_realized_pnl=0.0,
-        gross_exposure_pct=gross_exposure / equity,
-        largest_position_pct=largest_position / equity,
-        portfolio_hhi=portfolio_hhi,
-        top_position_symbols=[position.symbol for position in top_positions[:5]],
-        drawdown_from_peak_pct=0.0,
-        warnings=warnings,
-    )
-
-
 def _risk_report_payload(
     settings: Settings, *, report_date: str | None = None
 ) -> dict[str, object]:
-    """
-    Builds the daily risk report payload for CLI/observer consumption.
-
-    Parameters:
-        report_date (str | None): ISO date string (YYYY-MM-DD) to generate the report for. If None, uses the latest available date.
-
-    Returns:
-        dict: A mapping with keys:
-            - "available" (bool): `True` if the report was produced, `False` on error.
-            - "error" (str | None): Error message when `available` is `False`, otherwise `None`.
-            - "source" (str): Origin of the report data (e.g., `"broker_adapter"`, `"runtime_database"`, or `"unavailable"`).
-            - "report" (dict | None): JSON-serializable representation of the daily risk report when available, otherwise `None`.
-    """
-    source = "unavailable"
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            if settings.execution_backend == "alpaca_paper":
-                broker = get_broker_adapter(db=db, settings=settings)
-                report = _risk_report_from_portfolio(
-                    settings=settings,
-                    snapshot=broker.get_account_state(),
-                    positions=broker.get_positions(),
-                    report_date=report_date,
-                )
-                source = "broker_adapter"
-            else:
-                report = db.build_daily_risk_report(report_date=report_date)
-                source = "runtime_database"
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        report = None
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "source": source if available else "unavailable",
-        "report": report.model_dump(mode="json") if report is not None else None,
-    }
+    return _finance_risk_report_payload(
+        settings,
+        report_date=report_date,
+        open_db_provider=_open_db,
+        broker_adapter_provider=get_broker_adapter,
+    )
 
 
 def _run_record_payload(
@@ -2286,672 +882,50 @@ def _trade_context_payload(
 
 
 def _market_context_payload(settings: Settings) -> dict[str, object]:
-    """
-    Produce the latest persisted market context pack used by the most recent completed run.
-
-    Returns:
-        payload (dict): A JSON-serializable mapping with keys:
-            - "available" (bool): `true` if a persisted context pack was found, `false` otherwise.
-            - "error" (str | None): Error message when unavailable, otherwise `None`.
-            - "contextPack" (dict | None): The context pack serialized as a JSON-like dict when available, otherwise `None`.
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            record = db.latest_run()
-        finally:
-            db.close()
-        context_pack = (
-            record.artifacts.snapshot.context_pack if record is not None else None
-        )
-        available = context_pack is not None
-        error = None if available else "No persisted market context pack is available."
-    except Exception as exc:
-        context_pack = None
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "contextPack": (
-            context_pack.model_dump(mode="json") if context_pack is not None else None
-        ),
-    }
+    return _market_context_payload_impl(settings, open_db=_open_db)
 
 
 def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
-    """
-    Retrieve the most recently persisted canonical provider aggregation snapshot, if any.
-
-    Returns:
-        dict: A payload with keys:
-            - available (bool): `True` if a canonical snapshot was found, `False` otherwise.
-            - error (str | None): An error message when unavailable or on failure; `None` when `available` is `True`.
-            - snapshot (dict | None): The canonical snapshot serialized to a JSON-compatible dict when available, otherwise `None`.
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            record = db.latest_run()
-            canonical_snapshot = (
-                record.artifacts.canonical_snapshot if record is not None else None
-            )
-            if canonical_snapshot is None:
-                trade_context = db.latest_trade_context()
-                canonical_snapshot = (
-                    trade_context.canonical_snapshot
-                    if trade_context is not None
-                    else None
-                )
-        finally:
-            db.close()
-        available = canonical_snapshot is not None
-        error = None if available else "No canonical analysis snapshot is available."
-    except Exception as exc:
-        canonical_snapshot = None
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "snapshot": (
-            canonical_snapshot.model_dump(mode="json")
-            if canonical_snapshot is not None
-            else None
-        ),
-    }
+    return _canonical_analysis_payload_impl(settings, open_db=_open_db)
 
 
 def _canonical_analysis_lines(
     canonical_snapshot: CanonicalAnalysisSnapshot | None,
 ) -> list[str]:
-    """
-    Builds a list of human-readable lines summarizing a canonical analysis snapshot for terminal display.
-
-    Parameters:
-        canonical_snapshot (CanonicalAnalysisSnapshot | None): The canonical analysis snapshot to summarize; pass None when no snapshot is attached.
-
-    Returns:
-        list[str]: Ordered lines suitable for printing or panel rendering. If `canonical_snapshot` is None, returns a single-line message indicating no snapshot is attached.
-    """
-    if canonical_snapshot is None:
-        return ["No canonical analysis snapshot is attached to this trade context."]
-    source_lines = [
-        f"{item.provider_type}:{item.source_name} role={item.source_role} freshness={item.freshness}"
-        for item in canonical_snapshot.source_attributions
-    ]
-    return [
-        f"Summary: {canonical_snapshot.summary or '-'}",
-        f"Completeness: {canonical_snapshot.completeness_score:.2f}",
-        f"Missing Sections: {', '.join(canonical_snapshot.missing_sections) or '-'}",
-        (
-            "Primary Sources: "
-            f"market={canonical_snapshot.market.attribution.source_name} | "
-            f"fundamental={canonical_snapshot.fundamental.attribution.source_name} | "
-            f"macro={canonical_snapshot.macro.attribution.source_name}"
-        ),
-        (
-            "Event Counts: "
-            f"news={len(canonical_snapshot.news_events)} | "
-            f"disclosures={len(canonical_snapshot.disclosures)}"
-        ),
-        "Sources:",
-        *(source_lines or ["-"]),
-    ]
+    return _canonical_analysis_lines_impl(canonical_snapshot)
 
 
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
-    """
-    Builds a JSON-serializable supervisor payload describing the orchestrator runtime status, recent log tails, and the serialized service state.
-
-    Parameters:
-        settings (Settings): Application settings used to locate persisted service state and log files.
-
-    Returns:
-        dict[str, object]: Dictionary with the following keys:
-            - runtime_state: Short runtime status identifier for the service view.
-            - live_process: Metadata for the running service process, or `None` if not running.
-            - is_stale: `true` if the last heartbeat is considered stale, `false` otherwise.
-            - age_seconds: Age of the last heartbeat in seconds, or `None` if unavailable.
-            - status_message: Human-readable status message for the runtime view.
-            - state: Serialized snapshot of the full service state as JSON-compatible dict, or `None` if unavailable.
-            - stdout_tail: List of last lines from the service stdout log (empty list if unavailable).
-            - stderr_tail: List of last lines from the service stderr log (empty list if unavailable).
-    """
-    state = read_service_state(settings)
-    view = build_runtime_status_view(state)
-    stdout_path = (
-        Path(state.stdout_log_path) if state and state.stdout_log_path else None
-    )
-    stderr_path = (
-        Path(state.stderr_log_path) if state and state.stderr_log_path else None
-    )
-    return {
-        "runtime_state": view.runtime_state,
-        "live_process": view.live_process,
-        "is_stale": view.is_stale,
-        "age_seconds": view.age_seconds,
-        "status_message": view.status_message,
-        "state": state.model_dump(mode="json") if state is not None else None,
-        "stdout_tail": _read_text_tail(stdout_path),
-        "stderr_tail": _read_text_tail(stderr_path),
-    }
+    return _service_supervisor_payload_impl(settings, read_text_tail=_read_text_tail)
 
 
 def _broker_payload(settings: Settings) -> dict[str, object]:
-    """
-    Builds a JSON-serializable payload describing broker runtime metadata and safety-gate flags.
-
-    Returns:
-        dict: Broker runtime and safety-gate fields suitable for JSON serialization.
-    """
-    return broker_runtime_payload(settings)
-
-
-def _finance_check(
-    name: str, passed: bool, details: str, *, blocking: bool = True
-) -> dict[str, object]:
-    """
-    Builds a standardized finance readiness check record.
-
-    Parameters:
-        blocking (bool): Whether a failing check should be considered blocking for overall readiness.
-
-    Returns:
-        dict[str, object]: A record with keys:
-            - "name": the check name (str)
-            - "passed": the check outcome (`True` if passed, `False` otherwise)
-            - "details": human-readable details or diagnostics (str)
-            - "blocking": whether failure of this check is blocking (bool)
-    """
-    return {
-        "name": name,
-        "passed": passed,
-        "details": details,
-        "blocking": blocking,
-    }
-
-
-def _position_plan_coverage_details(payload: dict[str, object]) -> str:
-    """
-    Format a position-plan-coverage payload into a concise human-readable summary string.
-
-    Parameters:
-        payload (dict): Observer payload expected to contain:
-            - "available" (bool): whether coverage data is available.
-            - "error" (str, optional): error message when unavailable.
-            - "open_symbols" (list[str], optional): currently open position symbols.
-            - "planned_symbols" (list[str], optional): planned position symbols.
-            - "missing_symbols" (list[str], optional): planned symbols missing from open positions.
-
-    Returns:
-        str: If `available` is false, returns the payload's `error` or "position plan coverage unavailable".
-             Otherwise returns a single-line summary in the form
-             "open=[...] planned=[...] missing=[...]".
-    """
-    if not bool(payload.get("available")):
-        return str(payload.get("error") or "position plan coverage unavailable")
-    open_symbols = payload.get("open_symbols")
-    missing_symbols = payload.get("missing_symbols")
-    planned_symbols = payload.get("planned_symbols")
-    return (
-        f"open={open_symbols if isinstance(open_symbols, list) else []} "
-        f"planned={planned_symbols if isinstance(planned_symbols, list) else []} "
-        f"missing={missing_symbols if isinstance(missing_symbols, list) else []}"
-    )
+    return _finance_broker_payload(settings)
 
 
 def _finance_ops_payload(settings: Settings) -> dict[str, object]:
-    """
-    Build a dashboard-ready finance-operations payload summarizing broker/account state, reconciliation, risk, and readiness evidence.
-
-    Returns:
-        dict: Payload with keys:
-            - ready: `True` if all blocking finance checks pass, `False` otherwise.
-            - mode: Runtime mode from settings.
-            - backend: Execution backend identifier from settings.
-            - checks: List of check objects describing individual finance readiness gates.
-            - broker: Broker health and metadata payload.
-            - portfolio: Account snapshot and accounting metadata.
-            - positionPlanCoverage: Coverage payload comparing open positions to planned exit plans.
-            - riskReport: Daily risk report payload and availability/error metadata.
-            - paperEvidence: V1 readiness evidence (source-attributed, review artifacts, no-live evidence).
-            - reconciliation: Finance reconciliation contract payload (ledger categories, etc.).
-            - accounting: Aggregated accounting fields (currency, mark metadata, cost model, ledger categories, rejection evidence).
-            - summary: Human-readable summary of overall finance operations readiness.
-    """
-    broker = _broker_payload(settings)
-    portfolio = _portfolio_payload(settings)
-    position_plan_coverage = _position_plan_coverage_payload(settings)
-    risk_report = _risk_report_payload(settings)
-    readiness = v1_readiness_payload(settings, check_provider=False)
-    reconciliation = finance_reconciliation_contract_payload()
-    snapshot = portfolio.get("snapshot")
-    snapshot_mapping = _object_mapping(snapshot)
-    accounting = _object_mapping(portfolio.get("accounting"))
-    checks = [
-        _finance_check(
-            "paper_or_external_paper_only",
-            settings.execution_backend in {"paper", "alpaca_paper"}
-            and not settings.live_execution_enabled,
-            f"backend={settings.execution_backend} live_execution_enabled={settings.live_execution_enabled}",
-        ),
-        _finance_check(
-            "broker_health_visible",
-            isinstance(broker.get("healthcheck"), dict),
-            str(broker.get("message", "")),
-        ),
-        _finance_check(
-            "account_snapshot_visible",
-            bool(portfolio.get("available")) and bool(snapshot_mapping),
-            str(portfolio.get("error") or "account snapshot available"),
-        ),
-        _finance_check(
-            "pnl_and_exposure_fields_visible",
-            _finance_snapshot_fields_visible(snapshot_mapping),
-            "cash/equity/PnL/position fields are present on the portfolio snapshot.",
-        ),
-        _finance_check(
-            "open_position_exit_plans_visible",
-            bool(position_plan_coverage.get("available"))
-            and not bool(position_plan_coverage.get("missing_symbols")),
-            _position_plan_coverage_details(position_plan_coverage),
-        ),
-        _finance_check(
-            "risk_report_visible",
-            bool(risk_report.get("available"))
-            and risk_report.get("report") is not None,
-            str(risk_report.get("error") or "daily risk report available"),
-            blocking=False,
-        ),
-        _finance_check(
-            "paper_evidence_visible",
-            isinstance(readiness.get("paper_evidence"), dict),
-            "v1-readiness exposes source attribution, context-pack, review artifact, and no-live evidence.",
-        ),
-    ]
-    blocking_passed = all(
-        bool(check["passed"]) for check in checks if bool(check.get("blocking", True))
+    return _finance_ops_payload_impl(
+        settings,
+        open_db_provider=_open_db,
+        broker_adapter_provider=get_broker_adapter,
     )
-    return {
-        "ready": blocking_passed,
-        "mode": settings.runtime_mode,
-        "backend": settings.execution_backend,
-        "checks": checks,
-        "broker": broker,
-        "portfolio": portfolio,
-        "positionPlanCoverage": position_plan_coverage,
-        "riskReport": risk_report,
-        "paperEvidence": readiness.get("paper_evidence"),
-        "reconciliation": reconciliation,
-        "accounting": {
-            "currency": accounting.get("currency", _primary_account_currency(settings)),
-            "mark_created_at": accounting.get("mark_created_at"),
-            "mark_source": accounting.get("mark_source"),
-            "mark_note": accounting.get("mark_note"),
-            "mark_status": accounting.get("mark_status", "mark_time_unavailable"),
-            "cost_model": _execution_cost_model(settings),
-            "ledger_categories": reconciliation["ledger_categories"],
-            "rejection_evidence": (
-                "Execution rejections are surfaced from execution_outcomes, "
-                "trade context, broker-status, and run review payloads."
-            ),
-        },
-        "summary": (
-            "Finance operations checks have the broker/account/evidence truth needed for local paper review."
-            if blocking_passed
-            else "Finance operations checks are missing broker/account/evidence truth."
-        ),
-    }
-
-
-def _finance_snapshot_fields_visible(snapshot: object) -> bool:
-    snapshot_mapping = _object_mapping(snapshot)
-    if not snapshot_mapping:
-        return False
-    required_fields = {
-        "cash",
-        "equity",
-        "realized_pnl",
-        "unrealized_pnl",
-        "open_positions",
-    }
-    return required_fields.issubset(snapshot_mapping)
 
 
 def _render_finance_ops(payload: dict[str, object]) -> None:
-    """
-    Render the finance operations view to the console.
-
-    Displays a finance summary panel, followed by a checks table, an accounting table, and an optional ledger table when `accounting["ledger_categories"]` is present.
-
-    Parameters:
-        payload (dict[str, object]): Viewer payload containing:
-            - "summary" (str): Human-readable summary message.
-            - "ready" (bool): Readiness flag used to choose panel border color.
-            - "checks" (list): List of check rows for the finance checks table.
-            - "accounting" (dict): Accounting data consumed by the accounting and ledger tables; may include "ledger_categories".
-    """
-    checks = payload.get("checks", [])
-    accounting = _object_mapping(payload.get("accounting"))
-    console.print(
-        Panel(
-            str(payload.get("summary", MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE)),
-            title=TITLE_FINANCE_OPERATIONS,
-            border_style="green" if payload.get("ready") else "yellow",
-        )
-    )
-    console.print(_finance_checks_table(checks))
-    console.print(_finance_accounting_table(accounting))
-    ledger_table = _finance_ledger_table(accounting.get("ledger_categories", []))
-    if ledger_table is not None:
-        console.print(ledger_table)
+    _render_finance_ops_impl(payload)
 
 
 def _render_position_plan_repair(payload: dict[str, object]) -> None:
-    """
-    Render a terminal summary and table describing the results of a position-plan repair operation.
-
-    Parameters:
-        payload (dict): Repair payload containing at least:
-            - "applied" (bool): Whether the repair changes were applied.
-            - "summary" (str): Human-readable summary shown as a panel title/body.
-            - "repairs" (list[dict]): Per-symbol repair entries. Each entry may include:
-                - "symbol" (str)
-                - "status" (str)
-                - "proposal_id" (str)
-                - "entry_price" (float | None)
-                - "stop_loss" (float | None)
-                - "take_profit" (float | None)
-                - "reason" (str)
-    """
-    applied = bool(payload.get("applied"))
-    table = Table(title=TITLE_POSITION_PLAN_REPAIR)
-    table.add_column(LABEL_SYMBOL)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_PROPOSAL)
-    table.add_column(LABEL_ENTRY)
-    table.add_column(LABEL_STOP)
-    table.add_column(LABEL_TAKE)
-    table.add_column(LABEL_REASON)
-    for item in _object_mapping_list(payload.get("repairs", [])):
-        table.add_row(
-            str(item.get("symbol", "-")),
-            str(item.get("status", "-")),
-            str(item.get("proposal_id", "-")),
-            _format_optional_float(item.get("entry_price")),
-            _format_optional_float(item.get("stop_loss")),
-            _format_optional_float(item.get("take_profit")),
-            str(item.get("reason", "")),
-        )
-    console.print(
-        Panel(
-            str(payload.get("summary", MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE)),
-            title=TITLE_POSITION_PLAN_REPAIR,
-            border_style="green" if applied else "yellow",
-        )
-    )
-    console.print(table)
-
-
-def _format_optional_float(value: object) -> str:
-    """
-    Format a numeric value to four decimal places or return a dash for non-numeric input.
-
-    Parameters:
-        value (object): The value to format. If `value` is an int or float it will be converted
-            to a float and rendered with four decimal places; any other input yields a dash.
-
-    Returns:
-        str: The formatted numeric string (e.g. "1.2345") or "-" when `value` is not a number.
-    """
-    if isinstance(value, (int, float)):
-        return f"{float(value):.4f}"
-    return "-"
-
-
-def _finance_checks_table(checks: object) -> Table:
-    """
-    Builds a Rich Table summarizing finance operation checks for display.
-
-    Parameters:
-        checks (object): Expected to be a list of dicts where each dict may contain:
-            - "name": check name
-            - "passed": truthy value indicates pass (rendered as green "pass"); falsy indicates fail (red "fail")
-            - "blocking": whether the check is blocking (defaults to True if missing)
-            - "details": additional details to show
-
-    Returns:
-        Table: A Rich Table with check state, blocking status, and detail rows. If `checks` is not a list, the table is returned empty.
-    """
-    table = Table(title=TITLE_FINANCE_OPERATIONS_CHECKS)
-    table.add_column(LABEL_CHECK)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_BLOCKING)
-    table.add_column(LABEL_DETAILS)
-    for check in _object_mapping_list(checks):
-        table.add_row(
-            str(check.get("name", "-")),
-            "[green]pass[/green]" if check.get("passed") else "[red]fail[/red]",
-            str(check.get("blocking", True)),
-            str(check.get("details", "")),
-        )
-    return table
-
-
-def _finance_accounting_table(accounting: Mapping[str, object]) -> Table:
-    """
-    Builds a Rich Table summarizing desk accounting context from an accounting payload.
-
-    Parameters:
-        accounting (dict): A mapping containing accounting fields used to populate the table. Recognized keys:
-            - "currency": str, primary account currency (defaults to "USD" when missing).
-            - "mark_created_at": timestamp or str, mark/valuation time.
-            - "mark_source": str, source of the mark.
-            - "mark_status": str, status of the mark.
-            - "rejection_evidence": any, evidence for rejected accounting items.
-            - "cost_model": dict, optional nested cost fields:
-                - "fees": any, formatted fee summary.
-                - "slippage_bps": number, slippage in basis points.
-
-    Returns:
-        Table: A Rich Table with desk accounting context rows.
-    """
-    cost_model = _object_mapping(accounting.get("cost_model"))
-    mark_source = str(accounting.get("mark_source") or "-")
-    mark_status = str(accounting.get("mark_status") or "-")
-    context = Table(title=TITLE_DESK_ACCOUNTING_CONTEXT)
-    context.add_column(LABEL_FIELD)
-    context.add_column(LABEL_VALUE)
-    context.add_row(LABEL_CURRENCY, str(accounting.get("currency", "USD")))
-    context.add_row(
-        LABEL_MARKED_AT,
-        str(accounting.get("mark_created_at") or MESSAGE_MARK_TIME_UNAVAILABLE),
-    )
-    context.add_row(LABEL_MARK_SOURCE, mark_source)
-    context.add_row(LABEL_MARK_STATUS, mark_status)
-    context.add_row(LABEL_FEES, str(cost_model.get("fees", "-")))
-    context.add_row(
-        LABEL_SLIPPAGE,
-        (
-            "-"
-            if cost_model.get("slippage_bps") is None
-            else f"{cost_model.get('slippage_bps')} bps"
-        ),
-    )
-    context.add_row(
-        LABEL_REJECTION_EVIDENCE,
-        str(accounting.get("rejection_evidence") or "-"),
-    )
-    return context
-
-
-def _finance_ledger_table(ledger_categories: object) -> Table | None:
-    rows = _object_mapping_list(ledger_categories)
-    if rows:
-        ledger_table = Table(title=TITLE_FINANCE_LEDGER_CATEGORIES)
-        ledger_table.add_column(LABEL_CATEGORY)
-        ledger_table.add_column(LABEL_V1_SOURCE)
-        ledger_table.add_column(LABEL_PURPOSE)
-        for item in rows:
-            ledger_table.add_row(
-                str(item.get("name", "-")),
-                str(item.get("v1_source", "-")),
-                str(item.get("purpose", "-")),
-            )
-        return ledger_table
-    return None
-
-
-def _training_backtest_allow_fallback(settings: Settings) -> bool:
-    """
-    Decides whether a backtest may run with deterministic diagnostic fallbacks under the current settings.
-
-    Attempts to ensure LLM readiness; if readiness fails in training mode, displays a diagnostic panel and permits fallback execution. If readiness fails in any other runtime mode, the readiness error is propagated.
-
-    Parameters:
-        settings (Settings): Runtime configuration used to determine the current mode and context for readiness checks.
-
-    Returns:
-        bool: `True` if fallback execution is permitted, `False` otherwise.
-    """
-    try:
-        ensure_llm_ready(settings)
-    except RuntimeError as exc:
-        if settings.runtime_mode != "training":
-            raise
-        console.print(
-            Panel(
-                MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK.format(error=exc),
-                title=TITLE_TRAINING_DIAGNOSTIC_MODE,
-                border_style="yellow",
-            )
-        )
-        return True
-    return False
+    _render_position_plan_repair_impl(payload)
 
 
 def _runtime_mode_transition_plan(
     settings: Settings, *, target_mode: RuntimeMode, check_provider: bool
 ) -> RuntimeModeTransitionPlan:
-    """
-    Builds a checklist of preconditions required to transition the runtime to the given target mode.
-
-    Evaluates mode-specific conditions including strict LLM settings, provider health, execution backend, kill-switch state, diagnostic constraints, and operator-safety requirements. Each checklist entry indicates its name, pass/fail state, human-readable details, and whether it is blocking. The plan's `allowed` field is true only if all blocking checks pass, and the returned `RuntimeModeTransitionPlan` contains the current and target modes, the computed `allowed` flag, the list of checks, and a short summary.
-
-    Parameters:
-        settings (Settings): Runtime configuration used to read current mode and relevant flags.
-        target_mode (RuntimeMode): Desired runtime mode to transition to.
-        check_provider (bool): If true, perform LLM provider health checks (reachability and model availability); if false, provider checks are added as blocking unknowns.
-
-    Returns:
-        RuntimeModeTransitionPlan: A plan object containing `current_mode`, `target_mode`, `allowed`, `checks`, and `summary`.
-    """
-    checks: list[RuntimeModeTransitionCheck] = []
-
-    def add_check(
-        name: str, passed: bool, details: str, *, blocking: bool = True
-    ) -> None:
-        """
-        Append a runtime mode transition check to the module-level checklist.
-
-        Parameters:
-            name (str): Human-readable name of the check.
-            passed (bool): `True` if the check passed, `False` otherwise.
-            details (str): Operator-facing explanation or diagnostic message for the check.
-            blocking (bool): If `True`, a failing check blocks the transition; defaults to `True`.
-
-        Side effects:
-            Appends a `RuntimeModeTransitionCheck` instance to the `checks` list.
-        """
-        checks.append(
-            RuntimeModeTransitionCheck(
-                name=name,
-                passed=passed,
-                details=details,
-                blocking=blocking,
-            )
-        )
-
-    if target_mode == "operation":
-        add_check(
-            "strict_llm_enabled",
-            settings.strict_llm,
-            "Operation mode requires AGENTIC_TRADER_STRICT_LLM=true.",
-        )
-        if check_provider:
-            health = LocalLLM(settings).health_check(include_generation=True)
-            add_check(
-                "provider_reachable",
-                health.service_reachable,
-                health.message,
-            )
-            add_check(
-                "model_available",
-                health.model_available,
-                f"Configured model: {health.model_name}",
-            )
-            add_check(
-                "model_generation_ready",
-                health.generation_available is not False,
-                health.generation_message or health.message,
-            )
-        else:
-            add_check(
-                "provider_reachable",
-                False,
-                "Provider check skipped; run doctor before Operation mode.",
-            )
-        add_check(
-            "non_live_execution_backend",
-            settings.execution_backend in {"paper", "simulated_real"},
-            f"Configured backend: {settings.execution_backend}",
-        )
-        add_check(
-            "live_execution_disabled",
-            not settings.live_execution_enabled,
-            "Live execution must remain disabled until a real adapter and approvals exist.",
-        )
-        add_check(
-            "kill_switch_clear",
-            not settings.execution_kill_switch_active,
-            "Execution kill switch must be clear for production-like paper operation.",
-        )
-    else:
-        add_check(
-            "diagnostic_scope",
-            True,
-            "Training mode is limited to replay, walk-forward, ablation, and diagnostic evaluation flows.",
-        )
-        add_check(
-            "runtime_no_hidden_trades",
-            True,
-            "`run`, `launch`, and service orchestration remain strict and do not silently trade with fallback outputs.",
-        )
-        add_check(
-            "operator_confirmation_required",
-            True,
-            "Mode changes must be applied through explicit configuration, not chat side effects.",
-        )
-
-    allowed = all(check.passed for check in checks if check.blocking)
-    summary = (
-        MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED.format(
-            current_mode=settings.runtime_mode,
-            target_mode=target_mode,
-        )
-        if allowed
-        else MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED.format(
-            current_mode=settings.runtime_mode,
-            target_mode=target_mode,
-        )
-    )
-    return RuntimeModeTransitionPlan(
-        current_mode=settings.runtime_mode,
+    return _runtime_mode_transition_plan_impl(
+        settings,
         target_mode=target_mode,
-        allowed=allowed,
-        checks=checks,
-        summary=summary,
+        check_provider=check_provider,
     )
 
 
@@ -2993,156 +967,23 @@ def _render_runtime_mode_transition_plan(plan: RuntimeModeTransitionPlan) -> Non
 def _runtime_status_payload(
     view: RuntimeStatusView, settings: Settings
 ) -> dict[str, object]:
-    """Serialize the shared runtime status contract used by CLI and observer surfaces."""
-    return {
-        "runtime_mode": (
-            view.state.runtime_mode if view.state is not None else settings.runtime_mode
-        ),
-        "runtime_state": view.runtime_state,
-        "live_process": view.live_process,
-        "is_stale": view.is_stale,
-        "age_seconds": view.age_seconds,
-        "status_message": view.status_message,
-        "state": view.state.model_dump(mode="json") if view.state is not None else None,
-    }
-
-
-def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
-    """
-    Select a sensible default trading symbol based on investment preferences.
-
-    Prefers "THYAO.IS" if preferences indicate the BIST exchange or Turkish region; prefers "AAPL" if NASDAQ/NYSE or US region is present; otherwise returns "BTC-USD".
-
-    Parameters:
-        preferences (InvestmentPreferences): Preferences whose `exchanges` and `regions` are used to choose a representative default symbol.
-
-    Returns:
-        str: `"THYAO.IS"`, `"AAPL"`, or `"BTC-USD"` depending on detected exchanges/regions.
-    """
-    if "BIST" in preferences.exchanges or "TR" in preferences.regions:
-        return "THYAO.IS"
-    if (
-        "NASDAQ" in preferences.exchanges
-        or "NYSE" in preferences.exchanges
-        or "US" in preferences.regions
-    ):
-        return "AAPL"
-    return "BTC-USD"
+    return _runtime_status_payload_impl(view, settings)
 
 
 def _calendar_payload(
     settings: Settings, *, symbol: str | None = None
 ) -> dict[str, object]:
-    """
-    Builds a payload describing the inferred market session for a resolved symbol.
-
-    Parameters:
-        symbol (str | None): Optional explicit symbol to resolve; when omitted the latest run's symbol is used if available, otherwise a default from investment preferences is used.
-
-    Returns:
-        dict[str, object]: Payload with keys:
-            - "available" (bool): `True` if a session was inferred, `False` otherwise.
-            - "error" (str | None): Error message when unavailable, otherwise `None`.
-            - "session" (dict | None): JSON-serializable market session data when available, otherwise `None`.
-    """
-    try:
-        preferences = InvestmentPreferences()
-        record = None
-        db = _open_db(settings, read_only=True)
-        try:
-            preferences = db.load_preferences()
-            record = db.latest_run()
-        finally:
-            db.close()
-        resolved_symbol = symbol or (
-            record.symbol
-            if record is not None
-            else _default_symbol_from_preferences(preferences)
-        )
-        session = infer_market_session(symbol=resolved_symbol, preferences=preferences)
-        available = True
-        error = None
-    except Exception as exc:
-        session = None
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "session": session.model_dump(mode="json") if session is not None else None,
-    }
+    return _calendar_payload_impl(settings, open_db=_open_db, symbol=symbol)
 
 
 def _news_payload(
     settings: Settings, *, symbol: str | None = None
 ) -> dict[str, object]:
-    """
-    Builds a payload containing recent news headlines for a resolved trading symbol.
-
-    Parameters:
-        settings (Settings): Application settings used to determine news mode and I/O behavior.
-        symbol (str | None): Optional explicit symbol to fetch headlines for; when omitted the symbol is resolved from the latest run record or from saved preferences.
-
-    Returns:
-        dict[str, object]: A mapping with keys:
-            - "available": `True` if headlines were retrieved, `False` otherwise.
-            - "error": Error message string when unavailable, or `None` on success.
-            - "mode": The configured news mode from `settings`.
-            - "symbol": The resolved symbol used to fetch headlines (may be `None` if unresolved).
-            - "headlines": A list of headline objects serialized as JSON-compatible dicts.
-    """
-    try:
-        preferences = InvestmentPreferences()
-        record = None
-        db = _open_db(settings, read_only=True)
-        try:
-            preferences = db.load_preferences()
-            record = db.latest_run()
-        finally:
-            db.close()
-        resolved_symbol = symbol or (
-            record.symbol
-            if record is not None
-            else _default_symbol_from_preferences(preferences)
-        )
-        headlines = fetch_news_brief(resolved_symbol, settings)
-        available = True
-        error = None
-    except Exception as exc:
-        resolved_symbol = symbol
-        headlines = []
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "mode": settings.news_mode,
-        "symbol": resolved_symbol,
-        "headlines": [item.model_dump(mode="json") for item in headlines],
-    }
+    return _news_payload_impl(settings, open_db=_open_db, symbol=symbol)
 
 
 def _market_cache_payload(settings: Settings) -> dict[str, object]:
-    settings.ensure_directories()
-    cache_dir = settings.market_data_cache_dir
-    entries: list[dict[str, object]] = []
-    for path in sorted(
-        cache_dir.glob("*.csv"), key=lambda item: item.stat().st_mtime, reverse=True
-    ):
-        entries.append(
-            {
-                "filename": path.name,
-                "path": str(path),
-                "size_bytes": path.stat().st_size,
-                "modified_at": path.stat().st_mtime,
-            }
-        )
-    return {
-        "mode": settings.market_data_mode,
-        "cache_dir": str(cache_dir),
-        "count": len(entries),
-        "entries": entries,
-    }
+    return _market_cache_payload_impl(settings)
 
 
 def _memory_explorer_payload(
@@ -3154,242 +995,152 @@ def _memory_explorer_payload(
     limit: int = 5,
     use_latest_run: bool = False,
 ) -> dict[str, object]:
-    """
-    Builds a market snapshot for a symbol/interval and returns similar memory matches.
-
-    If `use_latest_run` is True or no `symbol` is provided, prefers the latest persisted run snapshot; otherwise fetches OHLCV and constructs a new snapshot. The returned snapshot and matches are JSON-serializable.
-
-    Parameters:
-        settings (Settings): Application settings and environment.
-        symbol (str | None): Symbol to target; when omitted and `use_latest_run` is False, a latest run snapshot is required.
-        interval (str | None): Time interval (e.g., "1d", "1h"); when omitted and `use_latest_run` is False, a latest run snapshot is required.
-        lookback (str): Historical range to include when building a snapshot (e.g., "180d").
-        limit (int): Maximum number of similar memories to retrieve.
-        use_latest_run (bool): When True, prefer the latest persisted run snapshot instead of fetching/building a new one.
-
-    Returns:
-        dict: Payload with keys:
-            - "available" (bool): True when payload built successfully, False on error.
-            - "error" (str | None): Error message when not available, otherwise None.
-            - "snapshot" (dict | None): JSON-serializable snapshot object or None.
-            - "matches" (list[dict]): List of JSON-serializable memory match objects (may be empty).
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            snapshot = None
-            resolved_symbol = symbol
-            resolved_interval = interval
-            if use_latest_run or resolved_symbol is None:
-                record = db.latest_run()
-                if record is not None:
-                    snapshot = record.artifacts.snapshot
-                    resolved_symbol = snapshot.symbol
-                    resolved_interval = snapshot.interval
-            if snapshot is None:
-                if resolved_symbol is None or resolved_interval is None:
-                    raise ValueError(
-                        "A symbol and interval are required when no latest run snapshot is available."
-                    )
-                frame = fetch_ohlcv(
-                    resolved_symbol,
-                    interval=resolved_interval,
-                    lookback=lookback,
-                    settings=settings,
-                )
-                snapshot = build_snapshot(
-                    frame,
-                    symbol=resolved_symbol,
-                    interval=resolved_interval,
-                    lookback=lookback,
-                )
-            matches = retrieve_similar_memories(db, snapshot, limit=limit)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        snapshot = None
-        matches = []
-        available = False
-        error = str(exc)
-
-    return {
-        "available": available,
-        "error": error,
-        "snapshot": snapshot.model_dump(mode="json") if snapshot is not None else None,
-        "matches": [match.model_dump(mode="json") for match in matches],
-    }
+    return _memory_explorer_payload_impl(
+        settings,
+        open_db=_open_db,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        limit=limit,
+        use_latest_run=use_latest_run,
+    )
 
 
 def _retrieval_inspection_payload(
     settings: Settings, *, run_id: str | None = None
 ) -> dict[str, object]:
-    """
-    Builds an inspection payload describing retrieval stages and memory-related data from a persisted run record.
-
-    Parameters:
-        settings (Settings): Application settings used to locate and read persisted run records.
-        run_id (str | None): Optional run identifier; when omitted the latest run record is used.
-
-    Returns:
-        dict[str, object]: A payload with the following keys:
-            - available (bool): Whether a run record was found and parsed.
-            - error (str | None): Error message when unavailable, otherwise None.
-            - run_id (str | None): The run identifier associated with the payload or None.
-            - symbol (str | None): The run's trading symbol when available.
-            - interval (str | None): The run's interval when available.
-            - stages (list[dict]): Ordered list of retrieval stages; each stage contains:
-                - role (str): Agent role that produced the trace.
-                - model_name (str | None): Model name used by the agent.
-                - used_fallback (bool): Whether the agent fell back to a non-preferred codepath.
-                - retrieved_memories (list): Memories retrieved for the stage.
-                - retrieval_explanations (list): Explanatory notes for each retrieval.
-                - memory_notes (list): Additional memory-related notes.
-                - shared_memory_bus (list): Items published to the shared memory bus.
-                - recent_runs (list): References to recent runs included in the context.
-                - tool_outputs (list): Outputs produced by external tools used in the stage.
-    """
-    record_payload = _run_record_payload(settings, run_id=run_id)
-    record_json = record_payload["record"]
-    if record_payload["available"] is False or record_json is None:
-        return {
-            "available": bool(record_payload["available"]),
-            "error": record_payload["error"],
-            "run_id": (
-                record_json["run_id"]
-                if isinstance(record_json, dict) and "run_id" in record_json
-                else None
-            ),
-            "stages": [],
-        }
-
-    record = RunRecord.model_validate(record_json)
-    stages: list[dict[str, object]] = []
-    for trace in record.artifacts.agent_traces:
-        context = json.loads(trace.context_json)
-        stages.append(
-            {
-                "role": trace.role,
-                "model_name": trace.model_name,
-                "used_fallback": trace.used_fallback,
-                "retrieved_memories": context.get("retrieved_memories", []),
-                "retrieval_explanations": context.get("retrieval_explanations", []),
-                "memory_notes": context.get("memory_notes", []),
-                "shared_memory_bus": context.get("shared_memory_bus", []),
-                "recent_runs": context.get("recent_runs", []),
-                "tool_outputs": context.get("tool_outputs", []),
-            }
-        )
-
-    return {
-        "available": True,
-        "error": None,
-        "run_id": record.run_id,
-        "symbol": record.symbol,
-        "interval": record.interval,
-        "stages": stages,
-    }
+    return _retrieval_inspection_payload_impl(
+        settings,
+        run_id=run_id,
+        run_record_payload=_run_record_payload,
+    )
 
 
 def _chat_history_payload(settings: Settings, *, limit: int = 12) -> dict[str, object]:
-    """
-    Builds a payload containing recent chat history entries for observer/CLI consumption.
-
-    Parameters:
-        limit (int): Maximum number of most-recent chat history entries to include.
-
-    Returns:
-        dict: A mapping with keys:
-            - "available": `True` if chat history was read successfully, `False` otherwise.
-            - "error": Error message string when unavailable, or `None` on success.
-            - "entries": List of chat history entries serialized to JSON-compatible dicts.
-    """
-    try:
-        entries = read_chat_history(settings, limit=limit)
-        available = True
-        error = None
-    except Exception as exc:
-        entries = []
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "entries": [entry.model_dump(mode="json") for entry in entries],
-    }
+    return _chat_history_payload_impl(settings, limit=limit)
 
 
 def _run_replay_payload(
     settings: Settings, *, run_id: str | None = None
 ) -> dict[str, object]:
-    """
-    Builds a JSON-serializable replay payload for a persisted run record for observer and CLI use.
-
-    If a run record is not available or an error occurs while loading it, the payload will indicate availability as `False`, include the error message, and set `replay` to `None`.
-
-    Parameters:
-        run_id (str | None): Optional run identifier; when `None`, the latest persisted run is used.
-
-    Returns:
-        dict[str, object]: A payload containing:
-            - `available` (bool): `True` when the replay was successfully built, `False` otherwise.
-            - `error` (str | None): Error message when unavailable, otherwise `None`.
-            - `replay` (dict | None): The replay data serialized to plain JSON-serializable structures when available; `None` if unavailable.
-    """
-    record_payload = _run_record_payload(settings, run_id=run_id)
-    record_json = record_payload["record"]
-    if record_payload["available"] is False or record_json is None:
-        return {
-            "available": bool(record_payload["available"]),
-            "error": record_payload["error"],
-            "replay": None,
-        }
-
-    record = RunRecord.model_validate(record_json)
-    stages: list[RunReplayStage] = []
-    for trace in record.artifacts.agent_traces:
-        context = json.loads(trace.context_json)
-        try:
-            output: dict[str, object] | str = json.loads(trace.output_json)
-        except json.JSONDecodeError:
-            output = trace.output_json
-        stages.append(
-            RunReplayStage(
-                role=trace.role,
-                model_name=trace.model_name,
-                used_fallback=trace.used_fallback,
-                market_session=context.get("market_session"),
-                retrieved_memories=context.get("retrieved_memories", []),
-                memory_notes=context.get("memory_notes", []),
-                shared_memory_bus=context.get("shared_memory_bus", []),
-                recent_runs=context.get("recent_runs", []),
-                tool_outputs=context.get("tool_outputs", []),
-                upstream_context=context.get("upstream_context", {}),
-                output=output,
-            )
-        )
-
-    replay = RunReplay(
-        run_id=record.run_id,
-        created_at=record.created_at,
-        symbol=record.symbol,
-        interval=record.interval,
-        approved=record.approved,
-        final_side=record.artifacts.execution.side,
-        final_rationale=record.artifacts.execution.rationale,
-        snapshot=record.artifacts.snapshot,
-        consensus=record.artifacts.consensus,
-        manager_override_notes=_manager_override_notes(record.artifacts),
-        manager_conflicts=record.artifacts.manager.conflicts,
-        manager_resolution_notes=_manager_resolution_notes(record.artifacts),
-        stages=stages,
+    return _run_replay_payload_impl(
+        settings,
+        run_id=run_id,
+        run_record_payload=_run_record_payload,
+        manager_override_notes=_manager_override_notes,
+        manager_resolution_notes=_manager_resolution_notes,
     )
-    return {
-        "available": True,
-        "error": None,
-        "replay": replay.model_dump(mode="json"),
-    }
+
+
+def _run_backtest_comparison_provider(
+    *,
+    settings: Settings,
+    symbol: str,
+    interval: str,
+    lookback: str,
+    warmup_bars: int = 120,
+    allow_fallback: bool = False,
+    frame: DataFrame | None = None,
+) -> BacktestComparisonReport:
+    return run_backtest_comparison(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        allow_fallback=allow_fallback,
+        frame=frame,
+    )
+
+
+def _run_memory_ablation_backtest_provider(
+    *,
+    settings: Settings,
+    symbol: str,
+    interval: str,
+    lookback: str,
+    warmup_bars: int = 120,
+    allow_fallback: bool = False,
+    frame: DataFrame | None = None,
+) -> BacktestAblationReport:
+    return run_memory_ablation_backtest(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        allow_fallback=allow_fallback,
+        frame=frame,
+    )
+
+
+def _run_walk_forward_backtest_provider(
+    *,
+    settings: Settings,
+    symbol: str,
+    interval: str,
+    lookback: str,
+    warmup_bars: int = 120,
+    allow_fallback: bool = False,
+    memory_enabled: bool = True,
+    frame: DataFrame | None = None,
+) -> BacktestReport:
+    return run_walk_forward_backtest(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        allow_fallback=allow_fallback,
+        memory_enabled=memory_enabled,
+        frame=frame,
+    )
+
+
+register_status_commands(
+    app,
+    StatusCommandDeps(
+        get_settings=lambda: get_settings(),
+        emit_json=_emit_json,
+        portfolio_payload=_portfolio_payload,
+        runtime_status_payload=_runtime_status_payload,
+        service_supervisor_payload=_service_supervisor_payload,
+        broker_payload=_broker_payload,
+        finance_ops_payload=_finance_ops_payload,
+        render_finance_ops=_render_finance_ops,
+        render_position_plan_repair=_render_position_plan_repair,
+        provider_diagnostics_payload=provider_diagnostics_payload,
+        v1_readiness_payload=v1_readiness_payload,
+        read_service_state=read_service_state,
+        build_runtime_status_view=build_runtime_status_view,
+        render_service_state=_render_service_state,
+        open_db=_open_db,
+        repair_missing_position_plans=repair_missing_position_plans,
+    ),
+)
+
+register_record_commands(
+    app,
+    RecordCommandDeps(
+        get_settings=lambda: get_settings(),
+        emit_json=_emit_json,
+        preferences_payload=_preferences_payload,
+        journal_payload=_journal_payload,
+        risk_report_payload=_risk_report_payload,
+        run_record_payload=_run_record_payload,
+        trade_context_payload=_trade_context_payload,
+        canonical_analysis_lines=_canonical_analysis_lines,
+        run_replay_payload=_run_replay_payload,
+        memory_explorer_payload=_memory_explorer_payload,
+        retrieval_inspection_payload=_retrieval_inspection_payload,
+        memory_write_policy_snapshot=memory_write_policy_snapshot,
+        open_db=_open_db,
+        ensure_ready=lambda settings: ensure_llm_ready(settings),
+        run_comparison=_run_backtest_comparison_provider,
+        run_ablation=_run_memory_ablation_backtest_provider,
+        run_walk_forward=_run_walk_forward_backtest_provider,
+    ),
+)
 
 
 @app.callback()
@@ -3447,381 +1198,13 @@ def locale_command(
 
 @app.command()
 def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
-    """
-    Check local environment and report LLM and database runtime readiness.
-
-    When `json_output` is true, emit a JSON payload containing LLM provider/model, runtime and database paths, database status, LLM reachability/availability, and the latest order. Otherwise render a table of environment fields and a readiness panel indicating whether the trading runtime can start with full LLM access.
-
-    Parameters:
-        json_output (bool): If true, emit the environment payload as JSON rather than rendering terminal output.
-    """
-    settings = get_settings()
-    apply_app_owned_service_settings(settings, include_camofox=True)
-    latest: str
-    db_status = "ok"
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            latest = _format_latest_order(db.latest_order())
-        finally:
-            db.close()
-    except Exception as exc:
-        latest = "unavailable"
-        db_status = f"Database unavailable: {exc}"
-
-    llm = LocalLLM(settings)
-    health = llm.health_check()
-    payload: dict[str, object] = {
-        "provider": settings.llm_provider,
-        "model": settings.model_name,
-        "base_url": settings.base_url,
-        "runtime_dir": str(settings.runtime_dir),
-        "runtime_mode": settings.runtime_mode,
-        "database": str(settings.database_path),
-        "db_status": db_status,
-        "model_routing": settings.model_routing(),
-        "llm_reachable": health.service_reachable,
-        "ollama_reachable": health.service_reachable,
-        "model_available": health.model_available,
-        "llm_status": health.message,
-        "latest_order": latest,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-
-    table = Table(title=TITLE_ENVIRONMENT_CHECK)
-    table.add_column(LABEL_KEY)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_LLM_PROVIDER, settings.llm_provider)
-    table.add_row(LABEL_MODEL, settings.model_name)
-    table.add_row(TITLE_RUNTIME_MODE, settings.runtime_mode)
-    table.add_row(LABEL_BASE_URL, settings.base_url)
-    table.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
-    table.add_row(LABEL_DATABASE, str(settings.database_path))
-    table.add_row(LABEL_DB_STATUS, db_status)
-    table.add_row(LABEL_MODEL_ROUTING, json.dumps(settings.model_routing(), indent=2))
-    table.add_row(
-        LABEL_OLLAMA_REACHABLE,
-        "[green]yes[/green]" if health.service_reachable else "[red]no[/red]",
-    )
-    table.add_row(
-        LABEL_MODEL_AVAILABLE,
-        "[green]yes[/green]" if health.model_available else "[yellow]no[/yellow]",
-    )
-    table.add_row(TITLE_LLM_STATUS, health.message)
-    table.add_row(LABEL_LATEST_ORDER, latest)
-    console.print(table)
-    if health.service_reachable and health.model_available:
-        console.print(
-            _render_health_panel(
-                "Ready",
-                MESSAGE_TRADING_RUNTIME_READY,
-                border_style="green",
-            )
-        )
-    else:
-        console.print(
-            _render_health_panel(
-                "Blocked",
-                MESSAGE_TRADING_RUNTIME_BLOCKED,
-                border_style="red",
-            )
-        )
-
-
-def _render_setup_status(payload: dict[str, object]) -> None:
-    """
-    Render setup and auxiliary service readiness panels and tables to the console.
-
-    Parameters:
-        payload (dict[str, object]): Snapshot of setup information. Expected keys:
-            - platform: platform description (displayed under "Platform").
-            - workspace_root: project workspace path.
-            - core_ready: boolean indicating core components readiness.
-            - optional_ready: boolean indicating optional runtime readiness.
-            - model_service, camofox_service, webgui_service: dicts (may be empty) with a "message" key summarizing each service.
-            - tool_ownership (optional): dict passed to the tool ownership renderer.
-            - tools: list[dict] of tool descriptors including display label, category, status, optional ownership mode, path, notes, and install hint.
-            - recommended_commands: list[str] of CLI commands to suggest to the user.
-    """
-
-    summary = Table(title=TITLE_SETUP_STATUS)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_PLATFORM, str(payload["platform"]))
-    summary.add_row(LABEL_WORKSPACE, str(payload["workspace_root"]))
-    summary.add_row(LABEL_CORE_READY, str(payload["core_ready"]))
-    summary.add_row(LABEL_OPTIONAL_RUNTIME_READY, str(payload["optional_ready"]))
-    model_service = cast(dict[str, object], payload.get("model_service", {}))
-    camofox_service = cast(dict[str, object], payload.get("camofox_service", {}))
-    webgui_service = cast(dict[str, object], payload.get("webgui_service", {}))
-    summary.add_row(LABEL_MODEL_SERVICE, str(model_service.get("message", "-")))
-    summary.add_row(LABEL_CAMOFOX, str(camofox_service.get("message", "-")))
-    summary.add_row(LABEL_WEB_GUI, str(webgui_service.get("message", "-")))
-    console.print(summary)
-
-    ownership = cast(dict[str, object] | None, payload.get("tool_ownership"))
-    if ownership is not None:
-        _render_tool_ownership(ownership)
-
-    tools = cast(list[dict[str, object]], payload["tools"])
-    table = Table(title=TITLE_TOOL_READINESS)
-    table.add_column(LABEL_TOOL)
-    table.add_column(LABEL_CATEGORY)
-    table.add_column(LABEL_OWNERSHIP)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_PATH)
-    table.add_column(LABEL_NOTES)
-    for tool in tools:
-        notes = ", ".join(cast(list[str], tool.get("notes", [])))
-        table.add_row(
-            str(tool["label"]),
-            str(tool["category"]),
-            str(tool.get("ownership_mode") or "-"),
-            str(tool["status"]),
-            str(tool.get("path") or "-"),
-            notes or str(tool.get("install_hint") or "-"),
-        )
-    console.print(table)
-    console.print(
-        Panel(
-            "\n".join(cast(list[str], payload["recommended_commands"])),
-            title=TITLE_RECOMMENDED_NEXT_COMMANDS,
-            border_style="cyan",
-        )
-    )
-
-
-def _render_tool_ownership(payload: dict[str, object]) -> None:
-    """
-    Render recorded tool ownership decisions as a Rich table.
-
-    Parameters:
-        payload (dict[str, object]): Snapshot that may include a "decisions" key. When present,
-            "decisions" is expected to be a list of mappings with these keys:
-                - "tool": tool identifier or name
-                - "mode": ownership mode
-                - "source": origin of the recorded decision
-                - "updated_at": timestamp of last update
-                - "note": human-readable note or meaning
-    """
-
-    table = Table(title=TITLE_TOOL_OWNERSHIP)
-    table.add_column(LABEL_TOOL)
-    table.add_column(LABEL_MODE)
-    table.add_column(LABEL_SOURCE)
-    table.add_column(LABEL_UPDATED)
-    table.add_column(LABEL_MEANING)
-    decisions = cast(list[dict[str, object]], payload.get("decisions", []))
-    for decision in decisions:
-        table.add_row(
-            str(decision.get("tool", "-")),
-            str(decision.get("mode", "-")),
-            str(decision.get("source", "-")),
-            str(decision.get("updated_at") or "-"),
-            str(decision.get("note", "-")),
-        )
-    console.print(table)
-
-
-def _render_model_service_status(payload: dict[str, object]) -> None:
-    """
-    Render model-service status panels to the console.
-
-    Builds and prints a two-column status table, an available-models panel, and an optional stderr tail panel using values from `payload`.
-
-    Parameters:
-        payload (dict[str, object]): Status payload whose keys are displayed. Recognized keys include:
-            provider, command_available, command_path, configured_base_url, configured_model,
-            service_reachable, model_available, generation_checked, generation_available,
-            generation_message, app_owned, pid, base_url, message,
-            runtime_base_url_matches_app_service, available_models (iterable of model names),
-            stderr_tail (iterable of recent stderr lines).
-    """
-
-    table = Table(title=LABEL_MODEL_SERVICE)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    for key in (
-        "provider",
-        "command_available",
-        "command_path",
-        "configured_base_url",
-        "configured_model",
-        "service_reachable",
-        "model_available",
-        "generation_checked",
-        "generation_available",
-        "generation_message",
-        "app_owned",
-        "pid",
-        "base_url",
-        "message",
-        "runtime_base_url_matches_app_service",
-    ):
-        table.add_row(key, str(payload.get(key, "-")))
-    console.print(table)
-    console.print(
-        Panel(
-            "\n".join(cast(list[str], payload.get("available_models", []))) or "-",
-            title=TITLE_AVAILABLE_MODELS,
-            border_style="green",
-        )
-    )
-    stderr_tail = cast(list[str], payload.get("stderr_tail", []))
-    if stderr_tail:
-        console.print(
-            Panel(
-                "\n".join(stderr_tail),
-                title=TITLE_MODEL_SERVICE_STDERR_TAIL,
-                border_style="yellow",
-            )
-        )
-
-
-def _render_webgui_service_status(payload: dict[str, object]) -> None:
-    """Render app-owned Web GUI state and log tails."""
-
-    table = Table(title=TITLE_WEB_GUI_SERVICE)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    for key in (
-        "command_available",
-        "command_path",
-        "package_available",
-        "service_reachable",
-        "app_owned",
-        "pid",
-        "host",
-        "port",
-        "url",
-        "message",
-    ):
-        table.add_row(key, str(payload.get(key, "-")))
-    console.print(table)
-    stderr_tail = cast(list[str], payload.get("stderr_tail", []))
-    if stderr_tail:
-        console.print(
-            Panel(
-                "\n".join(stderr_tail),
-                title=TITLE_WEB_GUI_STDERR_TAIL,
-                border_style="yellow",
-            )
-        )
-
-
-def _render_camofox_service_status(payload: dict[str, object]) -> None:
-    """Render app-owned Camofox helper state and log tails."""
-
-    table = Table(title=TITLE_CAMOFOX_BROWSER_HELPER)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    for key in (
-        "command_available",
-        "command_path",
-        "package_available",
-        "dependency_available",
-        "access_key_configured",
-        "service_reachable",
-        "health_ok",
-        "app_owned",
-        "pid",
-        "host",
-        "port",
-        "base_url",
-        "tool_dir",
-        "message",
-    ):
-        table.add_row(key, str(payload.get(key, "-")))
-    console.print(table)
-    stderr_tail = cast(list[str], payload.get("stderr_tail", []))
-    if stderr_tail:
-        console.print(
-            Panel(
-                "\n".join(stderr_tail),
-                title=TITLE_CAMOFOX_STDERR_TAIL,
-                border_style="yellow",
-            )
-        )
-
-
-def _render_operator_launcher_status(payload: dict[str, object]) -> None:
-    """
-    Render the operator launcher status table and surface selection panel to the console.
-
-    Parameters:
-        payload (dict[str, object]): Observer payload containing state for the launcher view, including
-            default runtime plan, side-service snapshots, setup readiness, and runtime daemon state.
-
-    The function prints a table of surfaces (runtime daemon, web GUI, model service, camofox, setup) with current status and suggested next action, followed by a panel listing operator menu choices.
-    """
-
-    plan = cast(dict[str, object], payload["default_runtime_plan"])
-    model_service = cast(dict[str, object], payload["model_service"])
-    camofox_service = cast(dict[str, object], payload["camofox_service"])
-    webgui_service = cast(dict[str, object], payload["webgui_service"])
-    setup = cast(dict[str, object], payload["setup"])
-    table = Table(title=TITLE_OPERATOR_LAUNCHER)
-    table.add_column(LABEL_SURFACE)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_NEXT)
-    table.add_row(
-        LABEL_RUNTIME_DAEMON,
-        STATUS_ACTIVE if payload["runtime_active"] else str(payload["runtime_state"]),
-        (
-            f"{', '.join(cast(list[str], plan['symbols']))} "
-            f"{plan['interval']} {plan['lookback']} / poll {plan['poll_seconds']}s"
-        ),
-    )
-    if webgui_service.get("app_owned"):
-        webgui_state = STATUS_APP_OWNED
-    elif webgui_service.get("service_reachable"):
-        webgui_state = STATUS_EXTERNAL
-    else:
-        webgui_state = str(webgui_service.get("message"))
-    table.add_row(
-        "Web GUI",
-        webgui_state,
-        str(webgui_service.get("url") or "agentic-trader webgui-service start"),
-    )
-    table.add_row(
-        LABEL_MODEL_SERVICE,
-        (
-            STATUS_READY
-            if model_service.get("model_available")
-            else str(model_service.get("message"))
-        ),
-        str(model_service.get("base_url") or model_service.get("configured_base_url")),
-    )
-    table.add_row(
-        LABEL_CAMOFOX,
-        (
-            STATUS_READY
-            if camofox_service.get("health_ok")
-            else str(camofox_service.get("message"))
-        ),
-        str(camofox_service.get("base_url") or "agentic-trader camofox-service start"),
-    )
-    table.add_row(
-        LABEL_SETUP,
-        STATUS_READY if setup.get("core_ready") else STATUS_NEEDS_ATTENTION,
-        "agentic-trader setup-status --json",
-    )
-    console.print(table)
-    console.print(
-        Panel(
-            "\n".join(
-                [
-                    LAUNCHER_OPTION_OPEN_WEB_GUI,
-                    LAUNCHER_OPTION_CONTINUE_TUI,
-                    LAUNCHER_OPTION_REFRESH,
-                    LAUNCHER_OPTION_EXIT,
-                ]
-            ),
-            title=TITLE_CHOOSE_SURFACE,
-            border_style="cyan",
-        )
+    """Check local environment, LLM, and database readiness."""
+    run_doctor_command(
+        settings=get_settings(),
+        json_output=json_output,
+        open_db=_open_db,
+        latest_order_formatter=_format_latest_order,
+        health_check=lambda settings: LocalLLM(settings).health_check(),
     )
 
 
@@ -3866,406 +1249,6 @@ def _operator_launcher() -> None:
     )
 
 
-@app.command("setup-status")
-def setup_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display system setup and tool/model-service readiness.
-
-    When json_output is True, emit a structured JSON payload of the setup status; otherwise render human-friendly console panels summarizing source setup, optional tool ownership/readiness, and model-service state.
-
-    Parameters:
-        json_output (bool): `True` to output a machine-readable JSON payload, `False` to render console output.
-    """
-
-    settings = get_settings()
-    payload = build_setup_status(settings).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_setup_status(payload)
-
-
-@tool_ownership_app.command("status")
-def tool_ownership_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show persisted optional helper ownership decisions."""
-
-    settings = get_settings()
-    payload = read_tool_ownership_payload(settings).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_tool_ownership(payload)
-
-
-@tool_ownership_app.command("set")
-def tool_ownership_set(
-    ollama_owner: str | None = typer.Option(
-        None,
-        "--ollama-owner",
-        help=HELP_OLLAMA_OWNER,
-    ),
-    firecrawl_owner: str | None = typer.Option(
-        None,
-        "--firecrawl-owner",
-        help=HELP_FIRECRAWL_OWNER,
-    ),
-    camofox_owner: str | None = typer.Option(
-        None,
-        "--camofox-owner",
-        help=HELP_CAMOFOX_OWNER,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Persist explicit ownership decisions for optional helper tools.
-
-    Accepts ownership mode overrides for Ollama, Firecrawl, and Camofox, validates each mode, and writes the persisted ownership choices to application settings. When --json is set, emits the persisted payload as JSON; otherwise renders a human-friendly panel.
-
-    Parameters:
-        ollama_owner (str | None): Optional Ollama ownership override.
-        firecrawl_owner (str | None): Optional Firecrawl ownership override.
-        camofox_owner (str | None): Optional Camofox ownership override.
-        json_output (bool): If true, emit the persisted ownership payload as compact JSON instead of rendering a panel.
-
-    Raises:
-        typer.BadParameter: If no ownership decisions are provided or if any provided mode is invalid.
-    """
-
-    updates: dict[str, str] = {}
-    for tool, value in (
-        ("ollama", ollama_owner),
-        ("firecrawl", firecrawl_owner),
-        ("camofox", camofox_owner),
-    ):
-        if value is None:
-            continue
-        try:
-            updates[tool] = validate_ownership_mode(value)
-        except ValueError as exc:
-            modes = ", ".join(mode for mode in OWNERSHIP_MODES if mode != "undecided")
-            raise typer.BadParameter(f"{exc}; valid values: {modes}") from exc
-    if not updates:
-        raise typer.BadParameter("Select at least one ownership decision to persist.")
-
-    settings = get_settings()
-    payload = write_tool_ownership(settings, updates, source="cli").model_dump(
-        mode="json"
-    )
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_tool_ownership(payload)
-
-
-@app.command("setup")
-def setup_command(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-    dry_run: bool = typer.Option(
-        True,
-        "--dry-run/--no-dry-run",
-        help=HELP_SETUP_DRY_RUN,
-    ),
-) -> None:
-    """
-    Display local system setup status and guidance.
-
-    If `json_output` is true, emit a JSON payload containing the keys
-    `dry_run`, `mutated`, `status`, and `message`. Otherwise render a human-friendly
-    setup status view and a guidance panel.
-
-    Parameters:
-        json_output (bool): If true, emit the JSON payload instead of rendering UI.
-        dry_run (bool): If true, only report status without performing interactive or system installs.
-    """
-
-    settings = get_settings()
-    status = build_setup_status(settings).model_dump(mode="json")
-    payload: dict[str, object] = {
-        "dry_run": dry_run,
-        "mutated": False,
-        "status": status,
-        "message": MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_setup_status(status)
-    console.print(
-        _render_health_panel(
-            TITLE_SETUP_GUIDANCE,
-            str(payload["message"]),
-            border_style="cyan",
-        )
-    )
-
-
-@model_service_app.command("status")
-def model_service_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-    probe_generation: bool = typer.Option(
-        False,
-        "--probe-generation",
-        help=(
-            "Run a tiny Ollama generation probe in addition to lightweight "
-            "service/model checks."
-        ),
-    ),
-) -> None:
-    """Show local model-service and configured-model readiness."""
-
-    settings = get_settings()
-    payload = build_model_service_status(
-        settings,
-        include_generation=probe_generation,
-    ).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_model_service_status(payload)
-
-
-@model_service_app.command("start")
-def model_service_start(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-    host: str | None = typer.Option(
-        None,
-        "--host",
-        help=HELP_MODEL_SERVICE_HOST,
-    ),
-    port: int | None = typer.Option(
-        None,
-        "--port",
-        min=1,
-        max=65535,
-        help=HELP_MODEL_SERVICE_PORT,
-    ),
-) -> None:
-    """Start app-owned Ollama on loopback without touching external services."""
-
-    settings = get_settings()
-    try:
-        payload = start_model_service(
-            settings,
-            host=host,
-            port=port,
-        ).model_dump(mode="json")
-    except Exception as exc:
-        error_payload = {
-            "started": False,
-            "error": redact_sensitive_text(exc, max_length=240),
-        }
-        if json_output:
-            _emit_json(error_payload)
-        else:
-            console.print(
-                _render_health_panel(
-                    TITLE_MODEL_SERVICE_START_FAILED,
-                    str(error_payload["error"]),
-                    border_style="red",
-                )
-            )
-        raise typer.Exit(code=1) from exc
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_model_service_status(payload)
-
-
-@model_service_app.command("stop")
-def model_service_stop(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Stop only the app-owned model-service process recorded in runtime state."""
-
-    settings = get_settings()
-    payload = stop_model_service(settings).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_model_service_status(payload)
-
-
-@model_service_app.command("pull")
-def model_service_pull(
-    model_name: str = typer.Argument(..., help=HELP_MODEL_NAME_TO_PULL),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Pull an Ollama model for the configured or app-owned local service."""
-
-    settings = get_settings()
-    try:
-        payload = pull_model(settings, model_name)
-    except Exception as exc:
-        payload = {
-            "model": model_name,
-            "exit_code": 1,
-            "stderr": redact_sensitive_text(exc, max_length=240),
-        }
-    if json_output:
-        _emit_json(payload)
-    else:
-        stdout = str(payload.get("stdout", "")) or "-"
-        stderr = str(payload.get("stderr", "")) or "-"
-        table = Table(title=TITLE_MODEL_PULL)
-        table.add_column(LABEL_FIELD)
-        table.add_column(LABEL_VALUE)
-        table.add_row(LABEL_MODEL, str(payload["model"]))
-        table.add_row(LABEL_EXIT_CODE, str(payload["exit_code"]))
-        table.add_row(LABEL_STDOUT, stdout)
-        table.add_row(LABEL_STDERR, stderr)
-        console.print(table)
-    exit_code_value = payload.get("exit_code", 1)
-    exit_code = exit_code_value if isinstance(exit_code_value, int) else 1
-    if exit_code != 0:
-        raise typer.Exit(code=1)
-
-
-@webgui_service_app.command("status")
-def webgui_service_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show app-owned local Web GUI readiness and log tails."""
-
-    settings = get_settings()
-    payload = build_webgui_service_status(settings).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_webgui_service_status(payload)
-
-
-@webgui_service_app.command("start")
-def webgui_service_start(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-    open_browser: bool = typer.Option(
-        True,
-        "--open-browser/--no-open-browser",
-        help=HELP_WEBGUI_OPEN_BROWSER,
-    ),
-) -> None:
-    """Start the app-owned loopback Web GUI process."""
-
-    settings = get_settings()
-    try:
-        payload = start_operator_webgui(
-            settings,
-            open_browser=open_browser,
-        ).model_dump(mode="json")
-    except Exception as exc:
-        error_payload = {
-            "started": False,
-            "error": redact_sensitive_text(exc, max_length=240),
-        }
-        if json_output:
-            _emit_json(error_payload)
-        else:
-            console.print(
-                _render_health_panel(
-                    TITLE_WEB_GUI_START_FAILED,
-                    str(error_payload["error"]),
-                    border_style="red",
-                )
-            )
-        raise typer.Exit(code=1) from exc
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_webgui_service_status(payload)
-
-
-@webgui_service_app.command("stop")
-def webgui_service_stop(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Stop only the app-owned local Web GUI process."""
-
-    settings = get_settings()
-    payload = stop_webgui_service(settings).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_webgui_service_status(payload)
-
-
-@camofox_service_app.command("status")
-def camofox_service_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show app-owned Camofox browser helper readiness and log tails."""
-
-    settings = get_settings()
-    payload = build_camofox_service_status(settings).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_camofox_service_status(payload)
-
-
-@camofox_service_app.command("start")
-def camofox_service_start(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-    host: str | None = typer.Option(
-        None,
-        "--host",
-        help=HELP_CAMOFOX_SERVICE_HOST,
-    ),
-    port: int | None = typer.Option(
-        None,
-        "--port",
-        min=1,
-        max=65535,
-        help=HELP_CAMOFOX_SERVICE_PORT,
-    ),
-) -> None:
-    """Start app-owned Camofox on loopback without touching external helpers."""
-
-    settings = get_settings()
-    try:
-        payload = start_camofox_service(
-            settings,
-            host=host,
-            port=port,
-        ).model_dump(mode="json")
-    except Exception as exc:
-        error_payload = {
-            "started": False,
-            "error": redact_sensitive_text(exc, max_length=240),
-        }
-        if json_output:
-            _emit_json(error_payload)
-        else:
-            console.print(
-                _render_health_panel(
-                    TITLE_CAMOFOX_START_FAILED,
-                    str(error_payload["error"]),
-                    border_style="red",
-                )
-            )
-        raise typer.Exit(code=1) from exc
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_camofox_service_status(payload)
-
-
-@camofox_service_app.command("stop")
-def camofox_service_stop(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Stop only the app-owned Camofox process recorded in runtime state."""
-
-    settings = get_settings()
-    payload = stop_camofox_service(settings).model_dump(mode="json")
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_camofox_service_status(payload)
-
-
 @app.command("runtime-mode-checklist")
 def runtime_mode_checklist(
     target_mode: RuntimeMode = typer.Argument(..., help=HELP_RUNTIME_MODE_TARGET),
@@ -4289,1207 +1272,15 @@ def runtime_mode_checklist(
     _render_runtime_mode_transition_plan(plan)
 
 
-def _research_sidecar_payload(
-    settings: Settings, *, probe: bool = False
-) -> dict[str, object]:
-    payload = build_research_sidecar_state(settings, probe=probe).model_dump(
-        mode="json"
-    )
-    payload["cycleControl"] = get_research_cycle_control(settings).model_dump(
-        mode="json"
-    )
-    payload["latestSnapshot"] = _latest_research_snapshot_payload(settings)
-    payload["latestDigestReplay"] = _latest_research_digest_replay_payload(settings)
-    return payload
-
-
-def _latest_research_snapshot_payload(settings: Settings) -> dict[str, object]:
-    try:
-        record = read_latest_research_snapshot(settings)
-    except Exception as exc:
-        return {
-            "available": False,
-            "error": str(exc),
-        }
-    if record is None:
-        return {
-            "available": False,
-            "error": "no_research_snapshot_recorded",
-        }
-    return {
-        "available": True,
-        "record": record.model_dump(mode="json"),
-    }
-
-
-def _latest_research_digest_replay_payload(settings: Settings) -> dict[str, object]:
-    try:
-        record = read_research_digest_replay(settings)
-    except Exception as exc:
-        return {
-            "available": False,
-            "error": str(exc),
-        }
-    if record is None:
-        return {
-            "available": False,
-            "error": "no_research_digest_replay_recorded",
-        }
-    return {
-        "available": True,
-        "record": record.model_dump(mode="json"),
-    }
-
-
-def _render_research_sidecar_state(payload: dict[str, object]) -> None:
-    table = Table(title=TITLE_RESEARCH_SIDECAR_STATUS)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_MODE, str(payload["mode"]))
-    table.add_row(LABEL_ENABLED, str(payload["enabled"]))
-    table.add_row(LABEL_BACKEND, str(payload["backend"]))
-    table.add_row(LABEL_STATUS, str(payload["status"]))
-    table.add_row(LABEL_UPDATED_AT, str(payload["updated_at"]))
-    table.add_row(
-        LABEL_WATCHED_SYMBOLS,
-        ", ".join(cast(list[str], payload["watched_symbols"])) or "-",
-    )
-    last_success = payload.get("last_successful_update_at")
-    table.add_row(LABEL_LAST_SUCCESSFUL_UPDATE, str(last_success or "-"))
-    last_error = payload.get("last_error")
-    table.add_row(LABEL_LAST_ERROR, str(last_error or "-"))
-    control = cast(dict[str, object], payload.get("cycleControl", {}))
-    table.add_row(LABEL_CYCLE_CONTROL, str(control.get("status", "-")))
-    table.add_row(
-        LABEL_TRIGGER_NOW,
-        LABEL_YES if control.get("trigger_now_requested") else LABEL_NO,
-    )
-    replay = cast(dict[str, object], payload.get("latestDigestReplay", {}))
-    table.add_row(
-        LABEL_DIGEST_REPLAY,
-        STATUS_AVAILABLE if replay.get("available") else "-",
-    )
-    console.print(table)
-
-    providers = cast(list[dict[str, object]], payload["provider_health"])
-    provider_table = Table(title=TITLE_RESEARCH_SOURCE_HEALTH)
-    provider_table.add_column(LABEL_PROVIDER)
-    provider_table.add_column(LABEL_TYPE)
-    provider_table.add_column(LABEL_ENABLED)
-    provider_table.add_column(LABEL_FRESHNESS)
-    provider_table.add_column(LABEL_MESSAGE)
-    for provider in providers:
-        provider_table.add_row(
-            str(provider["provider_id"]),
-            str(provider["provider_type"]),
-            str(provider["enabled"]),
-            str(provider["freshness"]),
-            str(provider["message"]),
-        )
-    console.print(provider_table)
-
-
-@app.command("research-status")
-def research_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-    probe: bool = typer.Option(
-        False,
-        "--probe/--no-probe",
-        help=HELP_RESEARCH_PROBE,
-    ),
-) -> None:
-    """Show optional research sidecar mode, backend, and source health."""
-    settings = get_settings()
-    payload = _research_sidecar_payload(settings, probe=probe)
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_research_sidecar_state(payload)
-
-
-@app.command("research-cycle-control")
-def research_cycle_control(
-    pause: bool = typer.Option(
-        False,
-        "--pause",
-        help=HELP_RESEARCH_CYCLE_PAUSE,
-    ),
-    resume: bool = typer.Option(
-        False,
-        "--resume",
-        help=HELP_RESEARCH_CYCLE_RESUME,
-    ),
-    trigger_now: bool = typer.Option(
-        False,
-        "--trigger-now",
-        help=HELP_RESEARCH_CYCLE_TRIGGER_NOW,
-    ),
-    reason: str | None = typer.Option(
-        None,
-        "--reason",
-        help=HELP_RESEARCH_CYCLE_REASON,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Show or modify the advisory operator control state for automated research cycles.
-
-    If called without an action flag, displays the current persisted control state.
-    If one of `--pause`, `--resume`, or `--trigger-now` is provided, persists that control action with an optional operator `reason` and returns the updated state. Only one action flag may be selected; supplying more than one raises a `typer.BadParameter`. When `json_output` is true, emits a JSON payload containing the control state, whether the action was persisted, and the effective execution policy.
-
-    Parameters:
-        pause (bool): If true, persist a request to pause future automated research-cycle runs.
-        resume (bool): If true, persist a request to resume future automated research-cycle runs.
-        trigger_now (bool): If true, request one immediate research-cycle run for the next runner.
-        reason (str | None): Optional operator note to persist with the control state.
-        json_output (bool): If true, emit the response as JSON instead of printing a panel.
-    """
-    selected_actions = [
-        action
-        for action, enabled in (
-            ("pause", pause),
-            ("resume", resume),
-            ("trigger_now", trigger_now),
-        )
-        if enabled
-    ]
-    if len(selected_actions) > 1:
-        raise typer.BadParameter(MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION)
-    if reason is not None and not selected_actions:
-        raise typer.BadParameter(MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION)
-    settings = get_settings()
-    action = (
-        cast(ResearchCycleControlAction, selected_actions[0])
-        if selected_actions
-        else None
-    )
-    control = (
-        set_research_cycle_control(settings, action=action, reason=reason)
-        if action is not None
-        else get_research_cycle_control(settings)
-    )
-    payload: dict[str, object] = {
-        "control": control.model_dump(mode="json"),
-        "persisted": action is not None,
-        "execution_policy": {
-            "broker_access": False,
-            "proposal_creation": False,
-            "manual_review_required": True,
-        },
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS.format(
-                label=LABEL_RESEARCH_CYCLE_CONTROL,
-                status=control.status,
-                trigger_label=LABEL_TRIGGER_NOW_REQUESTED,
-                trigger_now=(LABEL_YES if control.trigger_now_requested else LABEL_NO),
-            ),
-            title=TITLE_RESEARCH_CYCLE_CONTROL,
-            border_style="cyan",
-        )
-    )
-
-
-@app.command("research-refresh")
-def research_refresh(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-    persist: bool = typer.Option(
-        True,
-        "--persist/--no-persist",
-        help=HELP_RESEARCH_REFRESH_PERSIST,
-    ),
-) -> None:
-    """Run one isolated research sidecar pass without touching broker execution."""
-    settings = get_settings()
-    result = ResearchSidecar(settings).collect_once()
-    record_payload: dict[str, object] | None = None
-    if persist:
-        record = persist_research_result(settings, result)
-        record_payload = record.model_dump(mode="json")
-    payload = {
-        "state": result.state.model_dump(mode="json"),
-        "world_state": (
-            result.world_state.model_dump(mode="json")
-            if result.world_state is not None
-            else None
-        ),
-        "memory_update": result.memory_update,
-        "persisted": record_payload is not None,
-        "record": record_payload,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_research_sidecar_state(result.state.model_dump(mode="json"))
-    if record_payload is not None:
-        console.print(
-            _render_health_panel(
-                TITLE_RESEARCH_SNAPSHOT_PERSISTED,
-                MESSAGE_RESEARCH_SNAPSHOT_RECORDED.format(
-                    snapshot_id=record_payload["snapshot_id"]
-                ),
-                border_style="green",
-            )
-        )
-
-
-def _render_research_flow_setup(payload: dict[str, object]) -> None:
-    """Render optional CrewAI Flow setup state."""
-    version_source = str(payload.get("version_source") or "-")
-    version = str(payload["version"] or "-")
-    python_version = str(payload["python_version"] or "-")
-    table = Table(title=TITLE_RESEARCH_CREWAI_FLOW_SETUP)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_SIDECAR_AVAILABLE, str(payload["available"]))
-    table.add_row(LABEL_VERSION_SOURCE, version_source)
-    table.add_row(LABEL_VERSION, version)
-    table.add_row(LABEL_UV_AVAILABLE, str(payload["uv_available"]))
-    table.add_row(LABEL_FLOW_DIR, str(payload["flow_dir"]))
-    table.add_row(LABEL_SCAFFOLD_EXISTS, str(payload["flow_scaffold_exists"]))
-    table.add_row(LABEL_ENVIRONMENT_EXISTS, str(payload["environment_exists"]))
-    table.add_row(LABEL_PYTHON_VERSION, python_version)
-    table.add_row(LABEL_LOCKFILE_EXISTS, str(payload["lockfile_exists"]))
-    table.add_row(LABEL_CORE_DEPENDENCY, str(payload["core_dependency"]))
-    console.print(table)
-    console.print(
-        Panel(
-            "\n".join(cast(list[str], payload["recommended_commands"])),
-            title=TITLE_RECOMMENDED_COMMANDS,
-            border_style="cyan",
-        )
-    )
-
-
-@app.command("research-flow-setup")
-def research_flow_setup(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show optional CrewAI Flow setup status for the research sidecar backend."""
-    settings = get_settings()
-    payload = crewai_setup_status(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_research_flow_setup(payload)
-
-
-@app.command("research-crewai-setup")
-def research_crewai_setup(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Compatibility alias for `research-flow-setup`."""
-    settings = get_settings()
-    payload = crewai_setup_status(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_research_flow_setup(payload)
-
-
-@app.command()
-def run(
-    symbol: str = typer.Option(..., help=HELP_SYMBOL),
-    interval: str = typer.Option("1d", help=HELP_INTERVAL),
-    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
-) -> None:
-    """Run one strict paper cycle and record its reviewable decision evidence."""
-    settings = get_settings()
-    try:
-        ensure_llm_ready(settings)
-        artifacts = run_once(
-            settings=settings,
-            symbol=symbol,
-            interval=interval,
-            lookback=lookback,
-            allow_fallback=False,
-        )
-        order_id = persist_run(settings=settings, artifacts=artifacts)
-        _render_execution_panels(order_id, artifacts)
-    except Exception as exc:
-        console.print(
-            _render_health_panel(
-                TITLE_RUN_BLOCKED,
-                str(exc),
-                border_style="red",
-            )
-        )
-        raise typer.Exit(code=1)
-
-
-@app.command()
-def launch(
-    symbols: str = typer.Option(..., help=HELP_LAUNCH_SYMBOLS),
-    interval: str = typer.Option("1d", help=HELP_INTERVAL),
-    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
-    poll_seconds: int = typer.Option(300, help=HELP_LAUNCH_POLL_SECONDS),
-    continuous: bool = typer.Option(False, help=HELP_LAUNCH_CONTINUOUS),
-    max_cycles: int | None = typer.Option(None, help=HELP_LAUNCH_MAX_CYCLES),
-    background: bool = typer.Option(False, help=HELP_LAUNCH_BACKGROUND),
-) -> None:
-    """Start a foreground or managed background paper-runtime loop."""
-    settings = get_settings()
-    symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
-    if not symbol_list:
-        raise typer.BadParameter(MESSAGE_LAUNCH_SYMBOL_REQUIRED)
-
-    try:
-        health = ensure_llm_ready(settings)
-        console.print(
-            _render_health_panel(
-                TITLE_RUNTIME_GATE_OPEN,
-                MESSAGE_RUNTIME_GATE_OPEN.format(
-                    base_url=health.base_url,
-                    model_name=health.model_name,
-                ),
-                border_style="green",
-            )
-        )
-        console.print(
-            Panel(
-                MESSAGE_LAUNCH_PLAN.format(
-                    symbols=", ".join(symbol_list),
-                    interval=interval,
-                    lookback=lookback,
-                    continuous=continuous,
-                    poll_seconds=poll_seconds,
-                    background=background,
-                ),
-                title=TITLE_LAUNCH_PLAN,
-                border_style="cyan",
-            )
-        )
-        if background:
-            if not continuous:
-                raise typer.BadParameter(MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS)
-            pid = start_background_service(
-                settings=settings,
-                symbols=symbol_list,
-                interval=interval,
-                lookback=lookback,
-                poll_seconds=poll_seconds,
-                continuous=continuous,
-                max_cycles=max_cycles,
-            )
-            console.print(
-                _render_health_panel(
-                    "Background Service Started",
-                    f"Orchestrator is running in the background with PID {pid}.",
-                    border_style="green",
-                )
-            )
-            return
-        results = run_service(
-            settings=settings,
-            symbols=symbol_list,
-            interval=interval,
-            lookback=lookback,
-            poll_seconds=poll_seconds,
-            continuous=continuous,
-            max_cycles=max_cycles,
-        )
-        if not results:
-            console.print(
-                _render_health_panel(
-                    "Service Stopped",
-                    "No new results were produced before the orchestrator stopped.",
-                    border_style="yellow",
-                )
-            )
-            return
-        latest_result = results[-1]
-        _render_execution_panels(latest_result.order_id, latest_result.artifacts)
-    except Exception as exc:
-        console.print(
-            _render_health_panel(
-                "Launch Blocked",
-                str(exc),
-                border_style="red",
-            )
-        )
-        raise typer.Exit(code=1)
-
-
-@app.command()
-def portfolio(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show the current paper portfolio and open positions."""
-    settings = get_settings()
-    payload = _portfolio_payload(settings)
-    snapshot = PortfolioSnapshot.model_validate(
-        cast(dict[str, object], payload["snapshot"])
-    )
-    position_payloads = cast(list[dict[str, object]], payload["positions"])
-    positions = [
-        PositionSnapshot.model_validate(position) for position in position_payloads
-    ]
-    available = bool(payload["available"])
-    error = payload["error"]
-    if json_output:
-        _emit_json(payload)
-        return
-    if not available:
-        console.print(
-            Panel(
-                MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE.format(error=error),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-
-    summary = Table(title=TITLE_PORTFOLIO)
-    summary.add_column(LABEL_METRIC)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_CASH, f"{snapshot.cash:.2f}")
-    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
-    summary.add_row(LABEL_EQUITY, f"{snapshot.equity:.2f}")
-    summary.add_row(LABEL_REALIZED_PNL, f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
-    summary.add_row(LABEL_OPEN_POSITIONS, str(snapshot.open_positions))
-    console.print(summary)
-
-    positions_table = Table(title=TITLE_POSITIONS)
-    positions_table.add_column(LABEL_SYMBOL)
-    positions_table.add_column(LABEL_QUANTITY)
-    positions_table.add_column(LABEL_AVERAGE_PRICE)
-    positions_table.add_column(LABEL_MARKET_PRICE)
-    positions_table.add_column(LABEL_MARKET_VALUE)
-    positions_table.add_column(LABEL_UNREALIZED_PNL)
-    for position in positions:
-        positions_table.add_row(
-            position.symbol,
-            f"{position.quantity:.6f}",
-            f"{position.average_price:.4f}",
-            f"{position.market_price:.4f}",
-            f"{position.market_value:.2f}",
-            f"{position.unrealized_pnl:.2f}",
-        )
-    if positions:
-        console.print(positions_table)
-    else:
-        console.print(
-            Panel(
-                MESSAGE_NO_OPEN_POSITIONS,
-                title=TITLE_POSITIONS,
-                border_style="yellow",
-            )
-        )
-
-
-@app.command()
-def status(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
-    """
-    Show the current orchestrator runtime state.
-
-    When json_output is True, emit a JSON payload containing keys
-    `runtime_state`, `live_process`, `is_stale`, `age_seconds`,
-    `status_message`, and `state`. Otherwise render a human-readable
-    runtime status view to the terminal.
-
-    Parameters:
-        json_output (bool): If True, output the status as machine-readable JSON; if False, render rich terminal panels.
-    """
-    settings = get_settings()
-    state = read_service_state(settings)
-    if json_output:
-        view = build_runtime_status_view(state)
-        _emit_json(_runtime_status_payload(view, settings))
-        return
-    _render_service_state(state)
-
-
-@app.command("supervisor-status")
-def supervisor_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show daemon supervision metadata and recent background log tails."""
-    settings = get_settings()
-    payload = _service_supervisor_payload(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-
-    state_json = payload["state"]
-    if state_json is None:
-        console.print(
-            Panel(
-                MESSAGE_NO_RUNTIME_STATE,
-                title=TITLE_SERVICE_SUPERVISOR,
-                border_style="yellow",
-            )
-        )
-        return
-
-    state = ServiceStateSnapshot.model_validate(state_json)
-    table = Table(title=TITLE_SERVICE_SUPERVISOR)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_RUNTIME, str(payload["runtime_state"]))
-    table.add_row(
-        LABEL_LIVE_PROCESS,
-        LABEL_YES if payload["live_process"] else LABEL_NO,
-    )
-    table.add_row(LABEL_BACKGROUND_MODE, str(state.background_mode))
-    table.add_row(LABEL_LAUNCH_COUNT, str(state.launch_count))
-    table.add_row(LABEL_RESTART_COUNT, str(state.restart_count))
-    table.add_row(LABEL_LAST_TERMINAL_STATE, state.last_terminal_state or "-")
-    table.add_row(LABEL_LAST_TERMINAL_AT, state.last_terminal_at or "-")
-    table.add_row(LABEL_STDOUT_LOG, state.stdout_log_path or "-")
-    table.add_row(LABEL_STDERR_LOG, state.stderr_log_path or "-")
-    table.add_row(LABEL_STATUS_NOTE, str(payload["status_message"]))
-    console.print(table)
-    console.print(
-        Panel(
-            "\n".join(cast(list[str], payload["stdout_tail"]))
-            or MESSAGE_NO_STDOUT_LOG_LINES,
-            title=TITLE_SERVICE_STDOUT_TAIL,
-            border_style="cyan",
-        )
-    )
-    console.print(
-        Panel(
-            "\n".join(cast(list[str], payload["stderr_tail"]))
-            or MESSAGE_NO_STDERR_LOG_LINES,
-            title=TITLE_SERVICE_STDERR_TAIL,
-            border_style="yellow",
-        )
-    )
-
-
-@app.command("broker-status")
-def broker_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display broker backend status and execution safety gates.
-
-    Use `--json` for the observer payload, or the default table for backend, adapter, state flags,
-    kill switch state, and healthcheck details.
-    """
-    settings = get_settings()
-    payload = _broker_payload(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-
-    table = Table(title=TITLE_BROKER_STATUS)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_BACKEND, str(payload["backend"]))
-    table.add_row(LABEL_ADAPTER, str(payload["adapter_name"]))
-    table.add_row(LABEL_STATE, str(payload["state"]))
-    table.add_row(LABEL_SIMULATED, str(payload["simulated"]))
-    table.add_row(
-        LABEL_LIVE_EXECUTION_ENABLED,
-        str(payload["live_execution_enabled"]),
-    )
-    table.add_row(LABEL_KILL_SWITCH_ACTIVE, str(payload["kill_switch_active"]))
-    table.add_row(LABEL_LIVE_REQUESTED, str(payload["live_requested"]))
-    table.add_row(LABEL_LIVE_READY, str(payload["live_ready"]))
-    table.add_row(LABEL_MESSAGE, str(payload["message"]))
-    healthcheck = _object_mapping(payload.get("healthcheck"))
-    if healthcheck:
-        table.add_row(LABEL_HEALTHCHECK, str(healthcheck.get("message", "-")))
-    console.print(table)
-
-
-def _render_readiness_checks(title: str, payload: Mapping[str, object]) -> None:
-    checks = payload.get("checks", [])
-    table = Table(title=title)
-    table.add_column(LABEL_CHECK)
-    table.add_column(LABEL_STATE)
-    table.add_column(LABEL_BLOCKING)
-    table.add_column(LABEL_DETAILS)
-    for item in _object_mapping_list(checks):
-        passed = bool(item.get("passed"))
-        state_label = (
-            f"[green]{STATUS_PASS}[/green]" if passed else f"[red]{STATUS_FAIL}[/red]"
-        )
-        table.add_row(
-            str(item.get("name", "-")),
-            state_label,
-            str(item.get("blocking", True)),
-            str(item.get("details", "")),
-        )
-    console.print(table)
-
-
-@app.command("provider-diagnostics")
-def provider_diagnostics(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display diagnostics for configured external providers (LLM, market data, news, Alpaca) and their readiness.
-
-    When `json_output` is true, emit the full diagnostics payload as JSON. Otherwise render a human-readable summary table and a provider source ladder showing provider type, role, enabled state, API key readiness, freshness, and notes.
-
-    Parameters:
-        json_output (bool): If true, emit the raw diagnostics payload as JSON instead of printing formatted tables.
-    """
-    settings = get_settings()
-    payload = provider_diagnostics_payload(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-
-    summary = Table(title=TITLE_PROVIDER_DIAGNOSTICS)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    llm = _object_mapping(payload.get("llm"))
-    market_data = _object_mapping(payload.get("market_data"))
-    news = _object_mapping(payload.get("news"))
-    alpaca = _object_mapping(payload.get("alpaca"))
-    summary.add_row(LABEL_LLM_PROVIDER, str(llm.get("provider", "-")))
-    summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
-    summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
-    summary.add_row(
-        LABEL_MARKET_PROVIDER,
-        str(market_data.get("selected_provider", "-")),
-    )
-    summary.add_row(LABEL_MARKET_ROLE, str(market_data.get("selected_role", "-")))
-    summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
-    summary.add_row(
-        LABEL_ALPACA_PAPER_ENDPOINT,
-        str(alpaca.get("paper_endpoint", "-")),
-    )
-    summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
-    summary.add_row(
-        LABEL_ALPACA_CREDENTIALS_CONFIGURED,
-        str(alpaca.get("credentials_configured", False)),
-    )
-    console.print(summary)
-
-    provider_table = Table(title=TITLE_PROVIDER_SOURCE_LADDER)
-    provider_table.add_column(LABEL_PROVIDER)
-    provider_table.add_column(LABEL_TYPE)
-    provider_table.add_column(LABEL_ROLE)
-    provider_table.add_column(LABEL_ENABLED)
-    provider_table.add_column(LABEL_API_KEY)
-    provider_table.add_column(LABEL_FRESHNESS)
-    provider_table.add_column(LABEL_NOTES)
-    for row in _object_mapping_list(payload.get("providers", [])):
-        provider_table.add_row(
-            str(row.get("provider_id", "-")),
-            str(row.get("provider_type", "-")),
-            str(row.get("role", "-")),
-            str(row.get("enabled", False)),
-            str(row.get("api_key_ready", "-")),
-            str(row.get("freshness", "-")),
-            ", ".join(str(note) for note in _object_list(row.get("notes", []))),
-        )
-    console.print(provider_table)
-
-
-@app.command("v1-readiness")
-def v1_readiness(
-    check_provider: bool = typer.Option(
-        False,
-        "--provider-check/--skip-provider-check",
-        help=HELP_V1_PROVIDER_CHECK,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show the V1 paper-operation and Alpaca paper-readiness checklist."""
-    settings = get_settings()
-    payload = v1_readiness_payload(settings, check_provider=check_provider)
-    if json_output:
-        _emit_json(payload)
-        return
-
-    paper = _object_mapping(payload.get("paper_operations"))
-    alpaca = _object_mapping(payload.get("alpaca_paper"))
-    paper_allowed = bool(paper.get("allowed"))
-    console.print(
-        Panel(
-            str(payload.get("summary", MESSAGE_V1_READINESS_STATUS_UNAVAILABLE)),
-            title=TITLE_V1_READINESS,
-            border_style="green" if paper_allowed else "yellow",
-        )
-    )
-    _render_readiness_checks(TITLE_PAPER_OPERATION_CHECKS, paper)
-    _render_readiness_checks(TITLE_ALPACA_PAPER_CHECKS, alpaca)
-
-
-@app.command("finance-ops")
-def finance_ops(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display finance operations checks and account/portfolio snapshots for operator inspection.
-
-    When called with json_output True, emit the finance operations payload as machine-readable JSON;
-    otherwise render a human-friendly terminal view showing broker/account snapshot, P&L and exposure checks, and readiness evidence.
-
-    Parameters:
-        json_output (bool): If True, output the payload as JSON instead of rendering terminal panels.
-    """
-    settings = get_settings()
-    payload = _finance_ops_payload(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_finance_ops(payload)
-
-
-@app.command("position-plan-repair")
-def position_plan_repair(
-    apply_changes: bool = typer.Option(
-        False,
-        "--apply",
-        help=HELP_POSITION_PLAN_REPAIR_APPLY,
-    ),
-    max_holding_bars: int = typer.Option(
-        20,
-        min=1,
-        max=500,
-        help=HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Backfill missing exit plans by repairing or proposing position plans derived from executed proposals.
-
-    Runs a reconciliation that either writes repaired position plans into the database (when `apply_changes` is True) or reports repair candidates without persisting changes. The command emits a JSON payload when `json_output` is True; otherwise it renders a terminal report.
-
-    Parameters:
-        apply_changes (bool): If True, persist repaired position plans. Defaults to False (dry-run).
-        max_holding_bars (int): Maximum holding bars to apply to repaired plans.
-        json_output (bool): If True, emit the result as JSON instead of rendering to the terminal.
-    """
-    settings = get_settings()
-    try:
-        db = _open_db(settings, read_only=not apply_changes)
-        try:
-            repairs = repair_missing_position_plans(
-                db=db,
-                apply_repair=apply_changes,
-                max_holding_bars=max_holding_bars,
-            )
-        finally:
-            db.close()
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - operator command should degrade on DB locks
-        console.print(
-            Panel(
-                MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE.format(error=exc),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0) from exc
-
-    created = sum(1 for item in repairs if item["status"] == "created")
-    candidates = sum(1 for item in repairs if item["status"] == "candidate")
-    skipped = sum(1 for item in repairs if item["status"] == "skipped")
-    payload: dict[str, object] = {
-        "applied": apply_changes,
-        "created": created,
-        "candidates": candidates,
-        "skipped": skipped,
-        "repairs": repairs,
-        "summary": (
-            f"Created {created} repaired position plan(s)."
-            if apply_changes
-            else f"Found {candidates} repair candidate(s)."
-        ),
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    _render_position_plan_repair(payload)
-
-
-@app.command("news-intelligence")
-def news_intelligence(
-    symbol: str = typer.Option(..., help=HELP_SYMBOL),
-    company_name: str | None = typer.Option(
-        None, "--company-name", help=HELP_NEWS_COMPANY_NAME
-    ),
-    sector: str | None = typer.Option(None, "--sector", help=HELP_NEWS_SECTOR),
-    classify_source: str | None = typer.Option(
-        None,
-        "--classify-source",
-        help=HELP_NEWS_CLASSIFY_SOURCE,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Builds a source-attributed news research plan for a symbol without fetching external web content.
-
-    Parameters:
-        symbol (str): Ticker symbol to build the research plan for.
-        company_name (str | None): Optional company name to disambiguate the ticker.
-        sector (str | None): Optional sector to include sector-level news checks.
-        classify_source (str | None): Optional source domain or URL to classify into the source-tier policy; if provided, classification is added to the payload.
-        json_output (bool): If true, emit the assembled payload as JSON; otherwise render a human-readable summary and query plan.
-    """
-    try:
-        payload = news_research_plan(
-            symbol=symbol, company_name=company_name, sector=sector
-        )
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-    if classify_source:
-        payload["classified_source"] = {
-            "source": classify_source,
-            "tier": classify_source_tier(classify_source),
-        }
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            str(payload["prompt_policy"]),
-            title=TITLE_NEWS_INTELLIGENCE.format(symbol=payload["symbol"]),
-            border_style="cyan",
-        )
-    )
-    table = Table(title=TITLE_NEWS_QUERY_PLAN)
-    table.add_column(LABEL_KIND)
-    table.add_column(LABEL_QUERY)
-    table.add_column(LABEL_MATERIALITY)
-    for query in cast(list[dict[str, str]], payload["query_templates"]):
-        table.add_row(query["kind"], query["query"], query["materiality_hint"])
-    console.print(table)
-
-
-@app.command("research-cycle-plan")
-def research_cycle_plan(
-    symbols: str = typer.Option(
-        "AAPL",
-        "--symbols",
-        help=HELP_RESEARCH_CYCLE_PLAN_SYMBOLS,
-    ),
-    cadence_seconds: int = typer.Option(
-        900,
-        "--cadence-seconds",
-        min=60,
-        help=HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
-    ),
-    max_proposals_per_cycle: int = typer.Option(
-        1,
-        "--max-proposals-per-cycle",
-        min=0,
-        max=10,
-        help=HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show the safe continuous research cycle contract without starting a daemon."""
-    symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
-    try:
-        payload = research_cycle_plan_payload(
-            symbols=symbol_list,
-            cadence_seconds=cadence_seconds,
-            max_proposals_per_cycle=max_proposals_per_cycle,
-        )
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            str(payload["safety_policy"]),
-            title=TITLE_RESEARCH_CYCLE_PLAN.format(cycle=payload["cycle"]),
-            border_style="cyan",
-        )
-    )
-    table = Table(title=TITLE_RESEARCH_CYCLE_PHASES)
-    table.add_column(LABEL_PHASE)
-    table.add_column(LABEL_PURPOSE)
-    table.add_column(LABEL_PRODUCES)
-    for phase in cast(list[dict[str, object]], payload["phases"]):
-        produce = cast(list[str] | tuple[str, ...], phase.get("produce", []))
-        table.add_row(
-            str(phase.get("name", "-")),
-            str(phase.get("purpose", "-")),
-            ", ".join(str(item) for item in produce),
-        )
-    console.print(table)
-
-
-@app.command("research-cycle-run")
-def research_cycle_run(
-    symbols: str = typer.Option(..., "--symbols", help=HELP_RESEARCH_CYCLE_RUN_SYMBOLS),
-    cycles: int = typer.Option(1, min=1, max=24, help=HELP_RESEARCH_CYCLE_RUN_CYCLES),
-    cadence_seconds: int = typer.Option(
-        60,
-        "--cadence-seconds",
-        min=1,
-        help=HELP_RESEARCH_CYCLE_RUN_CADENCE_SECONDS,
-    ),
-    max_proposals_per_cycle: int = typer.Option(
-        1,
-        "--max-proposals-per-cycle",
-        min=0,
-        max=10,
-        help=HELP_RESEARCH_CYCLE_RUN_MAX_PROPOSALS_PER_CYCLE,
-    ),
-    persist: bool = typer.Option(
-        True,
-        "--persist/--no-persist",
-        help=HELP_RESEARCH_CYCLE_RUN_PERSIST,
-    ),
-    sleep_between_cycles: bool = typer.Option(
-        True,
-        "--sleep/--no-sleep",
-        help=HELP_RESEARCH_CYCLE_RUN_SLEEP,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Run a bounded, evidence-only research cycle over a watchlist and present the results.
-
-    Parameters:
-        symbols (str): Comma-separated watchlist symbols to evaluate (case-insensitive).
-        cycles (int): Number of cycles to execute (1–24).
-        cadence_seconds (int): Seconds to wait between cycles when sleeping is enabled.
-        max_proposals_per_cycle (int): Maximum pending proposals allowed in the run's plan per cycle.
-        persist (bool): If True, persist each research snapshot to the runtime research JSON feed.
-        sleep_between_cycles (bool): If True, wait cadence_seconds between cycles; disable for rapid QA runs.
-        json_output (bool): If True, emit the aggregated payload as JSON instead of printing a summary.
-
-    Raises:
-        typer.BadParameter: If provided arguments are invalid (propagated from validation errors).
-    """
-    settings = get_settings()
-    symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
-    try:
-        payload = run_research_cycle(
-            settings,
-            symbols=symbol_list,
-            cycles=cycles,
-            cadence_seconds=cadence_seconds,
-            max_proposals_per_cycle=max_proposals_per_cycle,
-            persist=persist,
-            sleep_between_cycles=sleep_between_cycles,
-        )
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY.format(
-                executed_cycles=payload["executed_cycles"]
-            ),
-            title=TITLE_RESEARCH_CYCLE_RUN,
-            border_style="green",
-        )
-    )
-
-
-@app.command()
-def logs(
-    limit: int = typer.Option(20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display recent orchestrator runtime events.
-
-    Parameters:
-        limit (int): Maximum number of runtime events to return.
-        json_output (bool): If True, output the events as JSON instead of rendering rich panels.
-    """
-    settings = get_settings()
-    events = read_service_events(settings, limit=limit)
-    if json_output:
-        _emit_json([event.model_dump(mode="json") for event in events])
-        return
-    _render_service_events(events)
-
-
-@app.command("dashboard-snapshot")
-def dashboard_snapshot(
-    log_limit: int = typer.Option(14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT),
-    provider_check: bool = typer.Option(
-        False,
-        "--provider-check/--no-provider-check",
-        help=HELP_PROVIDER_CHECK,
-    ),
-) -> None:
-    """Emit the full Ink dashboard snapshot as a single JSON payload."""
-    settings = get_settings()
-    _emit_json(
-        build_dashboard_snapshot_payload(
-            settings,
-            log_limit=log_limit,
-            check_provider=provider_check,
-        )
-    )
-
-
 def build_dashboard_snapshot_payload(
     settings: Settings, *, log_limit: int = 14, check_provider: bool = False
 ) -> dict[str, object]:
-    """
-    Assembles a JSON-serializable dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
-
-    Builds health/doctor info, runtime status, supervisor, broker, model-service, and Web GUI payloads, recent service events and agent activity summary, and a collection of read-only payloads (portfolio, preferences, recent runs, journal, risk report, run review/trace/replay, trade/market context, canonical analysis, memory inspection, retrieval inspection, memory policy, chat history, calendar, news, and market cache).
-
-    Parameters:
-        settings (Settings): Application settings used to read service state, access the database, and resolve runtime paths.
-        log_limit (int): Maximum number of recent service events to include in the `logs` section (default 14).
-
-    Returns:
-        dict[str, object]: A JSON-serializable snapshot keyed by sections including (but not limited to) `doctor`, `status`, `supervisor`, `broker`, `modelService`, `webGui`, `logs`, `agentActivity`, `portfolio`, `preferences`, `recentRuns`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `canonicalAnalysis`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, and `marketCache`.
-    """
-    applied_tools = apply_app_owned_service_settings(settings, include_camofox=True)
-    llm = LocalLLM(settings)
-    health = llm.health_check()
-    state = read_service_state(settings)
-    view = build_runtime_status_view(state)
-
-    latest: str
-    db_status = "ok"
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            latest = _format_latest_order(db.latest_order())
-        finally:
-            db.close()
-    except Exception as exc:
-        latest = "unavailable"
-        db_status = f"Database unavailable: {exc}"
-
-    doctor_payload = {
-        "provider": settings.llm_provider,
-        "model": settings.model_name,
-        "runtime_mode": settings.runtime_mode,
-        "base_url": settings.base_url,
-        "runtime_dir": str(settings.runtime_dir),
-        "database": str(settings.database_path),
-        "db_status": db_status,
-        "model_routing": settings.model_routing(),
-        "llm_reachable": health.service_reachable,
-        "ollama_reachable": health.service_reachable,
-        "model_available": health.model_available,
-        "llm_status": health.message,
-        "latest_order": latest,
-    }
-    status_payload = _runtime_status_payload(view, settings)
-
-    events = read_service_events(settings, limit=log_limit)
-    activity = build_agent_activity_view(view.state, events)
-
-    return {
-        "ui": ui_payload(settings.ui_locale),
-        "doctor": doctor_payload,
-        "status": status_payload,
-        "supervisor": _service_supervisor_payload(settings),
-        "broker": _broker_payload(settings),
-        "modelService": (
-            applied_tools.model_service or build_model_service_status(settings)
-        ).model_dump(mode="json"),
-        "camofoxService": (
-            applied_tools.camofox_service or build_camofox_service_status(settings)
-        ).model_dump(mode="json"),
-        "webGui": build_webgui_service_status(settings).model_dump(mode="json"),
-        "toolOwnership": read_tool_ownership_payload(settings).model_dump(mode="json"),
-        "financeOps": _finance_ops_payload(settings),
-        "logs": [event.model_dump(mode="json") for event in events],
-        "agentActivity": {
-            "cycle_count": activity.cycle_count,
-            "current_symbol": activity.current_symbol,
-            "current_stage": activity.current_stage,
-            "current_stage_status": activity.current_stage_status,
-            "current_stage_message": activity.current_stage_message,
-            "last_completed_stage": activity.last_completed_stage,
-            "last_completed_message": activity.last_completed_message,
-            "last_outcome_type": activity.last_outcome_type,
-            "last_outcome_message": activity.last_outcome_message,
-            "stage_statuses": [
-                {
-                    "stage": stage.stage,
-                    "status": stage.status,
-                    "message": stage.message,
-                    "created_at": stage.created_at,
-                    "cycle_count": stage.cycle_count,
-                    "symbol": stage.symbol,
-                }
-                for stage in activity.stage_statuses
-            ],
-            "recent_stage_events": [
-                {
-                    "stage": stage.stage,
-                    "status": stage.status,
-                    "message": stage.message,
-                    "created_at": stage.created_at,
-                    "cycle_count": stage.cycle_count,
-                    "symbol": stage.symbol,
-                }
-                for stage in activity.recent_stage_events
-            ],
-        },
-        "portfolio": _portfolio_payload(settings),
-        "preferences": _preferences_payload(settings),
-        "recentRuns": _recent_runs_payload(settings, limit=8),
-        "proposalCandidates": proposal_candidates_payload(settings, limit=8),
-        "tradeProposals": trade_proposals_payload(settings, limit=8),
-        "journal": _journal_payload(settings, limit=8),
-        "riskReport": _risk_report_payload(settings),
-        "review": _run_record_payload(settings),
-        "trace": _run_record_payload(settings),
-        "tradeContext": _trade_context_payload(settings),
-        "marketContext": _market_context_payload(settings),
-        "canonicalAnalysis": _canonical_analysis_payload(settings),
-        "replay": _run_replay_payload(settings),
-        "memoryExplorer": _memory_explorer_payload(
-            settings, use_latest_run=True, limit=5
-        ),
-        "retrievalInspection": _retrieval_inspection_payload(settings),
-        "memoryPolicy": memory_write_policy_snapshot(),
-        "chatHistory": _chat_history_payload(settings),
-        "calendar": _calendar_payload(settings),
-        "news": _news_payload(settings),
-        "marketCache": _market_cache_payload(settings),
-        "research": _research_sidecar_payload(settings),
-        "providerDiagnostics": provider_diagnostics_payload(settings),
-        "v1Readiness": v1_readiness_payload(settings, check_provider=check_provider),
-    }
-
-
-def _claim_timestamped_dir(root: Path, label: str) -> Path:
-    """Claim a non-existing artifact directory path."""
-    root.mkdir(parents=True, exist_ok=True)
-    for attempt in range(1, 1000):
-        suffix = "" if attempt == 1 else f"-{attempt}"
-        candidate = root / f"{label}{suffix}"
-        try:
-            candidate.mkdir(parents=True, exist_ok=False)
-        except FileExistsError:
-            continue
-        return candidate
-    msg = MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE.format(label=repr(label))
-    raise RuntimeError(msg)
-
-
-def _write_bundle_json(bundle_dir: Path, filename: str, payload: object) -> str:
-    path = bundle_dir / filename
-    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
-    return str(path)
-
-
-def _latest_smoke_artifact_dir(artifacts_root: Path) -> Path | None:
-    if not artifacts_root.exists():
-        return None
-    candidates = [
-        path
-        for path in artifacts_root.glob("smoke-*")
-        if path.is_dir() and (path / "smoke-summary.json").exists()
-    ]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    return _build_dashboard_snapshot_payload(
+        settings,
+        deps=_dashboard_command_deps(),
+        log_limit=log_limit,
+        check_provider=check_provider,
+    )
 
 
 def build_evidence_bundle(
@@ -5501,1307 +1292,95 @@ def build_evidence_bundle(
     include_latest_smoke: bool = True,
     check_provider: bool = False,
 ) -> dict[str, object]:
-    """
-    Builds a read-only QA evidence bundle containing observer and runtime artifacts.
-
-    Creates a timestamped directory under `output_dir` (or the default QA artifacts root) and writes JSON/markdown artifacts such as the dashboard snapshot, runtime/supervisor/broker status, finance checks, provider diagnostics, v1 readiness, research and hardware profiles, recent logs, and an operator workflow manifest. Optionally includes the latest smoke test summary and QA report if available.
-
-    Parameters:
-        settings (Settings): Application runtime settings used to locate runtime and database paths and to assemble payloads.
-        output_dir (Path | None): Directory to place the bundle; defaults to the configured QA artifacts root.
-        label (str | None): Custom label for the bundle directory; if omitted a timestamped label is generated.
-        log_limit (int): Number of recent service events to include in the logs artifact.
-        include_latest_smoke (bool): If True, copy the most recent smoke test summary and QA markdown into the bundle when present.
-        check_provider (bool): If True, include provider checks when building provider-sensitive payloads.
-
-    Returns:
-        dict[str, object]: A manifest describing the created bundle, including:
-            - "bundle_version": bundle schema version string
-            - "generated_at": ISO timestamp of creation
-            - "bundle_dir": path to the created bundle directory
-            - "runtime_dir": runtime directory from settings
-            - "database_path": database path from settings
-            - "log_limit": the log_limit used
-            - "latest_smoke_dir": path to the latest smoke artifacts directory if found, otherwise null
-            - "files": mapping of logical artifact keys to file paths within the bundle (includes "manifest")
-    """
-    artifacts_root = (
-        output_dir.expanduser() if output_dir is not None else QA_ARTIFACTS_ROOT
-    )
-    if not artifacts_root.is_absolute():
-        artifacts_root = PROJECT_ROOT / artifacts_root
-    run_label = label or f"evidence-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    bundle_dir = _claim_timestamped_dir(artifacts_root, run_label)
-
-    state = read_service_state(settings)
-    status_view = build_runtime_status_view(state)
-    operation_plan = _runtime_mode_transition_plan(
-        settings, target_mode="operation", check_provider=False
-    )
-    events = read_service_events(settings, limit=log_limit)
-    files: dict[str, str] = {}
-    files["dashboard"] = _write_bundle_json(
-        bundle_dir,
-        "dashboard-snapshot.json",
-        build_dashboard_snapshot_payload(
-            settings,
-            log_limit=log_limit,
-            check_provider=check_provider,
-        ),
-    )
-    files["status"] = _write_bundle_json(
-        bundle_dir,
-        "status.json",
-        _runtime_status_payload(status_view, settings),
-    )
-    files["broker"] = _write_bundle_json(
-        bundle_dir,
-        "broker-status.json",
-        _broker_payload(settings),
-    )
-    files["finance_ops"] = _write_bundle_json(
-        bundle_dir,
-        "finance-ops.json",
-        _finance_ops_payload(settings),
-    )
-    files["provider_diagnostics"] = _write_bundle_json(
-        bundle_dir,
-        "provider-diagnostics.json",
-        provider_diagnostics_payload(settings),
-    )
-    files["v1_readiness"] = _write_bundle_json(
-        bundle_dir,
-        "v1-readiness.json",
-        v1_readiness_payload(settings, check_provider=check_provider),
-    )
-    files["supervisor"] = _write_bundle_json(
-        bundle_dir,
-        "supervisor-status.json",
-        _service_supervisor_payload(settings),
-    )
-    files["logs"] = _write_bundle_json(
-        bundle_dir,
-        "logs.json",
-        {"logs": [event.model_dump(mode="json") for event in events]},
-    )
-    files["runtime_mode_operation"] = _write_bundle_json(
-        bundle_dir,
-        "runtime-mode-operation-checklist.json",
-        operation_plan.model_dump(mode="json"),
-    )
-    files["operator_workflow"] = _write_bundle_json(
-        bundle_dir,
-        "operator-workflow.json",
-        build_operator_workflow_payload(settings),
-    )
-    files["research"] = _write_bundle_json(
-        bundle_dir,
-        "research-status.json",
-        _research_sidecar_payload(settings),
-    )
-    files["hardware_profile"] = _write_bundle_json(
-        bundle_dir,
-        "hardware-profile.json",
-        build_hardware_profile_payload(settings),
-    )
-
-    latest_smoke_dir: Path | None = None
-    if include_latest_smoke:
-        latest_smoke_dir = _latest_smoke_artifact_dir(artifacts_root)
-        if latest_smoke_dir is not None:
-            for source_name, target_name, key in (
-                (
-                    "smoke-summary.json",
-                    "latest-smoke-summary.json",
-                    "latest_smoke_summary",
-                ),
-                ("qa-report.md", "latest-qa-report.md", "latest_qa_report"),
-            ):
-                source = latest_smoke_dir / source_name
-                if source.exists():
-                    target = bundle_dir / target_name
-                    shutil.copyfile(source, target)
-                    files[key] = str(target)
-
-    manifest: dict[str, object] = {
-        "bundle_version": "qa-evidence.v1",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "bundle_dir": str(bundle_dir),
-        "runtime_dir": str(settings.runtime_dir),
-        "database_path": str(settings.database_path),
-        "log_limit": log_limit,
-        "latest_smoke_dir": str(latest_smoke_dir) if latest_smoke_dir else None,
-        "files": files,
-    }
-    manifest_path = bundle_dir / "manifest.json"
-    files["manifest"] = str(manifest_path)
-    manifest_path.write_text(
-        json.dumps(manifest, indent=2, default=str), encoding="utf-8"
-    )
-    return manifest
-
-
-@app.command("evidence-bundle")
-def evidence_bundle_command(
-    output_dir: Path | None = typer.Option(
-        None,
-        "--output-dir",
-        help=HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
-    ),
-    label: str | None = typer.Option(
-        None,
-        "--label",
-        help=HELP_EVIDENCE_BUNDLE_LABEL,
-    ),
-    log_limit: int = typer.Option(20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT),
-    include_latest_smoke: bool = typer.Option(
-        True,
-        "--include-latest-smoke/--no-latest-smoke",
-        help=HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
-    ),
-    provider_check: bool = typer.Option(
-        False,
-        "--provider-check/--no-provider-check",
-        help=HELP_PROVIDER_CHECK,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Create a QA evidence bundle containing runtime, broker, readiness, and diagnostic artifacts.
-
-    The command writes a bundle directory (under `output_dir` or the default `.ai/qa/artifacts`) and produces a manifest mapping artifact names to file paths. When `json_output` is true the manifest is emitted as JSON; otherwise a summary panel and table of artifact paths are printed.
-
-    Parameters:
-        output_dir (Path | None): Root directory for the bundle. If not provided, the default artifacts directory is used.
-        label (str | None): Optional label for the bundle directory name; a timestamped name is used when omitted.
-        log_limit (int): Maximum number of recent runtime events to include in the bundle.
-        include_latest_smoke (bool): If true, copy the latest smoke test summary/report into the bundle when available.
-        provider_check (bool): If true, include provider diagnostics in the bundle.
-        json_output (bool): If true, emit the bundle manifest as JSON instead of printing a human-readable summary.
-    """
-    settings = get_settings()
-    manifest = build_evidence_bundle(
+    return _build_dashboard_evidence_bundle(
         settings,
+        deps=_dashboard_command_deps(),
         output_dir=output_dir,
         label=label,
         log_limit=log_limit,
         include_latest_smoke=include_latest_smoke,
-        check_provider=provider_check,
+        check_provider=check_provider,
     )
-    if json_output:
-        _emit_json(manifest)
-        return
-    files = cast(dict[str, str], manifest["files"])
-    table = Table(title=TITLE_QA_EVIDENCE_BUNDLE)
-    table.add_column(LABEL_ARTIFACT, style="cyan")
-    table.add_column(LABEL_PATH)
-    for key, path in files.items():
-        table.add_row(key, path)
-    console.print(
-        Panel(
-            MESSAGE_EVIDENCE_BUNDLE_WRITTEN.format(bundle_dir=manifest["bundle_dir"]),
-            title=TITLE_EVIDENCE_BUNDLE,
-            border_style="green",
-        )
-    )
-    console.print(table)
 
 
 def build_observer_api_payload(
     settings: Settings, *, path: str, log_limit: int = 14
 ) -> tuple[int, dict[str, object]]:
-    """
-    Resolve an observer API request path into an HTTP status code and a JSON-serializable payload.
-
-    Supported paths:
-    - "/" or "/dashboard": returns a full dashboard snapshot payload.
-    - "/health": returns service name, basic OK flag, and the runtime status sub-object.
-    - "/status": returns a detailed runtime status view (runtime_state, live_process, is_stale, age_seconds, status_message, state).
-    - "/logs": returns a list of recent service events under the "logs" key.
-    - "/supervisor": returns supervisor status plus stdout/stderr log tails.
-    - "/broker": returns broker runtime payload.
-    - "/finance-ops": returns read-only broker/account/PnL/evidence checks.
-    - "/provider-diagnostics": returns network-free provider/source readiness.
-    - "/v1-readiness": returns V1 paper-operation and Alpaca paper-readiness gates.
-    - "/research": returns optional research sidecar mode and provider health.
-    - "/proposal-candidates": returns read-only scanner/research proposal candidates.
-    - "/trade-proposals": returns the read-only manual-review proposal queue.
-    - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
-
-    Parameters:
-        path (str): The requested API path.
-        log_limit (int): Maximum number of log events to include for the "/logs" path.
-
-    Returns:
-        tuple[int, dict[str, object]]: A pair of (HTTP status code, payload dictionary) appropriate for the given path.
-    """
-    if path in {"/", "/dashboard"}:
-        return 200, build_dashboard_snapshot_payload(settings, log_limit=log_limit)
-    if path == "/health":
-        return 200, {
-            "service": "agentic-trader-observer-api",
-            "ok": True,
-            "runtime": build_runtime_status_view(
-                read_service_state(settings)
-            ).runtime_state,
-        }
-    if path == "/status":
-        state = read_service_state(settings)
-        view = build_runtime_status_view(state)
-        return 200, _runtime_status_payload(view, settings)
-    if path == "/logs":
-        return 200, {
-            "logs": [
-                event.model_dump(mode="json")
-                for event in read_service_events(settings, limit=log_limit)
-            ]
-        }
-    if path == "/supervisor":
-        return 200, _service_supervisor_payload(settings)
-    if path == "/broker":
-        return 200, _broker_payload(settings)
-    if path == "/finance-ops":
-        return 200, _finance_ops_payload(settings)
-    if path == "/provider-diagnostics":
-        return 200, provider_diagnostics_payload(settings)
-    if path == "/v1-readiness":
-        return 200, v1_readiness_payload(settings, check_provider=False)
-    if path == "/research":
-        return 200, _research_sidecar_payload(settings)
-    if path == "/proposal-candidates":
-        return 200, proposal_candidates_payload(settings, limit=50)
-    if path == "/trade-proposals":
-        return 200, trade_proposals_payload(settings, limit=50)
-    return 404, {"error": "not_found", "path": path}
-
-
-OBSERVER_API_ENDPOINTS: tuple[str, ...] = (
-    "/health",
-    "/dashboard",
-    "/status",
-    "/logs",
-    "/broker",
-    "/finance-ops",
-    "/provider-diagnostics",
-    "/v1-readiness",
-    "/research",
-    "/proposal-candidates",
-    "/trade-proposals",
-)
-
-
-@app.command("observer-api")
-def observer_api_command(
-    host: str = typer.Option("127.0.0.1", help=HELP_OBSERVER_API_HOST),
-    port: int = typer.Option(8765, min=1, max=65535, help=HELP_OBSERVER_API_PORT),
-    log_limit: int = typer.Option(14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT),
-    allow_nonlocal: bool = typer.Option(
-        False,
-        "--allow-nonlocal",
-        help=HELP_OBSERVER_API_ALLOW_NONLOCAL,
-    ),
-) -> None:
-    """
-    Start the local read-only observer API and serve dashboard and diagnostic endpoints.
-
-    Non-loopback binds require `--allow-nonlocal` and `AGENTIC_TRADER_OBSERVER_API_TOKEN`.
-    On success, the command prints the available endpoints and runs the observer API server.
-    """
-    settings = get_settings()
-    nonlocal_bind = not is_loopback_host(host)
-    if nonlocal_bind and (not allow_nonlocal or not settings.observer_api_token):
-        console.print(
-            Panel(
-                MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
-                title=TITLE_OBSERVER_API_BLOCKED,
-                border_style="red",
-            )
-        )
-        raise typer.Exit(code=2)
-    endpoints = "\n".join(f"- {endpoint}" for endpoint in OBSERVER_API_ENDPOINTS)
-    console.print(
-        Panel(
-            MESSAGE_OBSERVER_API_LISTENING.format(
-                endpoints=endpoints,
-                host=host,
-                port=port,
-            ),
-            title=TITLE_OBSERVER_API,
-            border_style="cyan",
-        )
-    )
-    try:
-        serve_observer_api(
-            host=host,
-            port=port,
-            resolver=lambda path: build_observer_api_payload(
-                settings, path=path, log_limit=log_limit
-            ),
-            allow_nonlocal=allow_nonlocal,
-            token=settings.observer_api_token,
-        )
-    except ValueError as exc:
-        console.print(
-            Panel(str(exc), title=TITLE_OBSERVER_API_BLOCKED, border_style="red")
-        )
-        raise typer.Exit(code=2) from exc
-
-
-@app.command("calendar-status")
-def calendar_status(
-    symbol: str | None = typer.Option(
-        None,
-        help=HELP_CALENDAR_STATUS_SYMBOL,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display the inferred market session status for a symbol.
-
-    If `symbol` is omitted the function resolves a symbol from the latest run or user preferences. If `json_output` is true the command emits the raw payload as JSON. When session data is unavailable the command prints a notice and exits with code 0.
-
-    Parameters:
-        symbol (str | None): Optional ticker symbol; if None the latest run symbol or a preference-derived default is used.
-        json_output (bool): When true, emit the raw payload as JSON instead of rendering a table.
-    """
-    settings = get_settings()
-    payload = _calendar_payload(settings, symbol=symbol)
-    if json_output:
-        _emit_json(payload)
-        return
-    if not payload["available"] or payload["session"] is None:
-        console.print(
-            Panel(
-                MESSAGE_CALENDAR_STATUS_UNAVAILABLE.format(error=payload["error"]),
-                title=TITLE_CALENDAR_STATUS,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    session = MarketSessionStatus.model_validate(payload["session"])
-    table = Table(title=TITLE_MARKET_SESSION.format(symbol=session.symbol))
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_VENUE, session.venue)
-    table.add_row(LABEL_ASSET_CLASS, session.asset_class)
-    table.add_row(LABEL_TIMEZONE, session.timezone)
-    table.add_row(LABEL_STATE, session.session_state)
-    table.add_row(LABEL_TRADABLE_NOW, str(session.tradable_now))
-    table.add_row(LABEL_NOTE, session.note)
-    console.print(table)
-
-
-@app.command("news-brief")
-def news_brief(
-    symbol: str | None = typer.Option(None, help=HELP_NEWS_BRIEF_SYMBOL),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display a short news brief for a resolved trading symbol.
-
-    If no symbol is provided, the command resolves a default symbol from saved preferences or the latest run. When invoked with --json the command emits the underlying payload as JSON instead of rendering human-readable tables and panels.
-
-    Parameters:
-        symbol (str | None): Optional symbol override; when omitted a default symbol is resolved from preferences or the latest run.
-    """
-    settings = get_settings()
-    payload = _news_payload(settings, symbol=symbol)
-    if json_output:
-        _emit_json(payload)
-        return
-    news_title = TITLE_NEWS_BRIEF.format(symbol=_value_or_dash(payload["symbol"]))
-    table = Table(title=news_title)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_MODE, str(payload["mode"]))
-    table.add_row(LABEL_AVAILABLE, str(payload["available"]))
-    headlines = cast(list[dict[str, object]], payload["headlines"])
-    table.add_row(LABEL_HEADLINES, str(len(headlines)))
-    console.print(table)
-    if not headlines:
-        console.print(
-            Panel(
-                MESSAGE_NO_TOOL_NEWS_HEADLINES,
-                title=TITLE_NEWS_TOOL,
-                border_style="yellow",
-            )
-        )
-        return
-    for headline in headlines:
-        console.print(
-            Panel(
-                f"{headline['publisher']} | {headline['title']}",
-                title=str(headline["symbol"]),
-                border_style="cyan",
-            )
-        )
-
-
-@app.command("cache-market-data")
-def cache_market_data(
-    symbol: str = typer.Option(..., help=HELP_SYMBOL),
-    interval: str = typer.Option("1d", help=HELP_INTERVAL),
-    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
-) -> None:
-    """Fetch and save a repeatable market snapshot CSV into the runtime cache."""
-    settings = get_settings()
-    refresh_settings = settings.model_copy(update={"market_data_mode": "refresh_cache"})
-    frame = fetch_ohlcv(
-        symbol, interval=interval, lookback=lookback, settings=refresh_settings
-    )
-    payload = _market_cache_payload(refresh_settings)
-    console.print(
-        Panel(
-            MESSAGE_MARKET_SNAPSHOT_CACHED.format(
-                bar_count=len(frame),
-                cache_dir=payload["cache_dir"],
-                cache_dir_label=LABEL_CACHE_DIR,
-                interval=interval,
-                lookback=lookback,
-                snapshot_count=payload["count"],
-                snapshot_count_label=LABEL_SNAPSHOT_COUNT,
-                symbol=symbol,
-            ),
-            title=TITLE_MARKET_SNAPSHOT_CACHED,
-            border_style="green",
-        )
+    return _build_observer_api_payload(
+        settings, deps=_dashboard_command_deps(), path=path, log_limit=log_limit
     )
 
 
-@app.command("market-cache")
-def market_cache(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display metadata about cached market snapshots as a human-readable table or, when requested, emit the observer-style payload as JSON.
-
-    When `json_output` is True, emits the full observer payload produced by the market cache payload builder. Otherwise prints a summarized table of recent cache entries (up to 20) and a compact cache status panel.
-
-    Parameters:
-        json_output (bool): If True, emit the observer payload as JSON; if False, render a human-readable table and status panel.
-    """
-    settings = get_settings()
-    payload = _market_cache_payload(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-    table = Table(title=TITLE_MARKET_SNAPSHOT_CACHE)
-    table.add_column(LABEL_FILENAME)
-    table.add_column(LABEL_SIZE)
-    table.add_column(LABEL_MODIFIED)
-    entries = cast(list[dict[str, object]], payload["entries"])
-    if not entries:
-        table.add_row("-", "-", "-")
-    else:
-        for entry in entries[:20]:
-            table.add_row(
-                str(entry["filename"]),
-                str(entry["size_bytes"]),
-                str(entry["modified_at"]),
-            )
-    console.print(table)
-    console.print(
-        Panel(
-            MESSAGE_CACHE_STATUS.format(
-                cache_dir=payload["cache_dir"],
-                cache_dir_label=LABEL_CACHE_DIR,
-                mode=payload["mode"],
-                mode_label=LABEL_MODE,
-                snapshot_count=payload["count"],
-                snapshot_count_label=LABEL_SNAPSHOT_COUNT,
-            ),
-            title=TITLE_CACHE_STATUS,
-            border_style="cyan",
-        )
-    )
-
-
-@app.command("preferences")
-def preferences_command(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display the saved investment preferences as a human-readable table or emit the observer payload as JSON.
-
-    When `json_output` is True, emits the raw observer payload for preferences. If preferences are temporarily unavailable because the runtime writer owns the database, prints an observer-mode panel and exits with code 0.
-
-    Parameters:
-        json_output (bool): If True, output the raw preferences payload as JSON instead of rendering a table.
-
-    Raises:
-        typer.Exit: Exits with code 0 when preferences are unavailable due to the runtime writer owning the database.
-    """
-    settings = get_settings()
-    payload = _preferences_payload(settings)
-    preferences = InvestmentPreferences.model_validate(payload)
-    available = bool(payload["available"])
-    error = payload["error"]
-    if json_output:
-        _emit_json(payload)
-        return
-    if not available:
-        console.print(
-            Panel(
-                MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE.format(error=error),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    table = Table(title=TITLE_INVESTMENT_PREFERENCES)
-    table.add_column(LABEL_SETTING)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_REGIONS, UI_LIST_SEPARATOR.join(preferences.regions) or "-")
-    table.add_row(LABEL_EXCHANGES, UI_LIST_SEPARATOR.join(preferences.exchanges) or "-")
-    table.add_row(
-        LABEL_CURRENCIES, UI_LIST_SEPARATOR.join(preferences.currencies) or "-"
-    )
-    table.add_row(LABEL_SECTORS, UI_LIST_SEPARATOR.join(preferences.sectors) or "-")
-    table.add_row(LABEL_RISK_PROFILE, preferences.risk_profile)
-    table.add_row(LABEL_TRADE_STYLE, preferences.trade_style)
-    table.add_row(LABEL_BEHAVIOR_PRESET, preferences.behavior_preset)
-    table.add_row(LABEL_AGENT_PROFILE, preferences.agent_profile)
-    table.add_row(LABEL_AGENT_TONE, preferences.agent_tone)
-    table.add_row(LABEL_STRICTNESS, preferences.strictness_preset)
-    table.add_row(LABEL_INTERVENTION, preferences.intervention_style)
-    table.add_row(LABEL_NOTES, preferences.notes or "-")
-    console.print(table)
-
-
-@app.command("journal")
-def journal(
-    limit: int = typer.Option(20, min=1, max=200, help=HELP_TRADE_JOURNAL_LIMIT),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display recent trade journal entries.
-
-    Emits a formatted terminal table of up to `limit` journal entries, or emits the raw payload as JSON when `json_output` is true. If the journal is unavailable because the runtime writer owns the database, prints an observer-mode panel containing the error and exits.
-
-    Parameters:
-        limit (int): Maximum number of journal entries to show.
-        json_output (bool): If true, output the full payload as JSON instead of rendering the table.
-
-    Raises:
-        typer.Exit: Raised with exit code 0 when the journal is unavailable.
-    """
-    settings = get_settings()
-    payload = _journal_payload(settings, limit=limit)
-    entry_payloads = cast(list[dict[str, object]], payload["entries"])
-    entries = [TradeJournalEntry.model_validate(entry) for entry in entry_payloads]
-    available = bool(payload["available"])
-    error = payload["error"]
-    if json_output:
-        _emit_json(payload)
-        return
-    if not available:
-        console.print(
-            Panel(
-                MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE.format(error=error),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    _render_trade_journal(entries)
-
-
-@app.command("risk-report")
-def risk_report(
-    report_date: str | None = typer.Option(None, help=HELP_RISK_REPORT_DATE),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display the daily risk report for the paper portfolio.
-
-    Emits a human-readable risk table and warnings to the console, or the raw observer payload as JSON when `json_output` is true.
-
-    Parameters:
-        report_date (str | None): UTC date in YYYY-MM-DD format to report on; when None, uses today's date.
-        json_output (bool): If true, emit the observer payload as JSON instead of rendering the human-readable report.
-    """
-    settings = get_settings()
-    payload = _risk_report_payload(settings, report_date=report_date)
-    report = (
-        DailyRiskReport.model_validate(payload["report"])
-        if payload["report"] is not None
-        else None
-    )
-    available = bool(payload["available"])
-    error = payload["error"]
-    if json_output:
-        _emit_json(payload)
-        return
-    if not available or report is None:
-        console.print(
-            Panel(
-                MESSAGE_RISK_REPORT_TEMPORARILY_UNAVAILABLE.format(error=error),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    _render_risk_report(report)
-
-
-@app.command("review-run")
-def review_run(
-    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Show a detailed review of the latest persisted run or a specific run by ID.
-
-    If run data is temporarily unavailable because the runtime writer owns the database, prints an observer-mode panel and exits with code 0. If no persisted run is found, prints a notice panel and exits with code 0. When `json_output` is true, emits the raw payload as JSON instead of rendering the human-friendly review.
-
-    Parameters:
-        run_id (str | None): Optional run identifier; when omitted the latest run is used.
-        json_output (bool): If true, output the underlying payload as JSON rather than rendering panels.
-    """
-    settings = get_settings()
-    payload = _run_record_payload(settings, run_id=run_id)
-    record = (
-        RunRecord.model_validate(payload["record"])
-        if payload["record"] is not None
-        else None
-    )
-    available = bool(payload["available"])
-    error = payload["error"]
-    if json_output:
-        _emit_json(payload)
-        return
-    if not available:
-        console.print(
-            Panel(
-                MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE.format(error=error),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    if record is None:
-        console.print(
-            Panel(
-                MESSAGE_NO_PERSISTED_RUNS_REVIEW,
-                title=TITLE_RUN_REVIEW,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    _render_run_review(record)
-
-
-@app.command("trace-run")
-def trace_run(
-    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show the persisted per-stage agent trace for a run."""
-    settings = get_settings()
-    payload = _run_record_payload(settings, run_id=run_id)
-    record = (
-        RunRecord.model_validate(payload["record"])
-        if payload["record"] is not None
-        else None
-    )
-    available = bool(payload["available"])
-    error = payload["error"]
-    if json_output:
-        _emit_json(payload)
-        return
-    if not available:
-        console.print(
-            Panel(
-                MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE.format(error=error),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    if record is None:
-        console.print(
-            Panel(
-                MESSAGE_NO_PERSISTED_RUNS_TRACE,
-                title=TITLE_TRACE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    _render_run_trace(record)
-
-
-@app.command("trade-context")
-def trade_context(
-    trade_id: str | None = typer.Option(None, help=HELP_TRADE_CONTEXT_ID),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Inspect persisted market, memory, model-routing, and rationale evidence."""
-    settings = get_settings()
-    payload = _trade_context_payload(settings, trade_id=trade_id)
-    record = _trade_context_record_from_payload(payload)
-    if json_output:
-        _emit_json(payload)
-        return
-    if _render_unavailable_trade_context(payload, record):
-        raise typer.Exit(code=0)
-    assert record is not None
-    _render_trade_context(record)
-
-
-def _trade_context_record_from_payload(
-    payload: dict[str, object],
-) -> TradeContextRecord | None:
-    if payload["record"] is None:
-        return None
-    return TradeContextRecord.model_validate(payload["record"])
-
-
-def _render_unavailable_trade_context(
-    payload: dict[str, object], record: TradeContextRecord | None
-) -> bool:
-    if not payload["available"]:
-        console.print(
-            Panel(
-                MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE.format(
-                    error=payload["error"]
-                ),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        return True
-    if record is None:
-        console.print(
-            Panel(
-                MESSAGE_NO_TRADE_CONTEXT,
-                title=TITLE_TRADE_CONTEXT,
-                border_style="yellow",
-            )
-        )
-        return True
-    return False
-
-
-def _render_trade_context(record: TradeContextRecord) -> None:
-    """
-    Render a rich console view of a trade context record.
-
-    Prints formatted tables and panels that summarize metadata (IDs, symbol, consensus,
-    rationales, execution outcome and rejection reason), routed models, retrieval/tool/shared
-    role summaries, review warnings, and the canonical analysis snapshot.
-
-    Parameters:
-        record (TradeContextRecord): Trade context containing identifiers, timestamps,
-            consensus and rationale fields, execution outcome and rejection reason,
-            routed model mapping, retrieved/tool/shared role summaries, review warnings,
-            and a canonical analysis snapshot.
-    """
-    summary = Table(title=TITLE_TRADE_CONTEXT_DETAIL.format(trade_id=record.trade_id))
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_CREATED, record.created_at)
-    summary.add_row(LABEL_RUN_ID, _value_or_dash(record.run_id))
-    summary.add_row(LABEL_SYMBOL, record.symbol)
-    summary.add_row(LABEL_CONSENSUS, record.consensus.alignment_level)
-    summary.add_row(LABEL_MANAGER_RATIONALE, record.manager_rationale)
-    summary.add_row(LABEL_EXECUTION_RATIONALE, record.execution_rationale)
-    summary.add_row(LABEL_EXECUTION_BACKEND, _value_or_dash(record.execution_backend))
-    summary.add_row(LABEL_EXECUTION_ADAPTER, _value_or_dash(record.execution_adapter))
-    summary.add_row(
-        LABEL_EXECUTION_OUTCOME, _value_or_dash(record.execution_outcome_status)
-    )
-    summary.add_row(
-        LABEL_REJECTION_REASON, _value_or_dash(record.execution_rejection_reason)
-    )
-    summary.add_row(LABEL_REVIEW_SUMMARY, record.review_summary)
-    console.print(summary)
-
-    routed_models = Table(title=TITLE_ROUTED_MODELS)
-    routed_models.add_column(LABEL_ROLE)
-    routed_models.add_column(LABEL_MODEL)
-    if not record.routed_models:
-        routed_models.add_row("-", "-")
-    else:
-        for role, model_name in sorted(record.routed_models.items()):
-            routed_models.add_row(role, model_name)
-    console.print(routed_models)
-
-    context_lines = [
-        f"{LABEL_RETRIEVED_MEMORY_ROLES}: {_join_or_dash(sorted(record.retrieved_memory_summary))}",
-        f"{LABEL_TOOL_OUTPUT_ROLES}: {_join_or_dash(sorted(record.tool_outputs))}",
-        f"{LABEL_SHARED_BUS_ROLES}: {_join_or_dash(sorted(record.shared_memory_summary))}",
-        f"{LABEL_WARNINGS}: {_join_or_dash(record.review_warnings)}",
-    ]
-    console.print(
-        Panel(
-            "\n".join(context_lines),
-            title=TITLE_CONTEXT_SUMMARY,
-            border_style="cyan",
-        )
-    )
-    console.print(
-        Panel(
-            "\n".join(_canonical_analysis_lines(record.canonical_snapshot)),
-            title=TITLE_CANONICAL_ANALYSIS,
-            border_style="blue",
-        )
-    )
-
-
-@app.command("replay-run")
-def replay_run(
-    run_id: str | None = typer.Option(None, help=HELP_RUN_REPLAY_ID),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Replay what the system knew at decision time using persisted traces."""
-    settings = get_settings()
-    payload = _run_replay_payload(settings, run_id=run_id)
-    replay = (
-        RunReplay.model_validate(payload["replay"])
-        if payload["replay"] is not None
-        else None
-    )
-    if json_output:
-        _emit_json(payload)
-        return
-    if not payload["available"]:
-        console.print(
-            Panel(
-                MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE.format(
-                    error=payload["error"]
-                ),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    if replay is None:
-        console.print(
-            Panel(
-                MESSAGE_NO_PERSISTED_RUNS_REPLAY,
-                title=TITLE_RUN_REPLAY,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    _render_run_replay(replay)
-
-
-@app.command("export-report")
-def export_report(
-    output: str = typer.Option(..., help=HELP_EXPORT_REPORT_OUTPUT),
-    run_id: str | None = typer.Option(None, help=HELP_EXPORT_REPORT_RUN_ID),
-) -> None:
-    """Export a run review as Markdown."""
-    settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    record = db.get_run(run_id) if run_id is not None else db.latest_run()
-    if record is None:
-        console.print(
-            Panel(
-                MESSAGE_NO_PERSISTED_RUNS_EXPORT,
-                title=TITLE_EXPORT_BLOCKED,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=1)
-    rendered = _render_run_markdown(record)
-    with open(output, "w", encoding="utf-8") as handle:
-        handle.write(rendered)
-    console.print(
-        Panel(
-            MESSAGE_RUN_REPORT_WRITTEN.format(output=output),
-            title=TITLE_EXPORTED,
-            border_style="green",
-        )
-    )
-
-
-@app.command("backtest")
-def backtest(
-    symbol: str = typer.Option(..., help=HELP_SYMBOL),
-    interval: str = typer.Option("1d", help=HELP_INTERVAL),
-    lookback: str = typer.Option("2y", help=HELP_LOOKBACK),
-    warmup_bars: int = typer.Option(120, min=60, help=HELP_BACKTEST_WARMUP_BARS),
-    compare_baseline: bool = typer.Option(False, help=HELP_BACKTEST_COMPARE_BASELINE),
-    compare_memory: bool = typer.Option(False, help=HELP_BACKTEST_COMPARE_MEMORY),
-    output: str | None = typer.Option(None, help=HELP_BACKTEST_OUTPUT),
-) -> None:
-    """
-    Run a backtest using the agent pipeline in one of three modes: walk‑forward, baseline comparison, or memory ablation.
-
-    Exactly one mode is executed per call: baseline comparison (when --compare-baseline), memory ablation (when --compare-memory), or the default walk‑forward backtest. Raises a parameter error if both comparison flags are set. When `output` is provided, writes a compact Markdown summary of the selected report to the given file path.
-
-    Parameters:
-        symbol (str): Ticker or symbol to backtest.
-        interval (str): OHLCV interval (e.g., "1d").
-        lookback (str): Historical lookback window (e.g., "2y").
-        warmup_bars (int): Number of warmup bars to seed replay before metrics are collected (minimum 60).
-        compare_baseline (bool): Run an agent vs deterministic baseline comparison.
-        compare_memory (bool): Run an ablation comparing agent performance with memory enabled vs disabled.
-        output (str | None): Optional file path to write a compact Markdown summary of the generated backtest report.
-    """
-    settings = get_settings()
-    allow_diagnostic_fallback = _training_backtest_allow_fallback(settings)
-    if compare_baseline and compare_memory:
-        raise typer.BadParameter(MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON)
-    if compare_baseline:
-        comparison = run_backtest_comparison(
-            settings=settings,
-            symbol=symbol,
-            interval=interval,
-            lookback=lookback,
-            warmup_bars=warmup_bars,
-            allow_fallback=allow_diagnostic_fallback,
-        )
-        _render_backtest_comparison(comparison)
-        if output is not None:
-            rendered = "\n".join(
-                [
-                    f"# Backtest Comparison: {comparison.symbol}",
-                    "",
-                    f"- Agent Return: {comparison.agent.total_return_pct:.2%}",
-                    f"- Baseline Return: {comparison.baseline.total_return_pct:.2%}",
-                    f"- Return Delta: {comparison.total_return_delta_pct:.2%}",
-                    f"- Agent Ending Equity: {comparison.agent.ending_equity:.2f}",
-                    f"- Baseline Ending Equity: {comparison.baseline.ending_equity:.2f}",
-                    f"- Ending Equity Delta: {comparison.ending_equity_delta:.2f}",
-                ]
-            )
-            Path(output).write_text(rendered, encoding="utf-8")
-            console.print(
-                Panel(
-                    MESSAGE_BACKTEST_COMPARISON_WRITTEN.format(output=output),
-                    title=TITLE_EXPORTED,
-                    border_style="green",
-                )
-            )
-        return
-
-    if compare_memory:
-        ablation = run_memory_ablation_backtest(
-            settings=settings,
-            symbol=symbol,
-            interval=interval,
-            lookback=lookback,
-            warmup_bars=warmup_bars,
-            allow_fallback=allow_diagnostic_fallback,
-        )
-        _render_backtest_ablation(ablation)
-        if output is not None:
-            rendered = "\n".join(
-                [
-                    f"# Backtest Memory Ablation: {ablation.symbol}",
-                    "",
-                    f"- With Memory Return: {ablation.with_memory.total_return_pct:.2%}",
-                    f"- Without Memory Return: {ablation.without_memory.total_return_pct:.2%}",
-                    f"- Return Delta: {ablation.total_return_delta_pct:.2%}",
-                    f"- With Memory Ending Equity: {ablation.with_memory.ending_equity:.2f}",
-                    f"- Without Memory Ending Equity: {ablation.without_memory.ending_equity:.2f}",
-                    f"- Ending Equity Delta: {ablation.ending_equity_delta:.2f}",
-                ]
-            )
-            Path(output).write_text(rendered, encoding="utf-8")
-            console.print(
-                Panel(
-                    MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN.format(output=output),
-                    title=TITLE_EXPORTED,
-                    border_style="green",
-                )
-            )
-        return
-
-    report = run_walk_forward_backtest(
-        settings=settings,
-        symbol=symbol,
-        interval=interval,
-        lookback=lookback,
-        warmup_bars=warmup_bars,
-        allow_fallback=allow_diagnostic_fallback,
-    )
-    _render_backtest_report(report)
-    if output is not None:
-        rendered = "\n".join(
-            [
-                f"# Walk-Forward Backtest: {report.symbol}",
-                "",
-                f"- Interval: {report.interval}",
-                f"- Lookback: {report.lookback}",
-                f"- Warmup Bars: {report.warmup_bars}",
-                f"- Cycles: {report.total_cycles}",
-                f"- Trades: {report.total_trades}",
-                f"- Closed Trades: {report.closed_trades}",
-                f"- {LABEL_WIN_RATE}: {report.win_rate:.2%}",
-                f"- Expectancy: {report.expectancy:.2f}",
-                f"- Total Return: {report.total_return_pct:.2%}",
-                f"- Max Drawdown: {report.max_drawdown_pct:.2%}",
-                f"- Exposure: {report.exposure_pct:.2%}",
-            ]
-        )
-        Path(output).write_text(rendered, encoding="utf-8")
-        console.print(
-            Panel(
-                MESSAGE_BACKTEST_SUMMARY_WRITTEN.format(output=output),
-                title=TITLE_EXPORTED,
-                border_style="green",
-            )
-        )
-
-
-@app.command("memory-explorer")
-def memory_explorer(
-    symbol: str | None = typer.Option(None, help=HELP_SYMBOL),
-    interval: str | None = typer.Option(None, help=HELP_INTERVAL),
-    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
-    limit: int = typer.Option(5, min=1, max=20, help=HELP_MEMORY_EXPLORER_LIMIT),
-    use_latest_run: bool = typer.Option(True, help=HELP_MEMORY_EXPLORER_USE_LATEST_RUN),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display historically similar recorded market memories for a resolved market snapshot.
-
-    Resolves a symbol/interval/lookback snapshot (optionally using the latest run snapshot), retrieves up to `limit` similar historical memory matches, and renders them to the terminal. If `json_output` is true, emits the raw payload as JSON instead of rendering. If the explorer is unavailable, prints an observer-mode panel and exits the CLI with code 0.
-
-    Parameters:
-        symbol (str | None): Symbol override for the snapshot; when None the command will attempt to infer a symbol.
-        interval (str | None): Time interval for the snapshot (e.g., "1d", "1h"); when None a default or inferred interval is used.
-        lookback (str): Lookback window for the snapshot (e.g., "180d").
-        limit (int): Maximum number of historical memory matches to retrieve (1–20).
-        use_latest_run (bool): When true, prefer the latest recorded run snapshot if available.
-        json_output (bool): If true, emit the raw payload as JSON instead of rendering terminal panels.
-    """
-    settings = get_settings()
-    payload = _memory_explorer_payload(
-        settings,
-        symbol=symbol,
-        interval=interval,
-        lookback=lookback,
-        limit=limit,
-        use_latest_run=use_latest_run,
-    )
-    if json_output:
-        _emit_json(payload)
-        return
-    if not payload["available"]:
-        console.print(
-            Panel(
-                MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE.format(
-                    error=payload["error"]
-                ),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    match_payloads = cast(list[dict[str, object]], payload["matches"])
-    matches = [HistoricalMemoryMatch.model_validate(match) for match in match_payloads]
-    _render_memory_matches(matches)
-
-
-def _retrieval_stage_counts(
-    stage: dict[str, object],
-) -> tuple[str, str, str, str, str, str]:
-    """
-    Produce display-ready string values for a retrieval stage's role and counts of its retrieval-related lists.
-
-    Parameters:
-        stage (dict[str, object]): Mapping expected to contain the keys:
-            - "role": role identifier
-            - "retrieved_memories": list of retrieved memory entries
-            - "retrieval_explanations": list of retrieval explanation entries
-            - "memory_notes": list of memory note strings
-            - "shared_memory_bus": list of shared-memory entry dicts
-            - "recent_runs": list of recent run identifiers
-
-    Returns:
-        tuple[str, str, str, str, str, str]: Display-ready role and count values.
-    """
-    return (
-        str(stage["role"]),
-        str(len(cast(list[str], stage["retrieved_memories"]))),
-        str(len(cast(list[dict[str, object]], stage["retrieval_explanations"]))),
-        str(len(cast(list[str], stage["memory_notes"]))),
-        str(len(cast(list[dict[str, object]], stage["shared_memory_bus"]))),
-        str(len(cast(list[str], stage["recent_runs"]))),
-    )
-
-
-def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
-    """
-    Builds human-readable lines describing retrieval and memory-related fields for a single retrieval stage.
-
-    The input mapping is expected to contain the following keys:
-    - "retrieved_memories": list[str] — similar memories retrieved for the stage.
-    - "memory_notes": list[str] — notes derived from trade memory for the stage.
-    - "shared_memory_bus": list[dict] — entries with at least "role" and "summary" keys describing shared memory items.
-    - "recent_runs": list[str] — identifiers or summaries of recent runs relevant to the stage.
-    - "tool_outputs": list[str] — outputs produced by tools during the stage.
-
-    Parameters:
-        stage (dict[str, object]): A stage payload containing retrieval/memory/tool fields as described above.
-
-    Returns:
-        list[str]: Display-ready lines for the stage.
-    """
-    retrieved_memories = cast(list[str], stage["retrieved_memories"])
-    retrieval_explanations = cast(
-        list[dict[str, object]], stage["retrieval_explanations"]
-    )
-    memory_notes = cast(list[str], stage["memory_notes"])
-    shared_memory_bus = cast(list[dict[str, object]], stage["shared_memory_bus"])
-    recent_runs = cast(list[str], stage["recent_runs"])
-    tool_outputs = cast(list[str], stage["tool_outputs"])
-    sections = [
-        (f"{LABEL_RETRIEVED_MEMORIES}:", retrieved_memories),
-        (f"{LABEL_WHY}:", _retrieval_explanation_lines(retrieval_explanations)),
-        (f"{LABEL_TRADE_MEMORY}:", memory_notes),
-        (f"{LABEL_RECENT_RUNS}:", recent_runs),
-        (
-            f"{LABEL_SHARED_BUS}:",
-            [f"{entry['role']}: {entry['summary']}" for entry in shared_memory_bus],
+def _dashboard_command_deps() -> DashboardCommandDeps:
+    return DashboardCommandDeps(
+        get_settings=lambda: get_settings(),
+        emit_json=_emit_json,
+        ui_payload=ui_payload,
+        open_read_db=lambda settings: _open_db(settings, read_only=True),
+        latest_order=_format_latest_order,
+        runtime_status_payload=_runtime_status_payload,
+        service_supervisor_payload=_service_supervisor_payload,
+        broker_payload=_broker_payload,
+        finance_ops_payload=_finance_ops_payload,
+        portfolio_payload=_portfolio_payload,
+        preferences_payload=_preferences_payload,
+        recent_runs_payload=lambda settings, limit: _recent_runs_payload(
+            settings, limit=limit
         ),
-        (f"{LABEL_TOOL_OUTPUTS}:", tool_outputs),
-    ]
-    lines: list[str] = []
-    for title, values in sections:
-        if not values:
-            continue
-        if lines:
-            lines.append("")
-        lines.append(title)
-        lines.extend(f"- {line}" for line in values)
-    return lines or [MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT]
+        proposal_candidates_payload=lambda settings, limit: proposal_candidates_payload(
+            settings, limit=limit
+        ),
+        trade_proposals_payload=lambda settings, limit: trade_proposals_payload(
+            settings, limit=limit
+        ),
+        journal_payload=lambda settings, limit: _journal_payload(settings, limit=limit),
+        risk_report_payload=_risk_report_payload,
+        run_record_payload=_run_record_payload,
+        trade_context_payload=_trade_context_payload,
+        market_context_payload=_market_context_payload,
+        canonical_analysis_payload=_canonical_analysis_payload,
+        run_replay_payload=_run_replay_payload,
+        memory_explorer_payload=lambda settings, use_latest_run, limit: _memory_explorer_payload(
+            settings, use_latest_run=use_latest_run, limit=limit
+        ),
+        retrieval_inspection_payload=_retrieval_inspection_payload,
+        chat_history_payload=_chat_history_payload,
+        calendar_payload=_calendar_payload,
+        news_payload=_news_payload,
+        market_cache_payload=_market_cache_payload,
+        research_sidecar_payload=_research_sidecar_payload,
+        provider_diagnostics_payload=provider_diagnostics_payload,
+        v1_readiness_payload=lambda settings, check_provider: v1_readiness_payload(
+            settings, check_provider=check_provider
+        ),
+        runtime_mode_operation=lambda settings: _runtime_mode_transition_plan(
+            settings, target_mode="operation", check_provider=False
+        ),
+        operator_workflow=build_operator_workflow_payload,
+        hardware_profile=build_hardware_profile_payload,
+        read_service_events=read_service_events,
+        read_service_state=read_service_state,
+        build_runtime_status_view=build_runtime_status_view,
+    )
 
 
-def _retrieval_explanation_lines(
-    explanations: list[dict[str, object]],
-) -> list[str]:
-    """
-    Format retrieval-stage explanation records into compact human-readable lines.
+register_dashboard_commands(app, _dashboard_command_deps())
 
-    Parameters:
-        explanations (list[dict[str, object]]): Sequence of explanation records. Each record may contain a top-level
-            `run_id` and an `explanation` mapping with optional keys `eligibility_reason`, `freshness`,
-            `outcome_tag`, and `diversity_bucket`. Non-dict `explanation` entries are skipped.
-
-    Returns:
-        list[str]: Lines formatted as "<run_id>: reason=<eligibility_reason> freshness=<freshness> outcome=<outcome_tag> bucket=<diversity_bucket>",
-        using "-" for missing values.
-    """
-    lines: list[str] = []
-    for item in explanations:
-        run_id = str(item.get("run_id") or "-")
-        explanation = _object_mapping(item.get("explanation"))
-        if not explanation:
-            continue
-        reason = str(explanation.get("eligibility_reason") or "-")
-        freshness = str(explanation.get("freshness") or "-")
-        outcome = str(explanation.get("outcome_tag") or "-")
-        bucket = str(explanation.get("diversity_bucket") or "-")
-        lines.append(
-            f"{run_id}: reason={reason} freshness={freshness} "
-            f"outcome={outcome} bucket={bucket}"
-        )
-    return lines
-
-
-def _render_retrieval_inspection(
-    stages: list[dict[str, object]], run_id: object
-) -> None:
-    """
-    Render a retrieval-inspection summary table and detailed panels for each agent stage to the console.
-
-    Builds a table titled with the run identifier that summarizes retrieval counts per stage, then emits a detailed panel per stage containing the retrieval lines and context information.
-
-    Parameters:
-        stages (list[dict[str, object]]): List of stage records. Each record must include a 'role' key and the retrieval-related fields consumed by `_retrieval_stage_counts` and `_retrieval_stage_lines`.
-        run_id (object): Identifier displayed in the table title.
-    """
-    table = Table(title=TITLE_RETRIEVAL_INSPECTION_FOR_RUN.format(run_id=run_id))
-    table.add_column(LABEL_ROLE)
-    table.add_column(LABEL_RETRIEVED_MEMORIES)
-    table.add_column(LABEL_WHY)
-    table.add_column(LABEL_TRADE_MEMORY)
-    table.add_column(LABEL_SHARED_BUS)
-    table.add_column(LABEL_RECENT_RUNS)
-    for stage in stages:
-        table.add_row(*_retrieval_stage_counts(stage))
-    console.print(table)
-    for stage in stages:
-        console.print(
-            Panel(
-                "\n".join(_retrieval_stage_lines(stage)),
-                title=TITLE_RETRIEVAL_STAGE.format(role=stage["role"]),
-                border_style="cyan",
-            )
-        )
-
-
-@app.command("retrieval-inspection")
-def retrieval_inspection(
-    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Render an inspection of which memories and context bundles were injected into each agent stage for a given run.
-
-    If --json is passed, emit the raw payload as JSON instead of rendering. When no run or stages are available the command prints a yellow observer-mode panel and exits with code 0.
-
-    Parameters:
-        run_id (str | None): Optional run identifier to inspect; when None the latest run is used.
-        json_output (bool): If True, output the inspection payload as JSON rather than rendered panels.
-    """
-    settings = get_settings()
-    payload = _retrieval_inspection_payload(settings, run_id=run_id)
-    if json_output:
-        _emit_json(payload)
-        return
-    if not payload["available"]:
-        console.print(
-            Panel(
-                MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE.format(
-                    error=payload["error"]
-                ),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    stages = cast(list[dict[str, object]], payload["stages"])
-    if not stages:
-        console.print(
-            Panel(
-                MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
-                title=TITLE_RETRIEVAL_INSPECTION,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-
-    _render_retrieval_inspection(stages, payload["run_id"])
-
-
-@app.command("memory-policy")
-def memory_policy(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show policy-controlled memory write permissions by domain."""
-    payload = memory_write_policy_snapshot()
-    if json_output:
-        _emit_json(payload)
-        return
-
-    table = Table(title=TITLE_MEMORY_WRITE_POLICY)
-    table.add_column(LABEL_DOMAIN)
-    table.add_column(LABEL_ALLOWED_ACTORS)
-    table.add_column(LABEL_NOTE)
-    for domain, policy in payload.items():
-        table.add_row(
-            domain,
-            ", ".join(policy["allowed_actors"]),
-            str(policy["note"]),
-        )
-    console.print(table)
+register_market_commands(
+    app,
+    MarketCommandDeps(
+        get_settings=lambda: get_settings(),
+        emit_json=_emit_json,
+        calendar_payload=_calendar_payload,
+        news_payload=_news_payload,
+        market_cache_payload=_market_cache_payload,
+        fetch_ohlcv=fetch_ohlcv,
+        news_research_plan=news_research_plan,
+        classify_source_tier=classify_source_tier,
+        research_cycle_plan_payload=research_cycle_plan_payload,
+        run_research_cycle=run_research_cycle,
+    ),
+)
 
 
 @app.command()
@@ -6935,136 +1514,19 @@ def monitor(
     run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 
-@app.command("tui")
-def ink_tui() -> None:
-    """Open the primary Ink control room, with Rich fallback if needed."""
-    tui_dir = Path(__file__).resolve().parent.parent / "tui"
-    if not tui_dir.exists():
-        console.print(
-            _render_health_panel(
-                TITLE_TUI_MISSING,
-                MESSAGE_TUI_MISSING,
-                border_style="yellow",
-            )
-        )
-        run_main_menu()
-        return
-
-    node_commands = resolve_tui_node_commands(tui_dir)
-    if node_commands is None:
-        console.print(
-            _render_health_panel(
-                TITLE_NODE_MISSING,
-                MESSAGE_NODE_MISSING,
-                border_style="yellow",
-            )
-        )
-        run_main_menu()
-        return
-    install_command, start_command, command_cwd, package_manager = node_commands
-
-    if not tui_dependencies_installed(tui_dir, command_cwd):
-        console.print(
-            _render_health_panel(
-                TITLE_INSTALLING_TUI_DEPENDENCIES,
-                MESSAGE_INSTALLING_TUI_DEPENDENCIES.format(
-                    package_manager=package_manager
-                ),
-                border_style="yellow",
-            )
-        )
-        subprocess.run(install_command, cwd=command_cwd, check=True)
-
-    cli_exec = shutil.which("agentic-trader") or "agentic-trader"
-    env = {
-        **os.environ,
-        "AGENTIC_TRADER_CLI": cli_exec,
-        "AGENTIC_TRADER_PYTHON": sys.executable,
-    }
-    subprocess.run(start_command, cwd=command_cwd, check=True, env=env)
-
-
 @app.command("stop-service")
 def stop_service(
     force: bool = typer.Option(False, help=HELP_STOP_SERVICE_FORCE),
 ) -> None:
-    """
-    Request a graceful stop for the background orchestrator and update persisted runtime state.
-
-    If no managed service is active, exits with code 0 and prints a notice. If the recorded PID is not alive, marks the runtime state as stopped, clears the stale PID, records a `stale_service_recovered` event, prints a notice, and exits with code 0. Otherwise, signals the running service to stop via the runtime control channel and records a stop request in the database; if `force` is True, sends a SIGTERM to the service process after requesting stop.
-
-    Parameters:
-        force (bool): If True, send SIGTERM to the service process after requesting a graceful stop.
-    """
-    settings = get_settings()
-    state = read_service_state(settings)
-    if state is None or state.pid is None:
-        console.print(
-            _render_health_panel(
-                TITLE_NOT_RUNNING,
-                MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    if not is_process_alive(state.pid):
-        db = TradingDatabase(settings)
-        try:
-            db.upsert_service_state(
-                state="stopped",
-                continuous=state.continuous,
-                poll_seconds=state.poll_seconds,
-                cycle_count=state.cycle_count,
-                symbols=state.symbols,
-                interval=state.interval,
-                lookback=state.lookback,
-                max_cycles=state.max_cycles,
-                current_symbol=None,
-                message=MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT.format(
-                    pid=state.pid
-                ),
-                last_error=state.last_error,
-                pid=None,
-                clear_pid=True,
-                stop_requested=False,
-            )
-            db.insert_service_event(
-                level="warning",
-                event_type="stale_service_recovered",
-                message=MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT.format(
-                    pid=state.pid
-                ),
-                cycle_count=state.cycle_count if state.cycle_count > 0 else None,
-                symbol=state.current_symbol,
-            )
-        finally:
-            db.close()
-        console.print(
-            _render_health_panel(
-                TITLE_STALE_STATE_RECOVERED,
-                MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED.format(pid=state.pid),
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-
-    request_stop(settings)
-    try:
-        db = TradingDatabase(settings)
-        try:
-            db.request_stop_service()
-        finally:
-            db.close()
-    except Exception:
-        pass
-    if force:
-        terminate_service_process(state.pid)
-    console.print(
-        _render_health_panel(
-            TITLE_STOP_REQUESTED,
-            MESSAGE_SERVICE_STOP_REQUESTED.format(pid=state.pid),
-            border_style="yellow",
-        )
+    """Request a graceful stop for the background orchestrator."""
+    run_stop_service_command(
+        settings=get_settings(),
+        force=force,
+        read_state=read_service_state,
+        process_alive=is_process_alive,
+        request_service_stop=request_stop,
+        database_factory=TradingDatabase,
+        terminate_process=terminate_service_process,
     )
 
 

@@ -1,7 +1,7 @@
 import time
 
 from rich.columns import Columns
-from rich.console import Console, Group
+from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
@@ -11,6 +11,8 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.runtime_feed import read_service_events, read_service_state
 from agentic_trader.schemas import (
     LLMHealthStatus,
+    ServiceEvent,
+    ServiceStateSnapshot,
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.tui_modules.monitor_sections import (
@@ -54,15 +56,39 @@ def build_monitor_renderable(
     Returns:
         Group: A rich.Group containing the assembled header, activity panels, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and risk report.
     """
-    db = db if db is not None else safe_open_read_db(settings)
+    db = _monitor_db(settings, db)
     runtime_state = read_service_state(settings)
     events = read_service_events(settings, limit=20)
-    header = Panel(
+    return Group(
+        _monitor_header(),
+        _activity_columns(settings, runtime_state, events),
+        _status_columns(settings, db, runtime_state, health),
+        _operator_data_columns(db),
+        _history_columns(db, events),
+        _risk_renderable(db),
+    )
+
+
+def _monitor_db(
+    settings: Settings, db: TradingDatabase | None
+) -> TradingDatabase | None:
+    return db if db is not None else safe_open_read_db(settings)
+
+
+def _monitor_header() -> Panel:
+    return Panel(
         Text("Agentic Trader Live Monitor", style=STYLE_KEY_COLUMN),
         subtitle=MESSAGE_MONITOR_RETURN_SHORTCUT,
         border_style="bright_blue",
     )
-    top = Columns(
+
+
+def _activity_columns(
+    settings: Settings,
+    runtime_state: ServiceStateSnapshot | None,
+    events: list[ServiceEvent],
+) -> Columns:
+    return Columns(
         [
             current_activity_panel(settings, runtime_state, events),
             Panel(
@@ -73,7 +99,15 @@ def build_monitor_renderable(
         equal=True,
         expand=True,
     )
-    middle = Columns(
+
+
+def _status_columns(
+    settings: Settings,
+    db: TradingDatabase | None,
+    runtime_state: ServiceStateSnapshot | None,
+    health: LLMHealthStatus | None,
+) -> Columns:
+    return Columns(
         [
             Panel(runtime_state_table(runtime_state), border_style="magenta"),
             Panel(
@@ -89,7 +123,10 @@ def build_monitor_renderable(
         equal=True,
         expand=True,
     )
-    bottom = Columns(
+
+
+def _operator_data_columns(db: TradingDatabase | None) -> Columns:
+    return Columns(
         [
             (
                 Panel(render_preferences(db.load_preferences()), border_style="green")
@@ -105,7 +142,10 @@ def build_monitor_renderable(
         equal=True,
         expand=True,
     )
-    footer = Columns(
+
+
+def _history_columns(db: TradingDatabase | None, events: list[ServiceEvent]) -> Columns:
+    return Columns(
         [
             (
                 Panel(
@@ -120,12 +160,14 @@ def build_monitor_renderable(
         equal=True,
         expand=True,
     )
-    extra = (
+
+
+def _risk_renderable(db: TradingDatabase | None) -> RenderableType:
+    return (
         Panel(risk_report_table(db), border_style="red")
         if db is not None
         else observer_mode_panel("Risk report")
     )
-    return Group(header, top, middle, bottom, footer, extra)
 
 
 def run_live_monitor(

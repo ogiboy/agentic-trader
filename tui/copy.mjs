@@ -41,6 +41,8 @@ export const instructionModes = Object.freeze(['preview', 'apply']);
 export const globalShortcutHelp =
   'r refresh  o one-shot  s start  x stop  R restart  q quit';
 
+export const cliExecutionUnavailable = 'No CLI command could be executed.';
+
 /**
  * Format a persona key into its human-readable label.
  * @param {string} value - Persona key to format (may be falsy).

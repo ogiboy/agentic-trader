@@ -1,6 +1,7 @@
 'use client';
 
 import { getFeedbackCopy } from '@/components/feedback/copy';
+import type { FeedbackCopy } from '@/components/feedback/copy';
 import { FeedbackResult } from '@/components/feedback/feedback-result';
 import {
   parsePageFeedback,
@@ -38,7 +39,7 @@ type FeedbackProps = Readonly<{
  * @param feedback - Parsed page feedback whose `title`, `url`, `opinion`, `submittedAt`, and `message` are included in the generated issue body
  * @returns A URL string that opens GitHub's new-issue page with the issue title and body prefilled
  */
-function buildIssueUrl(feedback: ParsedPageFeedback) {
+function buildIssueUrl(feedback: ParsedPageFeedback, copy: FeedbackCopy) {
   const body = [
     '## Docs feedback',
     '',
@@ -49,7 +50,7 @@ function buildIssueUrl(feedback: ParsedPageFeedback) {
     '',
     '## Note',
     '',
-    feedback.message || 'No additional note provided.',
+    feedback.message || copy.noteFallback,
   ].join('\n');
 
   const params = new URLSearchParams({
@@ -117,7 +118,7 @@ export function Feedback({ locale, title }: FeedbackProps) {
         storedAt: stored ? 'browser-local-storage' : 'browser-memory',
         destination: 'github-issue',
         forwarding: 'prepared',
-        githubUrl: buildIssueUrl(feedback),
+        githubUrl: buildIssueUrl(feedback, copy),
         warning: stored ? undefined : copy.storageWarning,
       });
       setMessage('');

@@ -244,73 +244,96 @@ def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
     }
 
 
+def _workflow_step(
+    order: int,
+    *,
+    name: str,
+    command: str,
+    purpose: str,
+    required_before_long_run: bool,
+) -> dict[str, object]:
+    return {
+        "order": order,
+        "name": name,
+        "command": command,
+        "purpose": purpose,
+        "required_before_long_run": required_before_long_run,
+    }
+
+
+OPERATOR_WORKFLOW_STEPS = [
+    _workflow_step(
+        1,
+        name="environment_doctor",
+        command="agentic-trader doctor",
+        purpose="Verify model, runtime directory, database path, and basic provider reachability.",
+        required_before_long_run=True,
+    ),
+    _workflow_step(
+        2,
+        name="hardware_profile",
+        command="agentic-trader hardware-profile",
+        purpose="Inspect local CPU, memory, accelerator hints, model size, and safe parallelism recommendations.",
+        required_before_long_run=True,
+    ),
+    _workflow_step(
+        3,
+        name="provider_diagnostics",
+        command="agentic-trader provider-diagnostics",
+        purpose="Inspect source ladder, API-key readiness, and fallback warnings without leaking secrets.",
+        required_before_long_run=True,
+    ),
+    _workflow_step(
+        4,
+        name="v1_readiness",
+        command="agentic-trader v1-readiness --provider-check",
+        purpose="Verify paper-operation gates and Alpaca external-paper readiness before longer operation.",
+        required_before_long_run=True,
+    ),
+    _workflow_step(
+        5,
+        name="fast_smoke",
+        command="pnpm run qa",
+        purpose="Run CLI/Rich/Ink smoke QA and produce smoke-summary.json plus qa-report.md.",
+        required_before_long_run=True,
+    ),
+    _workflow_step(
+        6,
+        name="one_cycle",
+        command="pnpm run qa -- --include-runtime-cycle --runtime-symbol AAPL --runtime-interval 1d --runtime-lookback 180d",
+        purpose="Optionally prove one strict foreground agent cycle with isolated runtime storage.",
+        required_before_long_run=False,
+    ),
+    _workflow_step(
+        7,
+        name="review_outputs",
+        command="agentic-trader review-run && agentic-trader trace-run && agentic-trader trade-context",
+        purpose="Inspect decision, stage trace, context pack, broker outcome, and reviewable rationale.",
+        required_before_long_run=True,
+    ),
+    _workflow_step(
+        8,
+        name="evidence_bundle",
+        command="agentic-trader evidence-bundle",
+        purpose="Package shared runtime truth, readiness payloads, logs, hardware profile, and latest smoke report.",
+        required_before_long_run=True,
+    ),
+    _workflow_step(
+        9,
+        name="background_paper_operation",
+        command="agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --background",
+        purpose="Start longer paper operation only after the readiness and evidence steps are understood.",
+        required_before_long_run=False,
+    ),
+]
+
+
+def _operator_workflow_steps() -> list[dict[str, object]]:
+    return [dict(step) for step in OPERATOR_WORKFLOW_STEPS]
+
+
 def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
     """Return the canonical V1 operator review workflow without executing it."""
-    steps = [
-        {
-            "order": 1,
-            "name": "environment_doctor",
-            "command": "agentic-trader doctor",
-            "purpose": "Verify model, runtime directory, database path, and basic provider reachability.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 2,
-            "name": "hardware_profile",
-            "command": "agentic-trader hardware-profile",
-            "purpose": "Inspect local CPU, memory, accelerator hints, model size, and safe parallelism recommendations.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 3,
-            "name": "provider_diagnostics",
-            "command": "agentic-trader provider-diagnostics",
-            "purpose": "Inspect source ladder, API-key readiness, and fallback warnings without leaking secrets.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 4,
-            "name": "v1_readiness",
-            "command": "agentic-trader v1-readiness --provider-check",
-            "purpose": "Verify paper-operation gates and Alpaca external-paper readiness before longer operation.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 5,
-            "name": "fast_smoke",
-            "command": "pnpm run qa",
-            "purpose": "Run CLI/Rich/Ink smoke QA and produce smoke-summary.json plus qa-report.md.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 6,
-            "name": "one_cycle",
-            "command": "pnpm run qa -- --include-runtime-cycle --runtime-symbol AAPL --runtime-interval 1d --runtime-lookback 180d",
-            "purpose": "Optionally prove one strict foreground agent cycle with isolated runtime storage.",
-            "required_before_long_run": False,
-        },
-        {
-            "order": 7,
-            "name": "review_outputs",
-            "command": "agentic-trader review-run && agentic-trader trace-run && agentic-trader trade-context",
-            "purpose": "Inspect decision, stage trace, context pack, broker outcome, and reviewable rationale.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 8,
-            "name": "evidence_bundle",
-            "command": "agentic-trader evidence-bundle",
-            "purpose": "Package shared runtime truth, readiness payloads, logs, hardware profile, and latest smoke report.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 9,
-            "name": "background_paper_operation",
-            "command": "agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --background",
-            "purpose": "Start longer paper operation only after the readiness and evidence steps are understood.",
-            "required_before_long_run": False,
-        },
-    ]
     return {
         "workflow_version": "operator-workflow.v1",
         "runtime_mode": settings.runtime_mode,
@@ -319,7 +342,7 @@ def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
         "kill_switch_active": settings.execution_kill_switch_active,
         "paper_first": settings.execution_backend == "paper"
         and not settings.live_execution_enabled,
-        "steps": steps,
+        "steps": _operator_workflow_steps(),
         "safety_notes": [
             "This workflow is descriptive and does not execute runtime actions.",
             "Live execution remains blocked until explicitly approved and implemented.",

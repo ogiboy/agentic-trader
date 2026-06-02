@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  cliExecutionUnavailable,
   dashboardPages as pages,
   dashboardStatusLine,
   dashboardTitle,
@@ -61,7 +62,7 @@ async function execCli(args, { expectJson = false } = {}) {
     }
   }
 
-  throw lastError || new Error('No CLI command could be executed.');
+  throw lastError || new Error(cliExecutionUnavailable);
 }
 
 async function runJsonCommand(args) {

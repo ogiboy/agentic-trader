@@ -18,13 +18,19 @@ from agentic_trader.cli_modules.proposal_params import (
     IdeaScoreCommand,
     ProposalCreateCommand,
 )
+from agentic_trader.cli_modules.proposal_records import (
+    candidate_draft_from_options,
+    create_candidate_record,
+    create_trade_proposal_record,
+    emit_candidate_created,
+    raise_candidate_create_error,
+    trade_proposal_draft_from_options,
+)
 from agentic_trader.cli_modules.proposal_support import (
     parse_candidate_status,
     parse_idea_preset,
-    parse_order_type,
     parse_proposal_status,
     parse_strategy_status,
-    parse_trade_side,
     proposal_candidates_payload,
     render_idea_score,
     render_proposal_candidates,
@@ -38,14 +44,10 @@ from agentic_trader.finance.ideas import (
     IdeaCandidate,
 )
 from agentic_trader.finance.proposal_candidates import (
-    ProposalCandidateDraft,
-    create_proposal_candidate,
     promote_proposal_candidate,
 )
 from agentic_trader.finance.proposals import (
-    TradeProposalDraft,
     approve_trade_proposal,
-    create_trade_proposal,
     reconcile_trade_proposal,
     refresh_trade_proposal_order,
     reject_trade_proposal,
@@ -214,70 +216,17 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
 ) -> None:
     """Persist a scanner/research candidate without approving or submitting it."""
     settings = _settings()
-    draft = ProposalCandidateDraft(
-        idea=IdeaCandidate(
-            symbol=symbol,
-            price=price,
-            volume=volume,
-            change_pct=change_pct,
-            relative_volume=relative_volume,
-            gap_pct=gap_pct,
-            range_pct=range_pct,
-            rsi=rsi,
-            ema_9=ema_9,
-            sma_20=sma_20,
-            sma_50=sma_50,
-            vwap=vwap,
-            spread_pct=spread_pct,
-        ),
-        preset=parse_idea_preset(preset),
-        quantity=quantity,
-        notional=notional,
-        stop_loss=stop_loss,
-        take_profit=take_profit,
-        invalidation_condition=invalidation_condition,
-        thesis=thesis,
-        materiality=materiality,
-        freshness=freshness,
-        liquidity=liquidity,
-        risk_notes=risk_notes,
-        source=source,
-    )
+    draft = candidate_draft_from_options(locals())
     try:
-        db = open_db(settings)
-        try:
-            candidate = create_proposal_candidate(
-                db=db,
-                draft=draft,
-                settings=settings,
-                enrich_provider_context=enrich_provider_context,
-                fetch_provider_news=fetch_provider_news,
-            )
-        finally:
-            db.close()
+        candidate = create_candidate_record(
+            settings=settings,
+            draft=draft,
+            enrich_provider_context=enrich_provider_context,
+            fetch_provider_news=fetch_provider_news,
+        )
     except ValueError as exc:
-        if json_output:
-            emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(
-            Panel(str(exc), title=text.TITLE_CANDIDATE_REJECTED, border_style="red")
-        )
-        raise typer.Exit(code=2) from exc
-    if json_output:
-        emit_json(candidate.model_dump(mode="json"))
-        return
-    console.print(
-        Panel(
-            text.MESSAGE_PROPOSAL_CANDIDATE_CREATED.format(
-                candidate_id=candidate.candidate_id,
-                symbol=candidate.symbol,
-                signal=candidate.signal.upper(),
-                score=candidate.score,
-            ),
-            title=text.TITLE_PROPOSAL_CANDIDATE_CREATED,
-            border_style="green",
-        )
-    )
+        raise_candidate_create_error(exc, json_output=json_output)
+    emit_candidate_created(candidate, json_output=json_output)
 
 
 def proposal_candidate_promote(
@@ -364,34 +313,9 @@ def proposal_create(**options: str) -> None:
         is set, a redacted JSON error is emitted before exit.
     """
     settings = _settings()
-    symbol = str(options["symbol"])
-    side = str(options["side"])
+    draft = trade_proposal_draft_from_options(cast(dict[str, object], options))
     try:
-        db = open_db(settings)
-        try:
-            proposal = create_trade_proposal(
-                db=db,
-                draft=TradeProposalDraft(
-                    symbol=symbol,
-                    side=parse_trade_side(side),
-                    order_type=parse_order_type(str(options["order_type"])),
-                    quantity=cast(float | None, options["quantity"]),
-                    notional=cast(float | None, options["notional"]),
-                    limit_price=cast(float | None, options["limit_price"]),
-                    reference_price=cast(float, options["reference_price"]),
-                    confidence=cast(float, options["confidence"]),
-                    thesis=str(options["thesis"]),
-                    stop_loss=cast(float | None, options["stop_loss"]),
-                    take_profit=cast(float | None, options["take_profit"]),
-                    invalidation_condition=cast(
-                        str | None, options["invalidation_condition"]
-                    ),
-                    source=str(options["source"]),
-                    review_notes=str(options["review_notes"]),
-                ),
-            )
-        finally:
-            db.close()
+        proposal = create_trade_proposal_record(settings=settings, draft=draft)
     except ValueError as exc:
         if bool(options["json_output"]):
             emit_json_error(exc)

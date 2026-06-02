@@ -287,6 +287,7 @@ class UITextCatalog:
     label_mark_status: str
     label_marked_at: str
     label_marks_recorded: str
+    label_matches: str
     label_max_drawdown: str
     label_max_cycles: str
     label_memories: str
@@ -297,6 +298,7 @@ class UITextCatalog:
     label_model: str
     label_model_available: str
     label_model_routing: str
+    label_model_service: str
     label_memory_gb: str
     label_modified: str
     label_multi_timeframe: str
