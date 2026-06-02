@@ -7,14 +7,16 @@ from typing import Any
 from uuid import uuid4
 
 from agentic_trader.config import Settings
+from agentic_trader.engine.alpaca_mapping import (
+    alpaca_order_kwargs,
+    open_order_snapshot_from_alpaca_order,
+    outcome_from_alpaca_order,
+    portfolio_snapshot_from_alpaca_account,
+    position_snapshot_from_alpaca_position,
+)
 from agentic_trader.engine.broker_utils import (
-    ALPACA_CANCELLED_STATUSES,
-    ALPACA_NO_FILL_STATUSES,
-    ALPACA_REJECTED_STATUSES,
-    alpaca_client_order_id,
     alpaca_credentials_ready,
     alpaca_uses_paper_endpoint,
-    coerce_float,
 )
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.execution.intent import (
@@ -370,101 +372,6 @@ class AlpacaPaperBrokerAdapter:
             projection,
         ) or self._gross_limit_outcome(intent, projection)
 
-    @staticmethod
-    def _order_kwargs(intent: ExecutionIntent) -> dict[str, object]:
-        """
-        Builds a dictionary of keyword arguments suitable for Alpaca order requests from an ExecutionIntent.
-
-        Parameters:
-            intent (ExecutionIntent): Execution intent containing symbol, side, order type, quantity or notional, limit price, and intent_id.
-
-        Returns:
-            dict[str, object]: Alpaca order request kwargs including:
-                - symbol: uppercased symbol
-                - side: Alpaca OrderSide enum value
-                - type: Alpaca OrderType enum value
-                - time_in_force: set to DAY
-                - client_order_id: sanitized client id
-                - qty or notional: present depending on which size field is provided
-                - limit_price: included when the intent is a limit order
-        """
-        from alpaca.trading.enums import OrderSide, OrderType, TimeInForce
-
-        order_type = (
-            OrderType.LIMIT if intent.order_type == "limit" else OrderType.MARKET
-        )
-        kwargs: dict[str, object] = {
-            "symbol": intent.symbol.upper(),
-            "side": OrderSide.BUY if intent.side == "buy" else OrderSide.SELL,
-            "type": order_type,
-            "time_in_force": TimeInForce.DAY,
-            "client_order_id": alpaca_client_order_id(intent.intent_id),
-        }
-        if intent.quantity is not None:
-            kwargs["qty"] = intent.quantity
-        elif intent.notional is not None:
-            kwargs["notional"] = intent.notional
-        if intent.order_type == "limit":
-            kwargs["limit_price"] = intent.limit_price
-        return kwargs
-
-    def _outcome_from_order(
-        self, intent: ExecutionIntent, order: object, *, action: str = "submitted"
-    ) -> ExecutionOutcome:
-        """
-        Convert an Alpaca order object into an internal ExecutionOutcome with normalized status and redacted rejection details.
-
-        Maps the order's filled quantity, average fill price, raw status, and reject reason into an ExecutionOutcome. Raw Alpaca statuses are mapped into internal status buckets (e.g., `rejected`, `partially_filled`, `cancelled`, `no_fill`, `filled`, `accepted`), and any rejection reason is redacted before inclusion.
-
-        Parameters:
-            action (str): Short verb describing the context for the outcome message (e.g., "submitted" or "refreshed").
-
-        Returns:
-            ExecutionOutcome: An ExecutionOutcome populated from the order, including normalized `status`, `filled_quantity`, optional `average_fill_price`, optional `rejection_reason` (redacted) and a human-readable `message` referencing the provided `action` and the broker's raw status.
-        """
-        filled_quantity = coerce_float(getattr(order, "filled_qty", 0.0))
-        average_fill_price = coerce_float(
-            getattr(order, "filled_avg_price", None), default=0.0
-        )
-        raw_status = str(getattr(order, "status", "accepted")).lower()
-        if raw_status in ALPACA_REJECTED_STATUSES:
-            status = "rejected"
-        elif filled_quantity > 0 and (
-            raw_status in ALPACA_CANCELLED_STATUSES
-            or raw_status in ALPACA_NO_FILL_STATUSES
-            or raw_status == "partially_filled"
-        ):
-            status = "partially_filled"
-        elif raw_status in ALPACA_CANCELLED_STATUSES:
-            status = "cancelled"
-        elif raw_status in ALPACA_NO_FILL_STATUSES:
-            status = "no_fill"
-        elif filled_quantity > 0:
-            status = "filled"
-        else:
-            status = "accepted"
-        raw_rejection_reason = str(getattr(order, "reject_reason", "")) or None
-        safe_rejection_reason = (
-            redact_sensitive_text(raw_rejection_reason, max_length=160)
-            if raw_rejection_reason
-            else None
-        )
-        return ExecutionOutcome(
-            intent_id=intent.intent_id,
-            order_id=str(getattr(order, "id", f"alpaca-paper-{uuid4().hex[:12]}")),
-            status=status,
-            adapter_name=self.backend_name,
-            execution_backend="alpaca_paper",
-            filled_quantity=filled_quantity,
-            average_fill_price=average_fill_price or None,
-            rejection_reason=(
-                safe_rejection_reason
-                if status in {"cancelled", "no_fill", "rejected"}
-                else None
-            ),
-            message=f"Alpaca paper order {action} with broker status {raw_status}.",
-        )
-
     def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
         """
         Submit the given execution intent to Alpaca Paper Trading after preflight validation.
@@ -498,7 +405,7 @@ class AlpacaPaperBrokerAdapter:
                 else MarketOrderRequest
             )
             order = self.client.submit_order(
-                order_data=request_cls(**self._order_kwargs(intent))
+                order_data=request_cls(**alpaca_order_kwargs(intent))
             )
         except Exception as exc:
             return ExecutionOutcome(
@@ -513,7 +420,11 @@ class AlpacaPaperBrokerAdapter:
                     f"{redact_sensitive_text(exc, max_length=160)}"
                 ),
             )
-        return self._outcome_from_order(intent, order)
+        return outcome_from_alpaca_order(
+            intent,
+            order,
+            adapter_name=self.backend_name,
+        )
 
     def get_order_outcome(
         self, *, order_id: str, intent: ExecutionIntent
@@ -538,7 +449,12 @@ class AlpacaPaperBrokerAdapter:
                 "Alpaca paper order status refresh failed: "
                 f"{redact_sensitive_text(exc, max_length=160)}"
             ) from exc
-        return self._outcome_from_order(intent, order, action="refreshed")
+        return outcome_from_alpaca_order(
+            intent,
+            order,
+            adapter_name=self.backend_name,
+            action="refreshed",
+        )
 
     def cancel_order(self, order_id: str) -> bool:
         """
@@ -551,31 +467,17 @@ class AlpacaPaperBrokerAdapter:
         return True
 
     def get_positions(self) -> list[PositionSnapshot]:
-        positions: list[PositionSnapshot] = []
-        for item in self.client.get_all_positions():
-            positions.append(
-                PositionSnapshot(
-                    symbol=str(getattr(item, "symbol", "")),
-                    quantity=coerce_float(getattr(item, "qty", 0.0)),
-                    average_price=coerce_float(getattr(item, "avg_entry_price", 0.0)),
-                    market_price=coerce_float(getattr(item, "current_price", 0.0)),
-                    market_value=coerce_float(getattr(item, "market_value", 0.0)),
-                    unrealized_pnl=coerce_float(getattr(item, "unrealized_pl", 0.0)),
-                )
-            )
-        return positions
+        return [
+            position_snapshot_from_alpaca_position(item)
+            for item in self.client.get_all_positions()
+        ]
 
     def get_account_state(self) -> PortfolioSnapshot:
         account = self.client.get_account()
         positions = self.get_positions()
-        return PortfolioSnapshot(
-            cash=coerce_float(getattr(account, "cash", 0.0)),
-            market_value=coerce_float(getattr(account, "long_market_value", 0.0))
-            + coerce_float(getattr(account, "short_market_value", 0.0)),
-            equity=coerce_float(getattr(account, "portfolio_value", 0.0)),
-            realized_pnl=0.0,
-            unrealized_pnl=sum(position.unrealized_pnl for position in positions),
-            open_positions=len(positions),
+        return portfolio_snapshot_from_alpaca_account(
+            account,
+            positions=positions,
         )
 
     def get_open_orders(self) -> list[OpenOrderSnapshot]:
@@ -585,23 +487,7 @@ class AlpacaPaperBrokerAdapter:
         orders = self.client.get_orders(
             filter=GetOrdersRequest(status=QueryOrderStatus.OPEN)
         )
-        snapshots: list[OpenOrderSnapshot] = []
-        for item in orders:
-            raw_side = str(getattr(item, "side", "buy")).lower()
-            side = "sell" if raw_side == "sell" else "buy"
-            snapshots.append(
-                OpenOrderSnapshot(
-                    order_id=str(getattr(item, "id", "")),
-                    intent_id=str(getattr(item, "client_order_id", "")) or None,
-                    symbol=str(getattr(item, "symbol", "")),
-                    side=side,
-                    quantity=coerce_float(getattr(item, "qty", 0.0)) or None,
-                    notional=coerce_float(getattr(item, "notional", 0.0)) or None,
-                    status=str(getattr(item, "status", "open")),
-                    created_at=str(getattr(item, "created_at", "")),
-                )
-            )
-        return snapshots
+        return [open_order_snapshot_from_alpaca_order(item) for item in orders]
 
     def healthcheck(self) -> BrokerHealthcheck:
         if not self.settings.alpaca_paper_trading_enabled:
