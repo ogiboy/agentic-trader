@@ -60,10 +60,13 @@ TR_SHELL_COPY: dict[str, str] = {
     "status_app_owned": "app-owned",
     "status_available": "kullanilabilir",
     "status_blocked": "bloklu",
+    "status_configured": "ayarlanmis",
     "status_external": "harici",
     "status_fail": "fail",
     "status_inactive": "pasif",
+    "status_missing": "eksik",
     "status_needs_attention": "dikkat gerekiyor",
     "status_pass": "pass",
+    "status_readable": "okunabilir",
     "status_ready": "hazir",
 }

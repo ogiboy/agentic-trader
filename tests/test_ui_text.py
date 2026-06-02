@@ -121,7 +121,10 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.title_positions == ui_text.TITLE_POSITIONS
     assert catalog.status_allowed == "allowed"
     assert catalog.status_blocked == "blocked"
+    assert catalog.status_configured == "configured"
     assert catalog.status_inactive == "inactive"
+    assert catalog.status_missing == "missing"
+    assert catalog.status_readable == "readable"
     assert catalog.message_observer_mode_temporarily_unavailable.startswith(
         "{feature} is temporarily unavailable"
     )
@@ -268,7 +271,10 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_current_cycle == "Gecerli Dongu"
     assert catalog.status_allowed == "izinli"
     assert catalog.status_blocked == "bloklu"
+    assert catalog.status_configured == "ayarlanmis"
     assert catalog.status_inactive == "pasif"
+    assert catalog.status_missing == "eksik"
+    assert catalog.status_readable == "okunabilir"
     assert catalog.message_observer_mode_temporarily_unavailable.startswith(
         "Runtime writer"
     )

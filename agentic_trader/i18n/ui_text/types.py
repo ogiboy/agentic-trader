@@ -603,11 +603,14 @@ class UITextCatalog:
     status_app_owned: str
     status_available: str
     status_blocked: str
+    status_configured: str
     status_external: str
     status_fail: str
     status_inactive: str
+    status_missing: str
     status_needs_attention: str
     status_pass: str
+    status_readable: str
     status_ready: str
     title_execution_summary: str
     title_export_blocked: str

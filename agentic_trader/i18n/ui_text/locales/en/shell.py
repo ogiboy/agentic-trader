@@ -58,10 +58,13 @@ EN_SHELL_COPY: dict[str, str] = {
     "status_app_owned": "app-owned",
     "status_available": "available",
     "status_blocked": "blocked",
+    "status_configured": "configured",
     "status_external": "external",
     "status_fail": "fail",
     "status_inactive": "inactive",
+    "status_missing": "missing",
     "status_needs_attention": "needs attention",
     "status_pass": "pass",
+    "status_readable": "readable",
     "status_ready": "ready",
 }
