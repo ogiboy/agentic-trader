@@ -12,10 +12,22 @@ from agentic_trader.llm.openai_compat import (
     openai_compatible_response_format as _openai_compatible_response_format,
     short_redacted_error as _short_redacted_error,
 )
+from agentic_trader.llm.ollama_provider_health import (
+    ollama_error_from_response as _ollama_error_from_response,
+    ollama_generation_probe as _ollama_generation_probe,
+    ollama_health_message as _ollama_health_message,
+    ollama_model_names as _ollama_model_names,
+)
+from agentic_trader.llm.openai_provider_health import (
+    endpoint_rejected_health as _endpoint_rejected_health,
+    openai_compatible_generation_probe as _openai_compatible_generation_probe,
+    openai_compatible_health_message as _openai_compatible_health_message,
+    reachable_health as _reachable_health,
+    unreachable_health as _unreachable_health,
+)
 from agentic_trader.llm.provider_payloads import (
     json_object as _json_object,
     json_object_or_none as _json_object_or_none,
-    object_mapping_list as _object_mapping_list,
 )
 from agentic_trader.schemas import LLMHealthStatus
 
@@ -123,13 +135,7 @@ class OllamaProvider:
             response = self.client.get(f"{self.base_url}/api/tags")
             response.raise_for_status()
             payload = _json_object(response.json())
-            models = _object_mapping_list(payload.get("models"))
-            available: set[str] = set()
-            for item in models:
-                name = item.get("name")
-                if isinstance(name, str):
-                    available.add(name)
-            model_available = self.model_name in available
+            model_available = self.model_name in _ollama_model_names(payload)
             generation_available: bool | None = None
             generation_message: str | None = None
             if include_generation:
@@ -167,67 +173,19 @@ class OllamaProvider:
             )
 
     def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
-        """
-        Probe whether the configured model can perform a minimal generation request.
-
-        Parameters:
-                model_available (bool): Whether the configured model is listed/available; if False the probe is skipped.
-
-        Returns:
-                tuple[bool, str]: `True` and "Generation probe completed." when a generation succeeds; `False` and a diagnostic message otherwise. When skipped because the model is not listed, returns `False` and the message "Generation probe skipped because the configured model is not listed."
-        """
-        if not model_available:
-            return (
-                False,
-                "Generation probe skipped because the configured model is not listed.",
-            )
-        body: dict[str, Any] = {
-            "model": self.model_name,
-            "prompt": "Reply with OK.",
-            "stream": False,
-            "options": {
-                "temperature": 0,
-                "num_predict": 8,
-            },
-        }
-        try:
-            response = self.client.post(f"{self.base_url}/api/generate", json=body)
-            status_code = getattr(response, "status_code", 200)
-            if status_code >= 400:
-                return False, self._error_from_response(response)
-            response.raise_for_status()
-            payload = _json_object_or_none(response.json())
-            if payload is None:
-                return False, _short_redacted_error(
-                    "malformed or non-object probe payload"
-                )
-            error_obj = payload.get("error")
-            if isinstance(error_obj, str) and error_obj.strip():
-                return False, _short_redacted_error(error_obj)
-            return True, "Generation probe completed."
-        except Exception as exc:
-            return False, _short_redacted_error(str(exc)) or type(exc).__name__
+        return _ollama_generation_probe(
+            client=self.client,
+            base_url=self.base_url,
+            model_name=self.model_name,
+            model_available=model_available,
+        )
 
     def probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
         return self._probe_generation(model_available=model_available)
 
     @staticmethod
     def _error_from_response(response: httpx.Response) -> str:
-        try:
-            payload = response.json()
-        except Exception:
-            return f"HTTP {getattr(response, 'status_code', 'error')}"
-        payload_object = _json_object_or_none(payload)
-        if payload_object is not None:
-            error_obj = payload_object.get("error")
-            if isinstance(error_obj, str) and error_obj.strip():
-                return _short_redacted_error(error_obj)
-            error_mapping = _json_object_or_none(error_obj)
-            if error_mapping is not None:
-                message = error_mapping.get("message")
-                if isinstance(message, str) and message.strip():
-                    return _short_redacted_error(message)
-        return f"HTTP {getattr(response, 'status_code', 'error')}"
+        return _ollama_error_from_response(response)
 
     @staticmethod
     def _health_message(
@@ -236,28 +194,11 @@ class OllamaProvider:
         generation_available: bool | None,
         generation_message: str | None,
     ) -> str:
-        """
-        Builds a human-readable health status message for the Ollama provider based on model listing and generation probe results.
-
-        Parameters:
-            model_available (bool): True if the configured model is present in the service's model list, False otherwise.
-            generation_available (bool | None): Generation probe result: True if generation succeeded, False if it failed, or None if generation was not performed.
-            generation_message (str | None): Optional detail about the generation probe outcome, included when the probe failed.
-
-        Returns:
-            str: A status string that states the service is reachable and describes model availability and, when applicable, generation probe success or failure (including the provided generation message).
-        """
-        if not model_available:
-            return "Ollama is reachable, but the configured model is not listed."
-        if generation_available is False:
-            detail = generation_message or "generation probe failed"
-            return (
-                "Ollama is reachable and the model is listed, but a generation "
-                f"probe failed: {detail}"
-            )
-        if generation_available is True:
-            return "Ollama is reachable and the configured model can generate."
-        return "Ollama is reachable and the configured model is available."
+        return _ollama_health_message(
+            model_available=model_available,
+            generation_available=generation_available,
+            generation_message=generation_message,
+        )
 
 
 class OpenAICompatibleProvider:
@@ -341,16 +282,13 @@ class OpenAICompatibleProvider:
         response_text: str,
         include_generation: bool,
     ) -> LLMHealthStatus:
-        message = f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip()
-        return LLMHealthStatus(
-            provider=self.provider_name,
+        return _endpoint_rejected_health(
+            provider_name=self.provider_name,
             base_url=self.settings.base_url,
             model_name=self.model_name,
-            service_reachable=True,
-            model_available=False,
-            generation_available=False if include_generation else None,
-            generation_message=message if include_generation else None,
-            message=message,
+            status_code=status_code,
+            response_text=response_text,
+            include_generation=include_generation,
         )
 
     def _reachable_health(
@@ -365,20 +303,13 @@ class OpenAICompatibleProvider:
             generation_available, generation_message = self._probe_generation(
                 model_available=model_available
             )
-        message = self._health_message(
-            model_available=model_available,
-            generation_available=generation_available,
-            generation_message=generation_message,
-        )
-        return LLMHealthStatus(
-            provider=self.provider_name,
+        return _reachable_health(
+            provider_name=self.provider_name,
             base_url=self.settings.base_url,
             model_name=self.model_name,
-            service_reachable=True,
-            model_available=model_available,
             generation_available=generation_available,
             generation_message=generation_message,
-            message=message,
+            model_available=model_available,
         )
 
     def _unreachable_health(
@@ -387,16 +318,12 @@ class OpenAICompatibleProvider:
         detail: str,
         include_generation: bool,
     ) -> LLMHealthStatus:
-        message = f"Unable to reach OpenAI-compatible endpoint: {detail}"
-        return LLMHealthStatus(
-            provider=self.provider_name,
+        return _unreachable_health(
+            provider_name=self.provider_name,
             base_url=self.settings.base_url,
             model_name=self.model_name,
-            service_reachable=False,
-            model_available=False,
-            generation_available=False if include_generation else None,
-            generation_message=message if include_generation else None,
-            message=message,
+            detail=detail,
+            include_generation=include_generation,
         )
 
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
@@ -447,44 +374,13 @@ class OpenAICompatibleProvider:
             )
 
     def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
-        """
-        Performs a minimal chat-completion request to verify that the configured model can produce responses.
-
-        Parameters:
-            model_available (bool): Whether the configured model is known to be listed by the service; if False the probe is skipped.
-
-        Returns:
-            tuple[bool, str]: `(True, "Generation probe completed.")` if the generation probe succeeded; otherwise `(False, <message>)` where `<message>` explains the failure (skipped because the model is not listed, an error message extracted from the service response, or a truncated exception text).
-        """
-        if not model_available:
-            return (
-                False,
-                "Generation probe skipped because the configured model is not listed.",
-            )
-        try:
-            response = self.client.post(
-                f"{self.base_url}/chat/completions",
-                headers=self._headers(),
-                json={
-                    "model": self.model_name,
-                    "messages": [{"role": "user", "content": "Reply with OK."}],
-                    "temperature": 0,
-                    "max_tokens": 8,
-                },
-            )
-            status_code = getattr(response, "status_code", 200)
-            if status_code >= 400:
-                return False, _openai_compatible_error_from_response(response)
-            response.raise_for_status()
-            payload = _json_object_or_none(response.json())
-            if payload is None:
-                return False, _short_redacted_error(
-                    "malformed or non-object probe payload"
-                )
-            _openai_compatible_content(payload)
-            return True, "Generation probe completed."
-        except Exception as exc:
-            return False, _short_redacted_error(str(exc)) or type(exc).__name__
+        return _openai_compatible_generation_probe(
+            client=self.client,
+            base_url=self.base_url,
+            headers=self._headers(),
+            model_name=self.model_name,
+            model_available=model_available,
+        )
 
     def probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
         return self._probe_generation(model_available=model_available)
@@ -496,34 +392,11 @@ class OpenAICompatibleProvider:
         generation_available: bool | None,
         generation_message: str | None,
     ) -> str:
-        """
-        Builds a human-readable status message describing the OpenAI-compatible endpoint, the configured model's availability, and optional generation probe result.
-
-        Parameters:
-            model_available (bool): True if the configured model name appears in the service's model list.
-            generation_available (bool | None): `True` if a generation probe succeeded, `False` if it failed, or `None` if no probe was performed.
-            generation_message (str | None): Optional detail or error text from a failed generation probe.
-
-        Returns:
-            str: A single-line status message summarizing endpoint reachability, model availability, and generation probe outcome.
-        """
-        if not model_available:
-            return (
-                "OpenAI-compatible endpoint is reachable, but the configured "
-                "model is not listed."
-            )
-        if generation_available is False:
-            detail = generation_message or "generation probe failed"
-            return (
-                "OpenAI-compatible endpoint is reachable and the model is listed, "
-                f"but a generation probe failed: {detail}"
-            )
-        if generation_available is True:
-            return (
-                "OpenAI-compatible endpoint is reachable and the configured model "
-                "can generate."
-            )
-        return "OpenAI-compatible endpoint is reachable and the configured model is available."
+        return _openai_compatible_health_message(
+            model_available=model_available,
+            generation_available=generation_available,
+            generation_message=generation_message,
+        )
 
     @staticmethod
     def health_message(
