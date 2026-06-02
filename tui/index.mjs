@@ -1,184 +1,18 @@
 import { Box, Text, useApp, useInput } from 'ink';
-import { execFile } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { promisify } from 'node:util';
+import { pathToFileURL } from 'node:url';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { normalizeChatHistory } from './chat-history.mjs';
+import { cliExecutable, once, runJsonCommand } from './cli-runtime.mjs';
 import {
-  cliExecutionUnavailable,
   dashboardPages as pages,
   dashboardStatusLine,
   dashboardTitle,
 } from './copy.mjs';
-import {
-  defaultRuntimeInterval,
-  defaultRuntimeLookback,
-  defaultSingleSymbol,
-  defaultSymbolsFromPreferences,
-} from './dashboard-defaults.mjs';
 import { handleDashboardInput } from './input.mjs';
 import { getPageView } from './pages.mjs';
+import { loadDashboard, performRuntimeAction } from './runtime-actions.mjs';
 
-const execFileAsync = promisify(execFile);
 const e = React.createElement;
-const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
-const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
-const once = process.argv.includes('--once');
-const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-
-/**
- * Execute the Agentic Trader CLI using one of the configured executables, retrying across candidates.
- *
- * Attempts to run either the configured Python module invocation or the standalone CLI binary (whichever are available), returning parsed JSON when requested or the raw stdout/stderr pair otherwise.
- *
- * @param {string[]} args - Command-line arguments to pass to the CLI.
- * @param {{ expectJson?: boolean }} [options] - Execution options.
- * @param {boolean} [options.expectJson=false] - If true, parse and return stdout as JSON.
- * @returns {any|{stdout: string, stderr: string}} Parsed JSON when `expectJson` is true; otherwise an object containing `stdout` and `stderr`.
- * @throws Will re-throw a non-ENOENT child-process error immediately, or throw the last captured error (or a generic error) if no candidate executable could be run.
- */
-async function execCli(args, { expectJson = false } = {}) {
-  const attempts = [];
-  if (pythonExecutable) {
-    attempts.push([pythonExecutable, ['-m', 'agentic_trader.cli', ...args]]);
-  }
-  if (cliExecutable) {
-    attempts.push([cliExecutable, args]);
-  }
-
-  let lastError;
-  for (const [command, commandArgs] of attempts) {
-    try {
-      const { stdout, stderr } = await execFileAsync(command, commandArgs, {
-        cwd: projectRoot,
-        env: process.env,
-        maxBuffer: 1024 * 1024 * 8,
-      });
-      return expectJson ? JSON.parse(stdout) : { stdout, stderr };
-    } catch (error) {
-      lastError = error;
-      if (error && typeof error === 'object' && error.code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError || new Error(cliExecutionUnavailable);
-}
-
-async function runJsonCommand(args) {
-  return execCli(args, { expectJson: true });
-}
-
-async function runTextCommand(args) {
-  return execCli(args, { expectJson: false });
-}
-
-/**
- * Perform a runtime control action based on the provided dashboard snapshot and return a user-facing message about the outcome.
- *
- * @param {string} kind - Action to perform: "start", "stop", "one-shot", or other (treated as a restart when a saved launch configuration exists).
- * @param {Object} data - Dashboard snapshot containing runtime `status` and `preferences` used to determine behavior.
- * @returns {Promise<{kind: string, text: string}>} An action message: `kind` is a message level (e.g., `'info'`), and `text` explains the outcome or reason no action was taken.
- */
-async function performRuntimeAction(kind, data) {
-  if (kind === 'start') {
-    if (data.status.live_process) {
-      return {
-        kind: 'info',
-        text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}.`,
-      };
-    }
-    const symbols = defaultSymbolsFromPreferences(data.preferences);
-    await runTextCommand([
-      'launch',
-      '--symbols',
-      symbols,
-      '--interval',
-      '1d',
-      '--lookback',
-      '180d',
-      '--continuous',
-      '--background',
-      '--poll-seconds',
-      '300',
-    ]);
-    return {
-      kind: 'info',
-      text: `Background runtime launch requested for ${symbols}.`,
-    };
-  }
-
-  if (kind === 'stop') {
-    if (!data.status.state?.pid) {
-      return { kind: 'info', text: 'No managed runtime is currently active.' };
-    }
-    await runTextCommand(['stop-service']);
-    return {
-      kind: 'info',
-      text: `Stop requested for PID ${data.status.state.pid}.`,
-    };
-  }
-
-  if (kind === 'one-shot') {
-    if (data.status.live_process) {
-      return {
-        kind: 'info',
-        text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}. Stop it before running a one-shot cycle.`,
-      };
-    }
-    const symbol = defaultSingleSymbol(data);
-    const interval = defaultRuntimeInterval(data);
-    const lookback = defaultRuntimeLookback(data);
-    await runTextCommand([
-      'run',
-      '--symbol',
-      symbol,
-      '--interval',
-      interval,
-      '--lookback',
-      lookback,
-    ]);
-    return {
-      kind: 'info',
-      text: `Strict one-shot cycle completed for ${symbol} (${interval}, ${lookback}).`,
-    };
-  }
-
-  if ((data.status.state?.symbols || []).length) {
-    await runTextCommand(['restart-service']);
-    return { kind: 'info', text: 'Background runtime restart requested.' };
-  }
-  return {
-    kind: 'info',
-    text: 'No saved runtime launch config is available yet.',
-  };
-}
-
-/**
- * Fetches the dashboard snapshot and records the retrieval time.
- *
- * @returns {Promise<object>} The dashboard snapshot augmented with a `loadedAt` ISO 8601 timestamp string.
- */
-async function loadDashboard() {
-  const payload = await runJsonCommand([
-    'dashboard-snapshot',
-    '--log-limit',
-    '14',
-  ]);
-  return {
-    ...payload,
-    loadedAt: new Date().toISOString(),
-  };
-}
-
-function normalizeChatHistory(data) {
-  const entries = data?.chatHistory?.entries || [];
-  return [...entries].reverse().map((entry) => ({
-    user: entry.user_message,
-    persona: entry.persona,
-    response: entry.response_text,
-  }));
-}
 
 /**
  * Render the Ink dashboard UI for the control room using the provided view state and props.
