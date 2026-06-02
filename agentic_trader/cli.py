@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import sys as _sys
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
@@ -139,10 +140,7 @@ from agentic_trader.cli_modules.runtime_modes import (
     runtime_mode_transition_plan as _runtime_mode_transition_plan_impl,
 )
 from agentic_trader.cli_modules.service_control import run_stop_service_command
-from agentic_trader.cli_modules.system_commands import (
-    SystemCommandDeps,
-    register_system_commands,
-)
+from agentic_trader.cli_modules.system_registration import register_cli_system_commands
 from agentic_trader.cli_modules.status_commands import (
     StatusCommandDeps,
     register_status_commands,
@@ -211,6 +209,10 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import OrderRow, TradingDatabase
+from agentic_trader.system.operator_launcher import (
+    build_operator_launcher_status,
+    start_operator_webgui,
+)
 from agentic_trader.system.camofox_service import (
     build_camofox_service_status,
     start_camofox_service,
@@ -222,13 +224,8 @@ from agentic_trader.system.model_service import (
     start_model_service,
     stop_model_service,
 )
-from agentic_trader.system.operator_launcher import (
-    build_operator_launcher_status,
-    start_operator_webgui,
-)
 from agentic_trader.system.setup import build_setup_status
 from agentic_trader.system.tool_ownership import (
-    OWNERSHIP_MODES,
     read_tool_ownership_payload,
     validate_ownership_mode,
     write_tool_ownership,
@@ -239,7 +236,6 @@ from agentic_trader.system.webgui_service import (
 )
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.ui_text import (
-    HELP_CAMOFOX_SERVICE_APP,
     HELP_CHAT_MESSAGE,
     HELP_CHAT_PERSONA,
     HELP_CLI_APP,
@@ -248,14 +244,11 @@ from agentic_trader.ui_text import (
     HELP_JSON,
     HELP_LOCALE_OVERRIDE,
     HELP_LOCALE_PERSIST,
-    HELP_MODEL_SERVICE_APP,
     HELP_MONITOR_REFRESH_SECONDS,
     HELP_RESTART_SERVICE_GRACE_SECONDS,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
     HELP_RUNTIME_MODE_TARGET,
     HELP_STOP_SERVICE_FORCE,
-    HELP_TOOL_OWNERSHIP_APP,
-    HELP_WEBGUI_SERVICE_APP,
     LABEL_ALLOWED,
     LABEL_BLOCKING,
     LABEL_CHECK,
@@ -333,6 +326,22 @@ from agentic_trader.workflows.service import (
     terminate_service_process,
 )
 
+__all__ = [
+    "build_camofox_service_status",
+    "build_model_service_status",
+    "build_setup_status",
+    "build_webgui_service_status",
+    "pull_model",
+    "read_tool_ownership_payload",
+    "start_camofox_service",
+    "start_model_service",
+    "stop_camofox_service",
+    "stop_model_service",
+    "stop_webgui_service",
+    "validate_ownership_mode",
+    "write_tool_ownership",
+]
+
 app = typer.Typer(
     help=HELP_CLI_APP,
     invoke_without_command=True,
@@ -407,105 +416,11 @@ def _refresh_trade_proposal_order_provider(
     )
 
 
-def _validate_ownership_mode_provider(value: str) -> str:
-    return validate_ownership_mode(value)
-
-
-def _build_setup_status_provider(settings: Settings) -> object:
-    return build_setup_status(settings)
-
-
-def _read_tool_ownership_payload_provider(settings: Settings) -> object:
-    return read_tool_ownership_payload(settings)
-
-
-def _write_tool_ownership_provider(
-    settings: Settings, updates: dict[str, str], source: str
-) -> object:
-    return write_tool_ownership(settings, updates, source=source)
-
-
-def _build_model_service_status_provider(
-    settings: Settings, *, include_generation: bool = False
-) -> object:
-    return build_model_service_status(settings, include_generation=include_generation)
-
-
-def _start_model_service_provider(
-    settings: Settings, *, host: str | None = None, port: int | None = None
-) -> object:
-    return start_model_service(settings, host=host, port=port)
-
-
-def _stop_model_service_provider(settings: Settings) -> object:
-    return stop_model_service(settings)
-
-
-def _pull_model_provider(settings: Settings, model_name: str) -> dict[str, object]:
-    return pull_model(settings, model_name)
-
-
-def _build_webgui_service_status_provider(settings: Settings) -> object:
-    return build_webgui_service_status(settings)
-
-
-def _start_operator_webgui_provider(
-    settings: Settings, *, open_browser: bool = True
-) -> object:
-    return start_operator_webgui(settings, open_browser=open_browser)
-
-
-def _stop_webgui_service_provider(settings: Settings) -> object:
-    return stop_webgui_service(settings)
-
-
-def _build_camofox_service_status_provider(settings: Settings) -> object:
-    return build_camofox_service_status(settings)
-
-
-def _start_camofox_service_provider(
-    settings: Settings, *, host: str | None = None, port: int | None = None
-) -> object:
-    return start_camofox_service(settings, host=host, port=port)
-
-
-def _stop_camofox_service_provider(settings: Settings) -> object:
-    return stop_camofox_service(settings)
-
-
-model_service_app = typer.Typer(help=HELP_MODEL_SERVICE_APP)
-app.add_typer(model_service_app, name="model-service")
-webgui_service_app = typer.Typer(help=HELP_WEBGUI_SERVICE_APP)
-app.add_typer(webgui_service_app, name="webgui-service")
-camofox_service_app = typer.Typer(help=HELP_CAMOFOX_SERVICE_APP)
-app.add_typer(camofox_service_app, name="camofox-service")
-tool_ownership_app = typer.Typer(help=HELP_TOOL_OWNERSHIP_APP)
-app.add_typer(tool_ownership_app, name="tool-ownership")
-register_system_commands(
+register_cli_system_commands(
     app=app,
-    tool_ownership_app=tool_ownership_app,
-    model_service_app=model_service_app,
-    webgui_service_app=webgui_service_app,
-    camofox_service_app=camofox_service_app,
-    deps=SystemCommandDeps(
-        get_settings=lambda: get_settings(),
-        emit_json=_emit_json,
-        ownership_modes=OWNERSHIP_MODES,
-        validate_ownership_mode=_validate_ownership_mode_provider,
-        build_setup_status=_build_setup_status_provider,
-        read_tool_ownership_payload=_read_tool_ownership_payload_provider,
-        write_tool_ownership=_write_tool_ownership_provider,
-        build_model_service_status=_build_model_service_status_provider,
-        start_model_service=_start_model_service_provider,
-        stop_model_service=_stop_model_service_provider,
-        pull_model=_pull_model_provider,
-        build_webgui_service_status=_build_webgui_service_status_provider,
-        start_operator_webgui=_start_operator_webgui_provider,
-        stop_webgui_service=_stop_webgui_service_provider,
-        build_camofox_service_status=_build_camofox_service_status_provider,
-        start_camofox_service=_start_camofox_service_provider,
-        stop_camofox_service=_stop_camofox_service_provider,
-    ),
+    settings_provider=lambda: get_settings(),
+    emit_json=_emit_json,
+    service_namespace=_sys.modules[__name__],
 )
 register_proposal_desk_commands(
     app,
