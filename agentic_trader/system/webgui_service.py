@@ -25,6 +25,7 @@ from agentic_trader.security import (
     redact_sensitive_text,
 )
 from agentic_trader.system import webgui_service_process as _process_helpers
+from agentic_trader.system import webgui_service_status as _status_helpers
 from agentic_trader.system.webgui_service_state import (
     WebGUIServiceState,
     WebGUIServiceStatus,
@@ -347,11 +348,11 @@ def _status_url(
     app_state: WebGUIServiceState | None,
     state: WebGUIServiceState | None,
 ) -> str:
-    if app_state is not None:
-        return app_state.url
-    if state is not None:
-        return state.url
-    return _webgui_url(DEFAULT_WEBGUI_HOST, DEFAULT_WEBGUI_PORT)
+    return _status_helpers.status_url(
+        app_state=app_state,
+        state=state,
+        default_url=_webgui_url(DEFAULT_WEBGUI_HOST, DEFAULT_WEBGUI_PORT),
+    )
 
 
 def _webgui_status_message(
@@ -364,17 +365,15 @@ def _webgui_status_message(
     reachable: bool,
     reachability_message: str,
 ) -> str:
-    if not package_available:
-        return "Web GUI package is missing."
-    if command_path is None:
-        return "node is not installed or not on PATH."
-    if dependency_path is None:
-        return "Web GUI dependencies are missing. Run pnpm install first."
-    if app_state is not None and reachable:
-        return "App-owned Web GUI is running."
-    if state is not None and app_state is None:
-        return "Recorded Web GUI state is stale or process ownership could not be verified."
-    return reachability_message
+    return _status_helpers.status_message(
+        package_available=package_available,
+        command_path=command_path,
+        dependency_path=dependency_path,
+        app_state=app_state,
+        state=state,
+        reachable=reachable,
+        reachability_message=reachability_message,
+    )
 
 
 def build_webgui_service_status(
@@ -400,30 +399,15 @@ def build_webgui_service_status(
         reachable=reachable,
         reachability_message=reachability_message,
     )
-    return WebGUIServiceStatus(
-        command_available=command_path is not None,
-        command_path=command_path,
-        package_available=package_available,
-        dependency_available=dependency_path is not None,
-        dependency_path=str(dependency_path) if dependency_path is not None else None,
-        app_owned=app_state is not None,
-        pid=app_state.pid if app_state is not None else None,
-        host=app_state.host if app_state is not None else None,
-        port=app_state.port if app_state is not None else None,
+    return _status_helpers.state_status(
+        app_state=app_state,
         url=url,
-        service_reachable=reachable,
-        stdout_log_path=app_state.stdout_log_path if app_state is not None else None,
-        stderr_log_path=app_state.stderr_log_path if app_state is not None else None,
-        stdout_tail=_tail_text(
-            app_state.stdout_log_path if app_state is not None else None,
-            limit=tail_limit,
-        ),
-        stderr_tail=_tail_text(
-            app_state.stderr_log_path if app_state is not None else None,
-            limit=tail_limit,
-        ),
-        state_path=str(webgui_service_state_path(settings)),
+        reachable=reachable,
+        runtime_fields=(command_path, dependency_path, package_available),
+        state_path=webgui_service_state_path(settings),
         message=message,
+        tail_reader=lambda path, limit: _tail_text(path, limit=limit),
+        tail_limit=tail_limit,
     )
 
 
@@ -436,60 +420,29 @@ def _build_unverified_start_status(
     tail_limit: int = 12,
 ) -> WebGUIServiceStatus:
     command_path, dependency_path, package_available = _webgui_runtime_status_fields()
-    return WebGUIServiceStatus(
-        command_available=command_path is not None,
-        command_path=command_path,
-        package_available=package_available,
-        dependency_available=dependency_path is not None,
-        dependency_path=str(dependency_path) if dependency_path is not None else None,
-        app_owned=False,
-        pid=None,
-        host=state.host,
-        port=state.port,
-        url=state.url,
+    return _status_helpers.unverified_start_status(
+        state=state,
         service_reachable=service_reachable,
-        stdout_log_path=state.stdout_log_path,
-        stderr_log_path=state.stderr_log_path,
-        stdout_tail=_tail_text(state.stdout_log_path, limit=tail_limit),
-        stderr_tail=_tail_text(state.stderr_log_path, limit=tail_limit),
-        state_path=str(webgui_service_state_path(settings)),
+        runtime_fields=(command_path, dependency_path, package_available),
+        state_path=webgui_service_state_path(settings),
         message=message,
+        tail_reader=lambda path, limit: _tail_text(path, limit=limit),
+        tail_limit=tail_limit,
     )
 
 
 def _external_webgui_status(settings: Settings) -> WebGUIServiceStatus | None:
     command_path, dependency_path, package_available = _webgui_runtime_status_fields()
-    for port in WEBGUI_PORT_CANDIDATES:
-        owner_pid = _listen_port_owner_pid(DEFAULT_WEBGUI_HOST, port)
-        if owner_pid is None or not _process_looks_like_webgui(owner_pid):
-            continue
-        url = _webgui_url(DEFAULT_WEBGUI_HOST, port)
-        reachable, message = _webgui_reachable(url)
-        if not reachable:
-            continue
-        return WebGUIServiceStatus(
-            command_available=command_path is not None,
-            command_path=command_path,
-            package_available=package_available,
-            dependency_available=dependency_path is not None,
-            dependency_path=(
-                str(dependency_path) if dependency_path is not None else None
-            ),
-            app_owned=False,
-            pid=None,
-            host=DEFAULT_WEBGUI_HOST,
-            port=port,
-            url=url,
-            service_reachable=True,
-            state_path=str(webgui_service_state_path(settings)),
-            message=(
-                "A Web GUI dev server is already reachable, but it was not "
-                "started by webgui-service and will not be stopped by the app."
-                if message == "Web GUI is reachable."
-                else message
-            ),
-        )
-    return None
+    return _status_helpers.external_status(
+        default_host=DEFAULT_WEBGUI_HOST,
+        ports=WEBGUI_PORT_CANDIDATES,
+        runtime_fields=(command_path, dependency_path, package_available),
+        state_path=webgui_service_state_path(settings),
+        listen_port_owner_pid=_listen_port_owner_pid,
+        process_looks_like_webgui=_process_looks_like_webgui,
+        url_for=_webgui_url,
+        reachability_probe=_webgui_reachable,
+    )
 
 
 def _spawn_webgui_process(
