@@ -32,6 +32,7 @@ from agentic_trader.tui import (
     style_key,
     system_status_table,
 )
+from agentic_trader.ui_text import get_ui_text
 
 
 def test_build_monitor_renderable_contains_core_sections(tmp_path: Path) -> None:
@@ -190,6 +191,7 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
     assert broker_gate_lines(
         broker={"backend": "paper", "state": "ready", "kill_switch_active": False},
         paper_operations={"allowed": True},
+        copy=get_ui_text("en"),
     ) == [
         "Broker Backend: paper",
         "Broker State: ready",

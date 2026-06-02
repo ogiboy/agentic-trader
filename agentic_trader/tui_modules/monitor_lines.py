@@ -25,6 +25,7 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
     MESSAGE_WAITING_FOR_LAST_OUTCOME,
     TITLE_RUNTIME_MODE,
+    UITextCatalog,
     UI_LIST_SEPARATOR,
     get_ui_text,
 )
@@ -89,9 +90,12 @@ def agent_activity_lines(activity: AgentActivityView) -> list[str]:
 
 
 def broker_gate_lines(
-    *, broker: Mapping[str, object], paper_operations: Mapping[str, object]
+    *,
+    broker: Mapping[str, object],
+    paper_operations: Mapping[str, object],
+    copy: UITextCatalog | None = None,
 ) -> list[str]:
-    text = get_ui_text()
+    text = copy or get_ui_text()
     return [
         label_line(LABEL_BROKER_BACKEND, broker.get("backend", "-")),
         label_line(LABEL_BROKER_STATE, broker.get("state", "-")),

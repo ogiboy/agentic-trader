@@ -1,15 +1,16 @@
 import { launchOptions } from 'camoufox-js';
 import { VirtualDisplay } from 'camoufox-js/dist/virtdisplay.js';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import { firefox } from 'playwright-core';
 import {
-  extractBearerToken,
   isLoopbackAddress as _isLoopbackAddress,
   timingSafeCompare as _timingSafeCompare,
   accessKeyMiddleware,
+  extractBearerToken,
   requireAuth,
 } from './lib/auth.js';
 import { loadConfig } from './lib/config.js';
@@ -28,7 +29,6 @@ import { createFlyHelpers } from './lib/fly.js';
 import { extractPageImages } from './lib/images.js';
 import { expandMacro } from './lib/macros.js';
 import { createPluginEvents, loadPlugins } from './lib/plugins.js';
-import { rateLimit } from './lib/rate-limit.js';
 import {
   buildProxyUrl,
   createProxyPool,
@@ -69,11 +69,10 @@ import {
 const CONFIG = loadConfig();
 
 // --- Local reporter facade (no external telemetry in Agentic Trader) ---
-import { readFileSync } from 'fs';
 const _pkgVersion = (() => {
   try {
     return JSON.parse(
-      readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+      fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
     ).version;
   } catch {
     return 'unknown';
@@ -124,15 +123,13 @@ const pluginEvents = createPluginEvents();
 
 // --- Shared auth middleware ---
 const authMiddleware = () => requireAuth(CONFIG);
-const traceRateLimitOptions = {
-  keyPrefix: 'traces',
-  max: 60,
+const traceRateLimiter = rateLimit({
+  identifier: 'traces',
+  limit: 60,
   windowMs: 60_000,
-  keyGenerator: (req) => {
-    const remoteAddress = req.ip || req.socket?.remoteAddress || 'unknown';
-    return `${remoteAddress}:${req.params?.userId || 'unknown'}`;
-  },
-};
+  legacyHeaders: false,
+  standardHeaders: true,
+});
 
 const {
   requestsTotal,
@@ -4915,7 +4912,7 @@ app.delete('/tabs/group/:listItemId', async (req, res) => {
 app.get(
   '/sessions/:userId/traces',
   authMiddleware(),
-  rateLimit(traceRateLimitOptions),
+  traceRateLimiter,
   async (req, res) => {
     try {
       const userId = normalizeUserId(req.params.userId);
@@ -4987,7 +4984,7 @@ app.get(
 app.get(
   '/sessions/:userId/traces/:filename',
   authMiddleware(),
-  rateLimit(traceRateLimitOptions),
+  traceRateLimiter,
   async (req, res) => {
     try {
       const userId = normalizeUserId(req.params.userId);
@@ -5075,7 +5072,7 @@ app.get(
 app.delete(
   '/sessions/:userId/traces/:filename',
   authMiddleware(),
-  rateLimit(traceRateLimitOptions),
+  traceRateLimiter,
   async (req, res) => {
     try {
       const userId = normalizeUserId(req.params.userId);

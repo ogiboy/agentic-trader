@@ -155,8 +155,7 @@ def _runtime_command(tool_dir: Path) -> list[str]:
     Raises:
         RuntimeError: If the `node` executable is not found on PATH.
         RuntimeError: If the Camofox tool package is missing at `tool_dir`.
-        RuntimeError: If Camofox dependencies are missing; suggests running
-            `pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`.
+        RuntimeError: If Camofox dependencies are missing.
     """
     node_path = _node_command_path()
     if node_path is None:
@@ -165,8 +164,7 @@ def _runtime_command(tool_dir: Path) -> list[str]:
         raise RuntimeError(f"Camofox browser helper is missing at {tool_dir}.")
     if not _dependency_available(tool_dir):
         raise RuntimeError(
-            "Camofox dependencies are missing. Run "
-            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
+            "Camofox dependencies are missing. Run `pnpm run setup:camofox`."
         )
     return [node_path, SERVER_SCRIPT_NAME]
 
@@ -261,10 +259,7 @@ def _camofox_blocking_status_message(
     if command_path is None:
         return "node is not installed or not on PATH."
     if not dependency_available:
-        return (
-            "Camofox dependencies are missing. Run "
-            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
-        )
+        return "Camofox dependencies are missing. Run `pnpm run setup:camofox`."
     return None
 
 

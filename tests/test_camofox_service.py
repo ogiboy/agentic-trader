@@ -628,10 +628,7 @@ def test_camofox_runtime_command_and_probe_messages(
         command_path="/usr/bin/node",
         dependency_available=False,
         tool_dir=tool_dir,
-    ) == (
-        "Camofox dependencies are missing. Run "
-        f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
-    )
+    ) == "Camofox dependencies are missing. Run `pnpm run setup:camofox`."
     assert (
         _camofox_blocking_status_message(
             probe_host="127.0.0.1",
