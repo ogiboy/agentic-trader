@@ -50,6 +50,7 @@ import { mountTabHistoryRoutes } from './lib/routes/tabs-history.js';
 import { mountTabInteractionRoutes } from './lib/routes/tabs-interaction.js';
 import { mountTabLifecycleRoutes } from './lib/routes/tabs-lifecycle.js';
 import { mountTabNavigationRoutes } from './lib/routes/tabs-navigation.js';
+import { mountTabTypingRoutes } from './lib/routes/tabs-typing.js';
 import { mountTraceRoutes } from './lib/routes/traces.js';
 import {
   classifyProxyError,
@@ -2774,177 +2775,18 @@ app.post('/tabs/:tabId/click', async (req, res) => {
   }
 });
 
-// Type
-/**
- * @openapi
- * /tabs/{tabId}/type:
- *   post:
- *     tags: [Interaction]
- *     summary: Type text into an element
- *     description: Types text into a focused element or a specific ref/selector.
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [userId, text]
- *             properties:
- *               userId:
- *                 type: string
- *               ref:
- *                 type: string
- *               selector:
- *                 type: string
- *               text:
- *                 type: string
- *               clear:
- *                 type: boolean
- *                 description: Clear field before typing.
- *               submit:
- *                 type: boolean
- *                 description: Press Enter after typing.
- *     responses:
- *       200:
- *         description: Type result.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *       400:
- *         description: Bad request.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post('/tabs/:tabId/type', async (req, res) => {
-  const tabId = req.params.tabId;
-
-  try {
-    const {
-      userId,
-      ref,
-      selector,
-      text,
-      mode = 'fill',
-      delay = 30,
-      submit = false,
-      pressEnter = false,
-    } = req.body;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-    tabState.consecutiveTimeouts = 0;
-    tabState.consecutiveFailures = 0;
-
-    if (mode !== 'fill' && mode !== 'keyboard') {
-      return res
-        .status(400)
-        .json({ error: "mode must be 'fill' or 'keyboard'" });
-    }
-    if (typeof text !== 'string') {
-      return res.status(400).json({ error: 'text is required' });
-    }
-    // keyboard mode: ref/selector are optional (types into current focus)
-    if (mode === 'fill' && !ref && !selector) {
-      return res
-        .status(400)
-        .json({ error: 'ref or selector required for mode=fill' });
-    }
-    const shouldSubmit = submit || pressEnter;
-
-    await withTabLock(tabId, async () => {
-      // Resolve and focus the target if ref/selector provided
-      let locator = null;
-      if (ref) {
-        locator = refToLocator(tabState.page, ref, tabState.refs);
-        if (!locator) {
-          log('info', 'auto-refreshing refs before type', {
-            ref,
-            hadRefs: tabState.refs.size,
-            mode,
-          });
-          tabState.refs = await refreshTabRefs(tabState, { reason: 'type' });
-          locator = refToLocator(tabState.page, ref, tabState.refs);
-        }
-        if (!locator) {
-          const maxRef =
-            tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
-          throw new StaleRefsError(ref, maxRef, tabState.refs.size);
-        }
-      }
-
-      if (mode === 'fill') {
-        if (locator) {
-          await locator.fill(text, { timeout: 10000 });
-        } else {
-          await tabState.page.fill(selector, text, { timeout: 10000 });
-        }
-      } else {
-        // keyboard mode -- char-by-char real key events (required for Ember/contenteditable)
-        if (locator) {
-          await locator.focus({ timeout: 10000 });
-        } else if (selector) {
-          await tabState.page.focus(selector, { timeout: 10000 });
-        }
-        await tabState.page.keyboard.type(text, { delay });
-      }
-      if (shouldSubmit) await tabState.page.keyboard.press('Enter');
-    });
-
-    pluginEvents.emit('tab:type', {
-      userId: req.body.userId,
-      tabId,
-      text: req.body.text,
-      ref: req.body.ref,
-      mode: req.body.mode || 'fill',
-    });
-    res.json({ ok: true });
-  } catch (err) {
-    log('error', 'type failed', { reqId: req.reqId, error: err.message });
-    if (
-      err.message?.includes('timed out') ||
-      err.message?.includes('not an <input>')
-    ) {
-      try {
-        const session = sessions.get(normalizeUserId(req.body.userId));
-        const found = session && findTab(session, tabId);
-        if (found?.tabState?.page && !found.tabState.page.isClosed()) {
-          found.tabState.refs = await refreshTabRefs(found.tabState, {
-            reason: 'type_timeout',
-          });
-          found.tabState.lastSnapshot = null;
-          return res.status(500).json({
-            error: safeError(err),
-            hint: 'The page may have changed. Call snapshot to see the current state and retry.',
-            url: found.tabState.page.url(),
-            refsCount: found.tabState.refs.size,
-          });
-        }
-      } catch (refreshErr) {
-        log('warn', 'post-timeout refresh failed', {
-          error: refreshErr.message,
-        });
-      }
-    }
-    handleRouteError(err, req, res);
-  }
+mountTabTypingRoutes(app, {
+  StaleRefsError,
+  findTab,
+  handleRouteError,
+  log,
+  normalizeUserId,
+  pluginEvents,
+  refToLocator,
+  refreshTabRefs,
+  safeError,
+  sessions,
+  withTabLock,
 });
 
 mountTabHistoryRoutes(app, {

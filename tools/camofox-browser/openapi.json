@@ -276,93 +276,6 @@
         }
       }
     },
-    "/tabs/{tabId}/type": {
-      "post": {
-        "tags": [
-          "Interaction"
-        ],
-        "summary": "Type text into an element",
-        "description": "Types text into a focused element or a specific ref/selector.",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "userId",
-                  "text"
-                ],
-                "properties": {
-                  "userId": {
-                    "type": "string"
-                  },
-                  "ref": {
-                    "type": "string"
-                  },
-                  "selector": {
-                    "type": "string"
-                  },
-                  "text": {
-                    "type": "string"
-                  },
-                  "clear": {
-                    "type": "boolean",
-                    "description": "Clear field before typing."
-                  },
-                  "submit": {
-                    "type": "boolean",
-                    "description": "Press Enter after typing."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Type result.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/": {
       "get": {
         "tags": [
@@ -1180,6 +1093,93 @@
           },
           "500": {
             "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/type": {
+      "post": {
+        "tags": [
+          "Interaction"
+        ],
+        "summary": "Type text into an element",
+        "description": "Types text into a focused element or a specific ref/selector.",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "text"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string"
+                  },
+                  "selector": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "clear": {
+                    "type": "boolean",
+                    "description": "Clear field before typing."
+                  },
+                  "submit": {
+                    "type": "boolean",
+                    "description": "Press Enter after typing."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Type result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
             "content": {
               "application/json": {
                 "schema": {
