@@ -7,8 +7,6 @@ from pathlib import Path
 import typer
 from dotenv import set_key
 from pandas import DataFrame
-from rich.table import Table
-from rich.text import Text
 
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
@@ -19,9 +17,6 @@ from agentic_trader.backtest.walk_forward import (
     run_backtest_comparison,
     run_memory_ablation_backtest,
     run_walk_forward_backtest,
-)
-from agentic_trader.cli_modules.common import (
-    console,
 )
 from agentic_trader.cli_modules.common import emit_json as _emit_json
 from agentic_trader.cli_modules.common import open_db as _open_db
@@ -165,7 +160,10 @@ from agentic_trader.cli_modules.runtime_mode_commands import (
 from agentic_trader.cli_modules.runtime_modes import (
     runtime_mode_transition_plan as _runtime_mode_transition_plan,
 )
-from agentic_trader.cli_modules.service_control import run_stop_service_command
+from agentic_trader.cli_modules.service_commands import (
+    ServiceCommandDeps,
+    register_service_commands,
+)
 from agentic_trader.cli_modules.service_rendering import (
     format_latest_order as _format_latest_order,
 )
@@ -275,15 +273,6 @@ from agentic_trader.ui_text import (
     HELP_CLI_APP,
     HELP_JSON,
     HELP_LOCALE_OVERRIDE,
-    HELP_MONITOR_REFRESH_SECONDS,
-    HELP_RESTART_SERVICE_GRACE_SECONDS,
-    HELP_STOP_SERVICE_FORCE,
-    LABEL_LATEST_ORDER,
-    MESSAGE_BACKGROUND_SERVICE_RESTARTED,
-    MESSAGE_LAUNCH_SYMBOL_REQUIRED,
-    MESSAGE_NO_ORDERS_RECORDED,
-    TITLE_RESTART_BLOCKED,
-    TITLE_SERVICE_RESTARTED,
     UI_LOCALE_ENV,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -406,6 +395,27 @@ def _apply_preference_update_provider(
     db: TradingDatabase, update: PreferenceUpdate
 ) -> InvestmentPreferences:
     return apply_preference_update(db, update)
+
+
+def _run_service_provider(
+    *,
+    settings: Settings,
+    symbols: list[str],
+    interval: str,
+    lookback: str,
+    poll_seconds: int,
+    continuous: bool,
+    max_cycles: int | None,
+) -> object:
+    return run_service(
+        settings=settings,
+        symbols=symbols,
+        interval=interval,
+        lookback=lookback,
+        poll_seconds=poll_seconds,
+        continuous=continuous,
+        max_cycles=max_cycles,
+    )
 
 
 register_cli_system_commands(
@@ -894,133 +904,31 @@ register_operator_chat_commands(
         apply_preference_update=_apply_preference_update_provider,
     ),
 )
-
-
-@app.command()
-def monitor(
-    refresh_seconds: float = typer.Option(
-        1.0, min=0.2, help=HELP_MONITOR_REFRESH_SECONDS
-    ),
-) -> None:
-    """
-    Open and attach to the live runtime monitor.
-
-    Parameters:
-        refresh_seconds (float): Dashboard refresh interval in seconds (minimum 0.2).
-    """
-    settings = get_settings()
-    console.print(build_monitor_renderable(settings))
-    run_live_monitor(settings, refresh_seconds=refresh_seconds)
-
-
-@app.command("stop-service")
-def stop_service(
-    force: bool = typer.Option(False, help=HELP_STOP_SERVICE_FORCE),
-) -> None:
-    """Request a graceful stop for the background orchestrator."""
-    run_stop_service_command(
-        settings=get_settings(),
-        force=force,
-        read_state=read_service_state,
-        process_alive=is_process_alive,
-        request_service_stop=request_stop,
+register_service_commands(
+    app,
+    ServiceCommandDeps(
+        get_settings=lambda: get_settings(),
+        build_monitor_renderable=lambda settings: build_monitor_renderable(settings),
+        run_live_monitor=lambda settings, refresh_seconds: run_live_monitor(
+            settings,
+            refresh_seconds=refresh_seconds,
+        ),
+        read_service_state=read_service_state,
+        is_process_alive=lambda pid: is_process_alive(pid),
+        request_stop=lambda settings: request_stop(settings),
         database_factory=TradingDatabase,
-        terminate_process=terminate_service_process,
-    )
-
-
-@app.command("restart-service")
-def restart_service(
-    grace_seconds: float = typer.Option(
-        3.0, min=0.0, help=HELP_RESTART_SERVICE_GRACE_SECONDS
-    ),
-) -> None:
-    """
-    Restart the managed background orchestrator using its last recorded launch configuration.
-
-    Parameters:
-        grace_seconds (float): Seconds to wait for a graceful stop before forcing relaunch.
-    """
-    settings = get_settings()
-    try:
-        pid = restart_background_service(settings=settings, grace_seconds=grace_seconds)
-    except Exception as exc:
-        console.print(
-            _render_health_panel(
-                TITLE_RESTART_BLOCKED,
-                str(exc),
-                border_style="red",
+        terminate_service_process=lambda pid: terminate_service_process(pid),
+        restart_background_service=lambda settings, grace_seconds: (
+            restart_background_service(
+                settings=settings,
+                grace_seconds=grace_seconds,
             )
-        )
-        raise typer.Exit(code=1)
-    console.print(
-        _render_health_panel(
-            TITLE_SERVICE_RESTARTED,
-            MESSAGE_BACKGROUND_SERVICE_RESTARTED.format(pid=pid),
-            border_style="green",
-        )
-    )
-
-
-@app.command("service-run", hidden=True)
-def service_run(
-    symbols: str = typer.Option(...),
-    interval: str = typer.Option("1d"),
-    lookback: str = typer.Option("180d"),
-    poll_seconds: int = typer.Option(300),
-    max_cycles: int | None = typer.Option(None),
-    continuous: bool = typer.Option(True),
-) -> None:
-    """Internal background worker entrypoint."""
-    settings = get_settings()
-    symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
-    if not symbol_list:
-        raise typer.BadParameter(MESSAGE_LAUNCH_SYMBOL_REQUIRED)
-    run_service(
-        settings=settings,
-        symbols=symbol_list,
-        interval=interval,
-        lookback=lookback,
-        poll_seconds=poll_seconds,
-        continuous=continuous,
-        max_cycles=max_cycles,
-    )
-
-
-@app.command()
-def menu() -> None:
-    """Open the interactive terminal control room."""
-    run_main_menu()
-
-
-@app.command("latest-order")
-def latest_order() -> None:
-    """Show the latest paper order."""
-    settings = get_settings()
-    db = TradingDatabase(settings)
-    order = db.latest_order()
-    if order is None:
-        console.print(Text(MESSAGE_NO_ORDERS_RECORDED, style="yellow"))
-        raise typer.Exit(code=0)
-
-    columns: list[str] = [
-        "order_id",
-        "created_at",
-        "symbol",
-        "side",
-        "approved",
-        "entry_price",
-        "stop_loss",
-        "take_profit",
-        "position_size_pct",
-        "confidence",
-    ]
-    table = Table(title=LABEL_LATEST_ORDER)
-    for column in columns:
-        table.add_column(column)
-    rendered_order = [str(value) for value in order]
-    table.add_row(*rendered_order)
-    console.print(table)
+        ),
+        render_health_panel=_render_health_panel,
+        run_service=_run_service_provider,
+        run_main_menu=lambda: run_main_menu(),
+    ),
+)
 
 
 def main() -> None:
