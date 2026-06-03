@@ -7,6 +7,410 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.13.0 (2026-06-03)
+
+### Features
+
+- Add terminal ui locale setting
+  ([`87ae669`](https://github.com/ogiboy/agentic-trader/commit/87ae669b93cf6243933caac004e585993b736901))
+
+### Bug Fixes
+
+- Backfill stable changelog sections
+  ([`ed7c0c4`](https://github.com/ogiboy/agentic-trader/commit/ed7c0c414252f21ea977a128f173cfa9f9b6dc5e))
+- Restore next lint compatibility
+  ([`bf33a64`](https://github.com/ogiboy/agentic-trader/commit/bf33a64f7feb8c982f0e9fcbfba9fd5807ce28fc))
+- Satisfy sonar quality gate
+  ([`1cd99ab`](https://github.com/ogiboy/agentic-trader/commit/1cd99abbe704d9b240f856dbb82f2fc458c59068))
+- Harden locale env persistence
+  ([`9990531`](https://github.com/ogiboy/agentic-trader/commit/99905310bf8089541040fbb9ec99a43a1a671e6d))
+- Apply CodeRabbit auto-fixes
+  ([`abd2791`](https://github.com/ogiboy/agentic-trader/commit/abd2791015838dc44f9aeb4a414bebc5b1928f24))
+- Update settings.json
+  ([`e51d0a4`](https://github.com/ogiboy/agentic-trader/commit/e51d0a417a9eaa5026db83f74da2d79103fe35be))
+- Restore python ci gates
+  ([`25d0875`](https://github.com/ogiboy/agentic-trader/commit/25d0875d2489f5afdca5863cee9548755535d494))
+- Satisfy strict terminal pyright exports
+  ([`f2b5e4c`](https://github.com/ogiboy/agentic-trader/commit/f2b5e4c9866715336f0fa13adc53b997d0229f1c))
+- Reduce qa script sonar findings
+  ([`5780817`](https://github.com/ogiboy/agentic-trader/commit/5780817cdf02e31be13ba43337a8739f0b638ed9))
+- Satisfy tui sonar reexports
+  ([`d131160`](https://github.com/ogiboy/agentic-trader/commit/d13116072d821cd0faa4a9ceeee33ec085a160f7))
+- Remove tui reexport-only imports
+  ([`bbc6748`](https://github.com/ogiboy/agentic-trader/commit/bbc67489264466b9eb661af06303c8a92eb6bf7e))
+- Update gitignore and vscode settings json
+  ([`ea35c15`](https://github.com/ogiboy/agentic-trader/commit/ea35c15041f9ab096cf9aa8d7ed42ea3301ff399))
+- Sorting
+  ([`5d26392`](https://github.com/ogiboy/agentic-trader/commit/5d26392a8238aad780385b4fc65df241d54f271c))
+- Harden camofox trace security
+  ([`2cc98a7`](https://github.com/ogiboy/agentic-trader/commit/2cc98a76221816a2d7ac625befb3f3c93ace80a7))
+- Stabilize camofox ci gates
+  ([`3757850`](https://github.com/ogiboy/agentic-trader/commit/37578501a55ae73b5cb59b63b0ec3195f44204b3))
+- Clarify camofox launch setup
+  ([`2627cf9`](https://github.com/ogiboy/agentic-trader/commit/2627cf9d8bb7655e497759d42f9cbba6bf226045))
+- Suppress CLI callback unused-function false positives
+  ([`1db2d8c`](https://github.com/ogiboy/agentic-trader/commit/1db2d8c463bf91a8b544fed9a97d8ad4ca7d1711))
+- Allow changelog backfill before release tag
+  ([`f762741`](https://github.com/ogiboy/agentic-trader/commit/f7627414ae6bae1d92ef491f237897296f560fc3))
+
+### Documentation
+
+- Add modularity branch docstrings
+  ([`e545419`](https://github.com/ogiboy/agentic-trader/commit/e545419a9f6bcf2e89583469fb0b2bc68d7ad705))
+- Record modularity workflow rules
+  ([`9cf8042`](https://github.com/ogiboy/agentic-trader/commit/9cf8042afb843ccdbdb7bed316388d708b8d2601))
+
+### Continuous Integration
+
+- Run sonarcloud scan through pysonar
+  ([`160b18c`](https://github.com/ogiboy/agentic-trader/commit/160b18c09a82ba093b373e2e8e1a0da817ed7903))
+
+### Tests
+
+- Add modularity i18n audit
+  ([`7955b04`](https://github.com/ogiboy/agentic-trader/commit/7955b04801fc73dc761a368925853e567df00c2c))
+- Cover locale persistence through cli
+  ([`f1cd39c`](https://github.com/ogiboy/agentic-trader/commit/f1cd39c527651a60232e5ce46acdc0b0e23edacc))
+- Cover json mapping fallback
+  ([`16d306c`](https://github.com/ogiboy/agentic-trader/commit/16d306c6d91dc1f9cd513d08b3e2233cf3a060b1))
+- Add coderabbit review coverage
+  ([`184ac2d`](https://github.com/ogiboy/agentic-trader/commit/184ac2d79600d61e26adcf4967a480d71b597c2a))
+- Cover tui page render paths
+  ([`8cc1b83`](https://github.com/ogiboy/agentic-trader/commit/8cc1b833e6ca927b302713b8a44e6aa491a021be))
+- Cover tui chat fallback branches
+  ([`3ee1755`](https://github.com/ogiboy/agentic-trader/commit/3ee17559326ec43654d9c0b28d429e805a634479))
+
+### Refactors
+
+- Share json payload helpers
+  ([`9c28302`](https://github.com/ogiboy/agentic-trader/commit/9c28302c7264e55af8c55ed7812c98e3f55ef31e))
+- Centralize docs home copy
+  ([`9851840`](https://github.com/ogiboy/agentic-trader/commit/9851840f14159a8329ca316161f46d7ca0998201))
+- Extract ink tui copy helpers
+  ([`6430513`](https://github.com/ogiboy/agentic-trader/commit/6430513eb49b3cbc6d99a09081aaa03cd40d4d13))
+- Reuse json shape helpers
+  ([`02f3dcc`](https://github.com/ogiboy/agentic-trader/commit/02f3dcc22b0637896eccd7043636ab36b141cae1))
+- Share utc timestamp helper
+  ([`c03b04a`](https://github.com/ogiboy/agentic-trader/commit/c03b04ac93c0675967c6fa6ea9ee55fd09e1fee5))
+- Share dataclass payload helpers
+  ([`c59f5ad`](https://github.com/ogiboy/agentic-trader/commit/c59f5ad68bba58d2e094dc197f4b1f4adc3f4b97))
+- Centralize cli help copy
+  ([`1522d10`](https://github.com/ogiboy/agentic-trader/commit/1522d10dcfe7672fdb460adb35efec5dc3e9c16a))
+- Centralize proposal cli copy
+  ([`7e98b37`](https://github.com/ogiboy/agentic-trader/commit/7e98b373cd746045a1de90852d041aa4587f5e60))
+- Centralize idea cli copy
+  ([`0200daf`](https://github.com/ogiboy/agentic-trader/commit/0200daf9409a90f953f05ff8ec479721dd5afee8))
+- Centralize execution cli copy
+  ([`55dc169`](https://github.com/ogiboy/agentic-trader/commit/55dc16989d341af4342f5939269e13bcb8e2b52b))
+- Centralize service cli copy
+  ([`99b5997`](https://github.com/ogiboy/agentic-trader/commit/99b59970849b5854fd7b948c06d5c2c3516213c8))
+- Centralize report cli copy
+  ([`ef6c533`](https://github.com/ogiboy/agentic-trader/commit/ef6c533a89a0ae366975e0b6e3365f27fa7e9877))
+- Centralize review cli copy
+  ([`fa5e96e`](https://github.com/ogiboy/agentic-trader/commit/fa5e96ea7fb81a66b9890c8b190de6b5aa8feedb))
+- Centralize backtest cli copy
+  ([`a03d95d`](https://github.com/ogiboy/agentic-trader/commit/a03d95d76689dd8d09fefdb18d0478ec382a9eb0))
+- Centralize memory cli copy
+  ([`3395ec7`](https://github.com/ogiboy/agentic-trader/commit/3395ec7f0e28101fed1f84c35359c3f0fe9859bf))
+- Centralize finance cli copy
+  ([`db0d594`](https://github.com/ogiboy/agentic-trader/commit/db0d5945aa0a461783fb3496e2f477f666fab8f2))
+- Centralize runtime cli copy
+  ([`c632dc3`](https://github.com/ogiboy/agentic-trader/commit/c632dc314e584278fbe2b999930e6b857176c8ac))
+- Centralize environment cli copy
+  ([`f085a38`](https://github.com/ogiboy/agentic-trader/commit/f085a380623f7fcb685f03e434021aee59442ded))
+- Centralize setup cli copy
+  ([`1ae83f4`](https://github.com/ogiboy/agentic-trader/commit/1ae83f494b3b24dfdce34b927ae8c5b3344451db))
+- Centralize service status cli copy
+  ([`75dfdb1`](https://github.com/ogiboy/agentic-trader/commit/75dfdb1ddcdcbce13e0a946393d5356a70db9846))
+- Centralize operator launcher cli copy
+  ([`2766645`](https://github.com/ogiboy/agentic-trader/commit/276664513b9340dfe7f7dfbaf12134b8f7d49132))
+- Centralize side service command copy
+  ([`476ec36`](https://github.com/ogiboy/agentic-trader/commit/476ec36d7a0bcb56de5195ab55673794a22cd13b))
+- Centralize research status cli copy
+  ([`5e39c07`](https://github.com/ogiboy/agentic-trader/commit/5e39c07e50c3353b3f3921c0c91b247c60f95ab7))
+- Centralize research control cli copy
+  ([`e92abb3`](https://github.com/ogiboy/agentic-trader/commit/e92abb37e57e427b35af4944c3537f006175c658))
+- Centralize launch plan cli copy
+  ([`e3357d5`](https://github.com/ogiboy/agentic-trader/commit/e3357d5a537304218ef19a52d547aa934c843e96))
+- Centralize portfolio cli copy
+  ([`d4d0887`](https://github.com/ogiboy/agentic-trader/commit/d4d0887bc87e9e404cab6754dda39fc9fade6f24))
+- Centralize provider status cli copy
+  ([`3f7eb26`](https://github.com/ogiboy/agentic-trader/commit/3f7eb264ae92c893a3bff6dc739f51b955cd037e))
+- Centralize proposal cli help copy
+  ([`cf4d3f4`](https://github.com/ogiboy/agentic-trader/commit/cf4d3f4b6aa45729c449c2972a57fa22591e76a2))
+- Centralize proposal candidate cli copy
+  ([`c6720eb`](https://github.com/ogiboy/agentic-trader/commit/c6720ebe299d0d5379aafe2883bc53b547ec3465))
+- Centralize trade proposal cli copy
+  ([`babf2f2`](https://github.com/ogiboy/agentic-trader/commit/babf2f2187e9716697f09e361ea0bd3af87de2de))
+- Centralize idea strategy cli copy
+  ([`a0d06f2`](https://github.com/ogiboy/agentic-trader/commit/a0d06f25b300f3f1f44932cb980114f01f0f3f33))
+- Centralize research cycle cli copy
+  ([`ab7d314`](https://github.com/ogiboy/agentic-trader/commit/ab7d31403d86c798d562b176982d404258efcf13))
+- Centralize operator evidence cli copy
+  ([`c68c2c4`](https://github.com/ogiboy/agentic-trader/commit/c68c2c408bd7ab5388121fa8221770d7defa5849))
+- Centralize observer calendar cli copy
+  ([`2d8030f`](https://github.com/ogiboy/agentic-trader/commit/2d8030f420015be63fa0b41d5573d25b9cff7df5))
+- Centralize news cache cli copy
+  ([`79acb15`](https://github.com/ogiboy/agentic-trader/commit/79acb15bb34420e02bff77caa2a148700658a24e))
+- Centralize review context cli copy
+  ([`b54d2cb`](https://github.com/ogiboy/agentic-trader/commit/b54d2cb508d05f12dcade8a11f7f82b80af9df78))
+- Centralize replay backtest cli copy
+  ([`ed56e70`](https://github.com/ogiboy/agentic-trader/commit/ed56e701a8ceb464344c15f83f74c2fa0b11acbe))
+- Centralize retrieval cli copy
+  ([`c184162`](https://github.com/ogiboy/agentic-trader/commit/c184162dfe787068a6b34fda262f3e52575cb0a2))
+- Centralize service cli copy
+  ([`6cf8dab`](https://github.com/ogiboy/agentic-trader/commit/6cf8dabb89f6b43612c198dbdfb56c8a7456992a))
+- Centralize tui status copy
+  ([`0887505`](https://github.com/ogiboy/agentic-trader/commit/0887505424a5f282656875cccf2084cec8653cef))
+- Centralize tui workflow copy
+  ([`9277e37`](https://github.com/ogiboy/agentic-trader/commit/9277e377a11e5ff217fbff6da62c69ae4d8c7544))
+- Centralize tui system copy
+  ([`f9a756f`](https://github.com/ogiboy/agentic-trader/commit/f9a756fecf7c3bad1df1d2807ef8a1192a8e9874))
+- Centralize tui provider copy
+  ([`92f408e`](https://github.com/ogiboy/agentic-trader/commit/92f408e9cb679ab54eb1dd5ff01c878237ec2ab7))
+- Centralize tui review copy
+  ([`c06ddf5`](https://github.com/ogiboy/agentic-trader/commit/c06ddf5ac6b8d31077431305da77990020664645))
+- Centralize tui menu copy
+  ([`3bd833d`](https://github.com/ogiboy/agentic-trader/commit/3bd833d37eb1eb79d5a8430ec5ad84826786912f))
+- Extract tui input routing
+  ([`fd5f2cf`](https://github.com/ogiboy/agentic-trader/commit/fd5f2cf4720e9dc6a234d904e7ef3b65b5e60db2))
+- Extract tui dashboard defaults
+  ([`7c7be76`](https://github.com/ogiboy/agentic-trader/commit/7c7be7650e97dcbae200eda3caf3a4d37ca8d2f9))
+- Extract tui line formatters
+  ([`2b0c80a`](https://github.com/ogiboy/agentic-trader/commit/2b0c80acbb437a144f551bacac8c7cea2f7ec2fc))
+- Split tui page components
+  ([`1425611`](https://github.com/ogiboy/agentic-trader/commit/142561107b2356818c6fa49a9c1820dde101ed7a))
+- Split tui line formatters
+  ([`ff2f746`](https://github.com/ogiboy/agentic-trader/commit/ff2f746138a71c4ce54b1cb1fd0677fb7ef5e8a2))
+- Extract terminal monitor module
+  ([`ec0d9df`](https://github.com/ogiboy/agentic-trader/commit/ec0d9df5cb69402de17e2da5bd4c273da97beb8c))
+- Split terminal monitor sections
+  ([`6459f48`](https://github.com/ogiboy/agentic-trader/commit/6459f487d791de451b757055c6e8929c43da0ba9))
+- Extract terminal status renderers
+  ([`f348da9`](https://github.com/ogiboy/agentic-trader/commit/f348da9e193a0aca9a49a35d1a72b167b0d3146c))
+- Split terminal control room flows
+  ([`023a964`](https://github.com/ogiboy/agentic-trader/commit/023a96407ade2a928a2af0728ea7aa407b7f9176))
+- Isolate llm structured parsing
+  ([`927471a`](https://github.com/ogiboy/agentic-trader/commit/927471a5f3142c0002ef7a3b1f56c0dbd4f8aed8))
+- Split trade proposal drafts
+  ([`d6d7667`](https://github.com/ogiboy/agentic-trader/commit/d6d766709563ae9b65f74a455ddd2333641b4616))
+- Isolate sec companyfacts parsing
+  ([`f3dec2f`](https://github.com/ogiboy/agentic-trader/commit/f3dec2f12657b3f461853d479ed4eb8466bda923))
+- Isolate proposal candidate context
+  ([`4c3cfca`](https://github.com/ogiboy/agentic-trader/commit/4c3cfca84e3a8706057564d87d814728a1e326fc))
+- Isolate model service status
+  ([`37bd2e1`](https://github.com/ogiboy/agentic-trader/commit/37bd2e1a9cb1546eaac0c5763acd6ecfa4e98c5e))
+- Split model service status assembly
+  ([`1847219`](https://github.com/ogiboy/agentic-trader/commit/18472197e4004846b1bda4a0cf8d488dd6edd5ed))
+- Split model service probes and state
+  ([`55abc6c`](https://github.com/ogiboy/agentic-trader/commit/55abc6c03ec5a15ee03de2d06315dbdc0a4eeb7b))
+- Split terminal ui text catalogs
+  ([`3610bf5`](https://github.com/ogiboy/agentic-trader/commit/3610bf5c45e01d72ccefb4dd6a049d371749dcac))
+- Split storage schema management
+  ([`fd53f09`](https://github.com/ogiboy/agentic-trader/commit/fd53f09d1354218dc815357d9d816a226a57f237))
+- Split proposal storage operations
+  ([`c81eb61`](https://github.com/ogiboy/agentic-trader/commit/c81eb613993b6cffd749e6bd6ad1c83c1cdde86c))
+- Split service storage operations
+  ([`c896fd2`](https://github.com/ogiboy/agentic-trader/commit/c896fd278778fdf305c4c538464a806f5d4a7e86))
+- Split trade journal storage
+  ([`ad3544e`](https://github.com/ogiboy/agentic-trader/commit/ad3544e1e63dd1f47523e7fb8c57583206ecf714))
+- Split portfolio storage operations
+  ([`62d7a1a`](https://github.com/ogiboy/agentic-trader/commit/62d7a1ab2ae99b65a9e1727f7acd4c3be6d22328))
+- Split research providers
+  ([`4854552`](https://github.com/ogiboy/agentic-trader/commit/48545527185b8fcbcb2105208bfe879f4f836da2))
+- Split broker adapters
+  ([`894d317`](https://github.com/ogiboy/agentic-trader/commit/894d317d9f16b9542706e824d417e56a1d329d26))
+- Split service workflow modules
+  ([`dd03c65`](https://github.com/ogiboy/agentic-trader/commit/dd03c65643886c68b9e545481d3120819751890e))
+- Split schema models
+  ([`02e6984`](https://github.com/ogiboy/agentic-trader/commit/02e6984992572fce46af79e678ea640d681b96a9))
+- Split cli proposal desk
+  ([`ee8f0b4`](https://github.com/ogiboy/agentic-trader/commit/ee8f0b424205fdd1ddd0a1d08a19b09cdbe18b07))
+- Split cli operator readiness
+  ([`e56db00`](https://github.com/ogiboy/agentic-trader/commit/e56db007f660ea172cc4ff8e0a3a538666110dd0))
+- Split webgui service modules
+  ([`fb8f53c`](https://github.com/ogiboy/agentic-trader/commit/fb8f53cf3e458c7864d57df0e99f856f1aebeccb))
+- Group tui modules
+  ([`87a80bd`](https://github.com/ogiboy/agentic-trader/commit/87a80bd70739998d9244f8aec259cd139628969e))
+- Split cli tui and copy boundaries
+  ([`ab5faac`](https://github.com/ogiboy/agentic-trader/commit/ab5faacbde05be15bb19608c51a8709852160eab))
+- Tighten python runtime typing
+  ([`8bc4f68`](https://github.com/ogiboy/agentic-trader/commit/8bc4f6841a03d2f1af1b0fd24474501a40ad6427))
+- Modularize webgui control room
+  ([`a906306`](https://github.com/ogiboy/agentic-trader/commit/a9063064ec89d9f35c3c097f80025b814bf15379))
+- Split tui monitor modules
+  ([`3779252`](https://github.com/ogiboy/agentic-trader/commit/37792521c43b1f19b3ac65a68403a342f65d6464))
+- Split tui status renderers
+  ([`f653547`](https://github.com/ogiboy/agentic-trader/commit/f653547e3a7ea9877082723d14afa2a346d93622))
+- Split model service process helpers
+  ([`cd4bd99`](https://github.com/ogiboy/agentic-trader/commit/cd4bd99291c89ded88dd89e7956f1031c02b7660))
+- Split model service reports
+  ([`cd7f1a6`](https://github.com/ogiboy/agentic-trader/commit/cd7f1a68017e63563e86be1f9681879ba09d0d9f))
+- Split cli system registration
+  ([`cfb91e7`](https://github.com/ogiboy/agentic-trader/commit/cfb91e78cfcb1c366b44871d06ebf1fcbb238a42))
+- Split cli service rendering
+  ([`32b83dd`](https://github.com/ogiboy/agentic-trader/commit/32b83ddb49ea297616056e81c8f2291349451e13))
+- Split webgui service state
+  ([`934db4d`](https://github.com/ogiboy/agentic-trader/commit/934db4d9c90094555170c9769de785c3b11328ce))
+- Split webgui service process helpers
+  ([`aa2c8a7`](https://github.com/ogiboy/agentic-trader/commit/aa2c8a74adc23e61cdbb0e37a5b2d28838be9c73))
+- Split camofox service state
+  ([`ebeeea9`](https://github.com/ogiboy/agentic-trader/commit/ebeeea9f5ae3867b7f7e34e81bbf4893456b9ac9))
+- Split camofox service process helpers
+  ([`56e878a`](https://github.com/ogiboy/agentic-trader/commit/56e878ae02cfccd44b9683a3d98f73b0253ce0fa))
+- Split sec edgar evidence modules
+  ([`cb6f9f4`](https://github.com/ogiboy/agentic-trader/commit/cb6f9f44461a9676d24e1e061be69ffb7bda37d2))
+- Split storage database helpers
+  ([`b41a9df`](https://github.com/ogiboy/agentic-trader/commit/b41a9dfdb52e0ce101875bbf62e7d8c8eeec938d))
+- Split workflow persistence helpers
+  ([`eb34d85`](https://github.com/ogiboy/agentic-trader/commit/eb34d852b13c688b49c4bf4cdf280349ca2c2c92))
+- Split workflow run context
+  ([`1e089a2`](https://github.com/ogiboy/agentic-trader/commit/1e089a25de5456d16c024c0bfeea7a2e5a70f0a9))
+- Split research sidecar backends
+  ([`64af421`](https://github.com/ogiboy/agentic-trader/commit/64af421527afee53358ec69397a88f3c65b3b2f4))
+- Split openai compatible llm helpers
+  ([`ede2c1a`](https://github.com/ogiboy/agentic-trader/commit/ede2c1af3aed0f1b20f494c695845de6acf86d65))
+- Split proposal strategy commands
+  ([`06ed6f3`](https://github.com/ogiboy/agentic-trader/commit/06ed6f35a065b86221ebeafaed4e61f16ebd021b))
+- Split finance proposal actions
+  ([`7f360ca`](https://github.com/ogiboy/agentic-trader/commit/7f360cac0b9259eb182886a7d4b57557069dbb75))
+- Split alpaca adapter mapping
+  ([`c8442d9`](https://github.com/ogiboy/agentic-trader/commit/c8442d97c431c90f4c05add57eb1b141acd8ad07))
+- Split paper broker helpers
+  ([`7e0453d`](https://github.com/ogiboy/agentic-trader/commit/7e0453db9621f6991a1622261f867d4db92cae3e))
+- Split market feature helpers
+  ([`ea60811`](https://github.com/ogiboy/agentic-trader/commit/ea6081171e955e923eba5f318f5b9a67d23fd78b))
+- Split walk forward backtest engine
+  ([`948791c`](https://github.com/ogiboy/agentic-trader/commit/948791c6c0e416c45d7d1cd3bb395263ffa4fc93))
+- Split research cycle payloads
+  ([`ddaa16c`](https://github.com/ogiboy/agentic-trader/commit/ddaa16ca986cb490cc73b0d9fb16f0876649c181))
+- Split operator cli commands
+  ([`de286f9`](https://github.com/ogiboy/agentic-trader/commit/de286f94a754073206ce02e2f734c7bc1ff2bec1))
+- Split legacy ui text exports
+  ([`362d0a1`](https://github.com/ogiboy/agentic-trader/commit/362d0a11647e71101ee7b49179573b11fee0ac64))
+- Split ui text catalog types
+  ([`28d7f9b`](https://github.com/ogiboy/agentic-trader/commit/28d7f9b8189211874a79c2d6b18ed8d04312be83))
+- Split cli record payloads
+  ([`080baed`](https://github.com/ogiboy/agentic-trader/commit/080baed09021c05424005d3875bc87ad99856438))
+- Split ink tui runtime helpers
+  ([`c3589e6`](https://github.com/ogiboy/agentic-trader/commit/c3589e698505ece9895ad3d0e8f0e13f1eb1e170))
+- Split webgui service status builders
+  ([`fc517f1`](https://github.com/ogiboy/agentic-trader/commit/fc517f10ef30cec71aab44debeb545663756aaf4))
+- Split run output assembly
+  ([`84eb76f`](https://github.com/ogiboy/agentic-trader/commit/84eb76ffe53c774b775c0be7863f93dfc1679cbf))
+- Split llm provider payload helpers
+  ([`32fd23a`](https://github.com/ogiboy/agentic-trader/commit/32fd23a0ddbfc868fb7b7a80172199fc74f1eb41))
+- Split trade context assembly
+  ([`b0e1bcd`](https://github.com/ogiboy/agentic-trader/commit/b0e1bcde155fad3afdae830c1b5ef68773af1535))
+- Split provider collection helpers
+  ([`0a32c46`](https://github.com/ogiboy/agentic-trader/commit/0a32c464f45984b9380685bcc22961dbbc5b9ba2))
+- Split finance rendering
+  ([`31972e6`](https://github.com/ogiboy/agentic-trader/commit/31972e6ce030bae0c0950e9faa8b2979849aef93))
+- Split record rendering
+  ([`2074b7d`](https://github.com/ogiboy/agentic-trader/commit/2074b7d48f2633d818f10f3949539308c578d5bb))
+- Split proposal action payloads
+  ([`7026a9b`](https://github.com/ogiboy/agentic-trader/commit/7026a9b0d07d80e0536f1d07957bf485534ca3f5))
+- Split alpaca risk checks
+  ([`9602919`](https://github.com/ogiboy/agentic-trader/commit/9602919d00c1482e6bf8818ba82bb75093cb90d5))
+- Split fundamental fallback logic
+  ([`3f2937f`](https://github.com/ogiboy/agentic-trader/commit/3f2937f491163da5350f3e749c0b86f8ae11bc24))
+- Split llm provider health helpers
+  ([`586ac31`](https://github.com/ogiboy/agentic-trader/commit/586ac31849a7ba47c9d63c287d1405b0fcaf2c30))
+- Split strategy catalog data
+  ([`344b8dc`](https://github.com/ogiboy/agentic-trader/commit/344b8dc7b8f81ba82192afa7efadd8939a4d0a49))
+- Split service state records
+  ([`ca0f672`](https://github.com/ogiboy/agentic-trader/commit/ca0f672007ef6b009dbbca23bb6d340db1724e8b))
+- Split public source providers
+  ([`971a1d2`](https://github.com/ogiboy/agentic-trader/commit/971a1d2f8c0dcc60a9e2989cde2b943549089659))
+- Split portfolio storage modules
+  ([`ca145f5`](https://github.com/ogiboy/agentic-trader/commit/ca145f5299c107543ab16f6b5cd6acbdedcc5a0a))
+- Split one-shot workflow stages
+  ([`201cf63`](https://github.com/ogiboy/agentic-trader/commit/201cf6360af665d7d707daf899af80c09244ad63))
+- Split proposal desk commands
+  ([`9ff2135`](https://github.com/ogiboy/agentic-trader/commit/9ff2135324cc681f4e5bcff721c6dec4ec989981))
+- Split structured llm helpers
+  ([`6325b6b`](https://github.com/ogiboy/agentic-trader/commit/6325b6ba3f35b0b4dd5ca5e20ebbeb9b6809893a))
+- Split proposal storage records
+  ([`426d20b`](https://github.com/ogiboy/agentic-trader/commit/426d20b389a53f626d414ab50b207aeb25e5059f))
+- Split paper broker execution helpers
+  ([`35384df`](https://github.com/ogiboy/agentic-trader/commit/35384dfc629002c89b1b4c028d69dfca38f25d1d))
+- Split runtime mode CLI commands
+  ([`d8db257`](https://github.com/ogiboy/agentic-trader/commit/d8db2575dd21c44ca732f08f1d6f0a61a5eb7334))
+- Split service CLI commands
+  ([`98d105d`](https://github.com/ogiboy/agentic-trader/commit/98d105d1d96cc48dcd4688f5c48f2c4b17cdb1df))
+- Split proposal candidate validation
+  ([`dcd33fd`](https://github.com/ogiboy/agentic-trader/commit/dcd33fd522716807fa5a07bb7c37ec419cf48246))
+- Split noop research backend
+  ([`f4c2a1e`](https://github.com/ogiboy/agentic-trader/commit/f4c2a1eb7c0703b48c49bbe6daebe0a0e734c90d))
+- Split research contract helpers
+  ([`80fe609`](https://github.com/ogiboy/agentic-trader/commit/80fe609001d7cf3ba2a873ee07b12c6a53fabfe7))
+- Split research cycle helpers
+  ([`80bfffb`](https://github.com/ogiboy/agentic-trader/commit/80bfffb57c6eddceb29dc11efad20126401eb8a8))
+
+### Styles
+
+- Sort python imports and formatting
+  ([`c2a2aef`](https://github.com/ogiboy/agentic-trader/commit/c2a2aef69919fe6416c7f4894eac60a4ced665ba))
+- Modernize camofox browser server lint
+  ([`4bd354e`](https://github.com/ogiboy/agentic-trader/commit/4bd354eb13912bec7523fc6c08ed51e86e7cad4a))
+- Normalize modularity audit formatting
+  ([`02087d3`](https://github.com/ogiboy/agentic-trader/commit/02087d305e684fe89ec7ab414dae941a880402d5))
+- Normalize i18n and UI formatting
+  ([`de57b85`](https://github.com/ogiboy/agentic-trader/commit/de57b859c621ca72d1d9466b745eea55550cccf3))
+
+### Chores
+
+- Bump SonarSource/sonarqube-scan-action from 7.1.0 to 8.1.0
+  ([`90e02da`](https://github.com/ogiboy/agentic-trader/commit/90e02dada6c83ac7bac34558adbb32a0ea35b2e2))
+- Bump crewai[tools] in /sidecars/research_flow
+  ([`082a127`](https://github.com/ogiboy/agentic-trader/commit/082a12739ad465add551460fdaff3bb12bf39286))
+- Bump duckdb from 1.5.2 to 1.5.3
+  ([`0dd52d1`](https://github.com/ogiboy/agentic-trader/commit/0dd52d1e8fec18655bcef96c0769cf9ed111feaa))
+- Bump coverage from 7.13.5 to 7.14.0
+  ([`2c0dfcd`](https://github.com/ogiboy/agentic-trader/commit/2c0dfcd3bb18a5e1184e99ae21266bd5328d551e))
+- Bump firecrawl-py from 4.25.1 to 4.28.0
+  ([`961fed1`](https://github.com/ogiboy/agentic-trader/commit/961fed10e01b5de07f5af647ca77d7ec0d462167))
+- Bump ruff from 0.15.12 to 0.15.14
+  ([`9ff79a5`](https://github.com/ogiboy/agentic-trader/commit/9ff79a5d882f935497b6645b70077018cd827542))
+- Bump vitest from 4.1.6 to 4.1.7
+  ([`b89a4a6`](https://github.com/ogiboy/agentic-trader/commit/b89a4a6094fb4ff0992ee17ed168935875cfa73f))
+- Bump fumadocs-ui from 16.8.11 to 16.9.1
+  ([`d63c7bf`](https://github.com/ogiboy/agentic-trader/commit/d63c7bf7e16492cb83dca00f9d0b3d0a76b0ade7))
+- Bump @vitest/coverage-v8 from 4.1.6 to 4.1.7
+  ([`c6ff239`](https://github.com/ogiboy/agentic-trader/commit/c6ff239d5828467e6ae1d2c84dc378ff5ea85195))
+- Bump fumadocs-core from 16.8.11 to 16.9.1
+  ([`378cfc4`](https://github.com/ogiboy/agentic-trader/commit/378cfc47b2a7b34ced30aea0c9ab6c765005bd72))
+- Bump the next-apps group across 1 directory with 5 updates
+  ([`d0a99fc`](https://github.com/ogiboy/agentic-trader/commit/d0a99fcce218b69691b9682221551e13876edbdf))
+- Update project version
+  ([`4c065cf`](https://github.com/ogiboy/agentic-trader/commit/4c065cfecc63720c6c63f1e8149f33843c61d97f))
+- Update project version
+  ([`e5c7676`](https://github.com/ogiboy/agentic-trader/commit/e5c7676fa0da4ce3904118ac11ecb641b556e2c0))
+- Refresh workspace dependencies
+  ([`535f230`](https://github.com/ogiboy/agentic-trader/commit/535f230968e2152800029bd64df5ebebbff1a36f))
+- Bump version to 0.12.6
+  ([`35bab29`](https://github.com/ogiboy/agentic-trader/commit/35bab299964d574c062feff8bec2dbb2092732f1))
+- Bump version to 0.12.7
+  ([`18e8b8b`](https://github.com/ogiboy/agentic-trader/commit/18e8b8ba99bf4a7afeb8d02214afa5ec2e530e75))
+- Bump version to 0.12.8
+  ([`29d6d13`](https://github.com/ogiboy/agentic-trader/commit/29d6d13938bbf4d003ae3955472cce31a8b51b91))
+- Bump version to 0.12.9
+  ([`adf50d4`](https://github.com/ogiboy/agentic-trader/commit/adf50d4e38e34240e6d9afc29d692aca9c5d5606))
+- Bump version to 0.12.10
+  ([`d875845`](https://github.com/ogiboy/agentic-trader/commit/d8758458bf292a0e6e4de1e3c33461e2fd517488))
+- Bump version to 0.12.11
+  ([`939b216`](https://github.com/ogiboy/agentic-trader/commit/939b2162d0b95633cfc09aa06335893efa4350e6))
+- Update node workspace dependencies
+  ([`60b54a9`](https://github.com/ogiboy/agentic-trader/commit/60b54a969804ec95af3f6714d9ad6feb1d3a07b1))
+- Bump version to 0.12.12
+  ([`935bfd4`](https://github.com/ogiboy/agentic-trader/commit/935bfd4bef34f91cab58f8287c7eef8fac541874))
+- Update Python dependency locks
+  ([`d6ce301`](https://github.com/ogiboy/agentic-trader/commit/d6ce301f46324eb907ea9853ea45c4392cec2559))
+- Bump version to 0.12.13
+  ([`adf54fc`](https://github.com/ogiboy/agentic-trader/commit/adf54fc0bbfed83bc757501753142c46f11ba0f9))
+- Bump version to 0.12.14
+  ([`e37eb9d`](https://github.com/ogiboy/agentic-trader/commit/e37eb9d62ac04b9e051c430051f9b316b3bf0617))
+
 ## v0.12.5 (2026-05-26)
 
 ### Bug Fixes
