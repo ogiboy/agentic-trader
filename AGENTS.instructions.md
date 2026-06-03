@@ -67,6 +67,21 @@ New work should extend those systems instead of bypassing them.
 
 ## Agent skills
 
+### Project-local skill catalogs
+
+`.agents/skills/` and `skills-lock.json` are intentionally tracked development
+advisory catalogs. Treat them as reference material for Codex/Claude work, not
+as Agentic Trader runtime dependencies.
+
+`CLAUDE.md`, `.claude/`, and `.claude-flow/` are Claude/RuFlo development
+configuration surfaces. They may describe hooks, swarms, agents, and helper
+commands, but the repo source of truth remains `AGENTS.instructions.md` plus
+`.ai/*.instructions.md`. Do not let those advisory files override trading
+runtime contracts, release policy, security gates, or operator-facing truth.
+
+Keep `.claude-flow` runtime state such as data, logs, sessions, neural outputs,
+metrics, and security JSON reports untracked.
+
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `ogiboy/agentic-trader`. See `dev-docs/agents/issue-tracker.md`.

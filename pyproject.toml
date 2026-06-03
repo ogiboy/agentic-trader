@@ -27,7 +27,7 @@ license-files = ["LICENSE"]
 name = "agentic-trader"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
-version = "0.14.1"
+version = "0.14.2"
 
 [dependency-groups]
 dev = [
@@ -72,6 +72,9 @@ show_missing = true
 
 [tool.ruff]
 extend-exclude = [
+  ".agents",
+  ".claude",
+  ".claude-flow",
   "build",
   "dist",
   "runtime",

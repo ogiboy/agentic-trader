@@ -1,6 +1,6 @@
 # External Tooling Policy
 
-RuFlo, Context7, CodeRabbit, Sonar, GitHub helpers, browser automation, and
+RuFlo, Claude/Claude-flow, project-local skills, Context7, CodeRabbit, Sonar, GitHub helpers, browser automation, and
 similar tools are system-level development aids. They may improve investigation,
 review, documentation lookup, diff-risk scoring, or browser QA, but they are not
 part of the Agentic Trader runtime unless a separate repo-owned `tools/` adapter
@@ -15,12 +15,17 @@ or runtime contract explicitly adopts a narrow capability.
 - Use GitHub tooling for explicit branch, PR, CI, and release inspection.
 - Use Sonar/CodeRabbit findings as review input that must be verified against
   the actual checkout before accepting or rejecting.
+- Use `.agents/skills/`, `skills-lock.json`, `CLAUDE.md`, `.claude/`, and
+  stable `.claude-flow/` config as tracked advisory context when the user has
+  intentionally installed and committed that catalog.
 
 ## Forbidden Uses
 
-- Do not initialize repo-local advisory state unless the user explicitly asks.
-- Do not track generated hooks, daemon state, memory stores, local MCP config,
-  or assistant-specific project files.
+- Do not initialize additional repo-local advisory state unless the user
+  explicitly asks.
+- Do not track generated daemon state, runtime memory stores, local MCP config,
+  metrics, neural output, security reports, sessions, logs, pid files, or other
+  assistant runtime state.
 - Do not treat a RuFlo swarm as active work execution unless agents, tasks,
   results, and shutdown behavior are verified in the current session.
 - Do not add advisory packages as root runtime dependencies.
@@ -53,17 +58,21 @@ they are optional.
 ## If A Tool Generates Files
 
 1. Inventory the generated files.
-2. Adopt only useful ideas into `.ai/agents/`, `.ai/workflows/`,
+2. Adopt only useful policy changes into `.ai/agents/`, `.ai/workflows/`,
    `.ai/playbooks/`, `.ai/helpers/`, or `.ai/skills/`.
 3. Rewrite adopted content so it stands alone in this repository.
 4. Reject cloud-first, auto-commit, daemon, hidden-hook, and dependency-forcing
    content unless a separate repo decision explicitly accepts it.
-5. Delete the generated artifacts after the `.ai` guidance is self-contained.
+5. Delete or ignore generated runtime artifacts after the `.ai` guidance is
+   self-contained.
 
-Generated advisory state includes `.claude/`, `.claude-flow/`, `.swarm/`,
-`.mcp.json`, `CLAUDE.md`, local memory databases, daemon pid files, and swarm
-state files. These artifacts are not hidden by default; remove them so the
-worktree stays honest.
+Tracked advisory catalog/config now includes `.agents/skills/`,
+`skills-lock.json`, `CLAUDE.md`, `.claude/`, `.claude-flow/CAPABILITIES.md`,
+`.claude-flow/config.yaml`, and `.claude-flow/.gitignore`.
+Generated runtime state remains untracked: `.claude-flow/data/`,
+`.claude-flow/logs/`, `.claude-flow/sessions/`, `.claude-flow/neural/`,
+`.claude-flow/metrics/`, `.claude-flow/security/*.json`, `.ruflo/`, `.swarm/`,
+`.mcp.json`, local memory databases, daemon pid files, and logs.
 
 ## RuFlo MCP And Swarm Use
 
@@ -77,9 +86,9 @@ without `Transport closed` or stale state. Swarm smoke must stay small, use
 dry-run diagnostic agents, and end with explicit agent termination and swarm
 shutdown.
 
-Repo-local RuFlo init requires an explicit repo decision after a temp-directory
-smoke run identifies the generated files and proves why global MCP is
-insufficient.
+Additional repo-local RuFlo init requires an explicit repo decision after a
+temp-directory smoke run identifies the generated files and proves why the
+tracked catalog plus global MCP are insufficient.
 
 ## Advisory Checks Before Publishing
 
