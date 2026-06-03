@@ -31,6 +31,7 @@ import {
   StaleRefsError,
   createRefHelpers,
 } from './lib/refs.js';
+import { createRouteSafety } from './lib/route-safety.js';
 import { createGoogleSerpHelpers } from './lib/google-serp.js';
 import { windowSnapshot } from './lib/snapshot.js';
 import {
@@ -219,41 +220,14 @@ app.use('/tabs/:tabId', fly.replayMiddleware(log));
 // so each key gates a distinct surface. When unset, behavior is unchanged.
 app.use(accessKeyMiddleware(CONFIG));
 
-const ALLOWED_URL_SCHEMES = ['http:', 'https:'];
-
 // timingSafeCompare imported from lib/auth.js
 const timingSafeCompare = _timingSafeCompare;
 
-function safeError(err) {
-  if (CONFIG.nodeEnv === 'production') {
-    log('error', 'internal error', { error: err.message, stack: err.stack });
-    return 'Internal server error';
-  }
-  return err.message;
-}
-
-// Send error response with appropriate status code (422 for stale refs, 500 otherwise)
-function sendError(res, err, extraFields = {}) {
-  const status = err instanceof StaleRefsError ? 422 : err.statusCode || 500;
-  const body = { error: safeError(err), ...extraFields };
-  if (err instanceof StaleRefsError) {
-    body.code = 'stale_refs';
-    body.ref = err.ref;
-  }
-  res.status(status).json(body);
-}
-
-function validateUrl(url) {
-  try {
-    const parsed = new URL(url);
-    if (!ALLOWED_URL_SCHEMES.includes(parsed.protocol)) {
-      return `Blocked URL scheme: ${parsed.protocol} (only http/https allowed)`;
-    }
-    return null;
-  } catch {
-    return `Invalid URL: ${url}`;
-  }
-}
+const { safeError, sendError, validateUrl } = createRouteSafety({
+  config: CONFIG,
+  log,
+  StaleRefsError,
+});
 
 let browser = null;
 let _lastBrowserPid = null; // Track PID independently for force-kill after close
