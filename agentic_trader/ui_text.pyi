@@ -4,6 +4,20 @@ from agentic_trader.i18n.ui_text.catalog import UI_LOCALE_ENV as UI_LOCALE_ENV
 from agentic_trader.i18n.ui_text.catalog import UI_TEXT as UI_TEXT
 from agentic_trader.i18n.ui_text.catalog import get_ui_text as get_ui_text
 from agentic_trader.i18n.ui_text.catalog import normalize_locale as normalize_locale
+from agentic_trader.i18n.ui_text.translator import (
+    MissingUITranslationError as MissingUITranslationError,
+)
+from agentic_trader.i18n.ui_text.translator import (
+    UITranslationFormatError as UITranslationFormatError,
+)
+from agentic_trader.i18n.ui_text.translator import (
+    candidate_field_names as candidate_field_names,
+)
+from agentic_trader.i18n.ui_text.translator import (
+    resolve_translation_field as resolve_translation_field,
+)
+from agentic_trader.i18n.ui_text.translator import t as t
+from agentic_trader.i18n.ui_text.translator import translate as translate
 from agentic_trader.i18n.ui_text.types import (
     SUPPORTED_UI_LOCALES as SUPPORTED_UI_LOCALES,
 )

@@ -1,3 +1,4 @@
+import pytest
 from pytest import MonkeyPatch
 
 from agentic_trader import ui_text
@@ -420,3 +421,33 @@ def test_normalize_locale_falls_back_to_english() -> None:
     assert ui_text.normalize_locale(None) == "en"
     assert ui_text.normalize_locale("de-DE") == "en"
     assert ui_text.normalize_locale("tr") == "tr"
+
+
+def test_translation_facade_resolves_catalog_first_keys() -> None:
+    assert ui_text.t("title.runtime_status") == "Runtime Status"
+    assert ui_text.translate("label.model_service") == "Model Service"
+
+
+def test_translation_facade_resolves_domain_first_keys() -> None:
+    assert ui_text.t("runtime.status.title", locale="tr") == "Runtime Durumu"
+
+
+def test_translation_facade_formats_domain_messages() -> None:
+    rendered = ui_text.t(
+        "observer.mode.temporarily_unavailable",
+        feature="Observer API",
+        locale="en",
+    )
+
+    assert rendered.startswith("Observer API is temporarily unavailable")
+
+
+def test_translation_facade_uses_environment_locale(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv(ui_text.UI_LOCALE_ENV, "tr")
+
+    assert ui_text.t("title.runtime_status") == "Runtime Durumu"
+
+
+def test_translation_facade_raises_for_unknown_keys() -> None:
+    with pytest.raises(ui_text.MissingUITranslationError):
+        ui_text.t("missing.namespace.key")
