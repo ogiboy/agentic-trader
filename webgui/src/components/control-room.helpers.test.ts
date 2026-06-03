@@ -13,6 +13,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { ControlRoomIntlProvider } from '@/i18n/ControlRoomIntlProvider';
 import
   {
     ActiveView,
@@ -28,8 +29,16 @@ import
     sourceHealthSummaryLine,
     systemStatusItems,
     unavailableSectionLines,
-  } from './control-room';
+  } from './ControlRoom';
 import { getControlRoomCopy } from './control-room/labels';
+
+function withIntl(children: React.ReactNode) {
+  return React.createElement(
+    ControlRoomIntlProvider,
+    { initialLocale: 'en' },
+    children,
+  );
+}
 
 const dashboardFixture = {
   agentActivity: {
@@ -233,29 +242,32 @@ function renderActiveView(
     | Record<string, unknown> = dashboardFixture,
 ) {
   return renderToStaticMarkup(
-    React.createElement(ActiveView, {
-      busy: null,
-      chatDraft: 'hello',
-      chatHistory: normalizeChatHistory(dashboard),
-      chatPersona: 'operator_liaison',
-      currentCycle: [['Symbol', 'AAPL']],
-      dashboard,
-      instructionDraft: 'reduce risk',
-      instructionMode: 'preview',
-      instructionResult: { ok: true },
-      onChatDraftChange: vi.fn(),
-      onChatPersonaChange: vi.fn(),
-      onInstructionDraftChange: vi.fn(),
-      onInstructionModeChange: vi.fn(),
-      onSendChat: vi.fn(),
-      onSendInstruction: vi.fn(),
-      onProposalAction: vi.fn(),
-      onProposalNoteChange: vi.fn(),
-      onToolAction: vi.fn(),
-      proposalNote: 'desk review',
-      system: [['Runtime', 'training']],
-      tab,
-    }),
+    withIntl(
+      React.createElement(ActiveView, {
+        busy: null,
+        chatDraft: 'hello',
+        chatHistory: normalizeChatHistory(dashboard),
+        chatPersona: 'operator_liaison',
+        currentCycle: [['Symbol', 'AAPL']],
+        dashboard,
+        diagnosticsCopy: getControlRoomCopy('en').diagnostics,
+        instructionDraft: 'reduce risk',
+        instructionMode: 'preview',
+        instructionResult: { ok: true },
+        onChatDraftChange: vi.fn(),
+        onChatPersonaChange: vi.fn(),
+        onInstructionDraftChange: vi.fn(),
+        onInstructionModeChange: vi.fn(),
+        onSendChat: vi.fn(),
+        onSendInstruction: vi.fn(),
+        onProposalAction: vi.fn(),
+        onProposalNoteChange: vi.fn(),
+        onToolAction: vi.fn(),
+        proposalNote: 'desk review',
+        system: [['Runtime', 'training']],
+        tab,
+      }),
+    ),
   );
 }
 
@@ -530,7 +542,7 @@ describe('control-room formatting helpers', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    render(React.createElement(ControlRoom));
+    render(withIntl(React.createElement(ControlRoom)));
     await screen.findByText('Agentic Trader Web GUI');
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
@@ -589,7 +601,7 @@ describe('control-room formatting helpers', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    render(React.createElement(ControlRoom));
+    render(withIntl(React.createElement(ControlRoom)));
     await screen.findByText('Agentic Trader Web GUI');
 
     fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
@@ -620,7 +632,7 @@ describe('control-room formatting helpers', () => {
       .mockResolvedValueOnce(jsonResponse(dashboardFixture));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(React.createElement(ControlRoom));
+    render(withIntl(React.createElement(ControlRoom)));
     const tokenInput = await screen.findByLabelText('Web GUI token');
     fireEvent.change(tokenInput, { target: { value: 'local-token' } });
     await act(async () => {
@@ -637,7 +649,7 @@ describe('control-room formatting helpers', () => {
     const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(React.createElement(ControlRoom));
+    render(withIntl(React.createElement(ControlRoom)));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -655,7 +667,7 @@ describe('control-room formatting helpers', () => {
       configurable: true,
       value: { getItem: () => 'tr', setItem: vi.fn(), clear: vi.fn() },
     });
-    const html = renderToStaticMarkup(React.createElement(ControlRoom));
+    const html = renderToStaticMarkup(withIntl(React.createElement(ControlRoom)));
     expect(html).toContain('Agentic Trader');
     expect(html).toContain('Loading dashboard');
     expect(html).toContain('Local-first control room');

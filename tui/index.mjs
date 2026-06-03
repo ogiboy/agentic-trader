@@ -7,6 +7,7 @@ import {
   dashboardStatusLine,
   dashboardTitle,
   dashboardPages as pages,
+  tuiCopy,
 } from "./copy.mjs";
 import { handleDashboardInput } from "./input.mjs";
 import { getPageView } from "./pages.mjs";
@@ -57,8 +58,12 @@ function DashboardView({
       Box,
       { flexDirection: "column" },
       e(Text, { color: "red", bold: true }, dashboardTitle),
-      e(Text, { color: "red" }, `Error: ${error}`),
-      e(Text, { color: "gray" }, `CLI executable: ${cliExecutable}`),
+      e(Text, { color: "red" }, `${tuiCopy.errorLabel}: ${error}`),
+      e(
+        Text,
+        { color: "gray" },
+        `${tuiCopy.cliExecutableLabel}: ${cliExecutable}`,
+      ),
     );
   }
 
@@ -180,7 +185,10 @@ function useDashboardState({ interactive }) {
   const [instructionBusy, setInstructionBusy] = useState(false);
   const [instructionMode, setInstructionMode] = useState("preview");
   const [instructionResult, setInstructionResult] = useState(null);
-  const loadingText = useMemo(() => `Connecting to ${cliExecutable}...`, []);
+  const loadingText = useMemo(
+    () => tuiCopy.connectingTo.replace("{executable}", cliExecutable),
+    [],
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -263,8 +271,8 @@ function useDashboardState({ interactive }) {
       setActionMessage({
         kind: "info",
         text: payload.applied
-          ? "Operator instruction applied to preferences."
-          : "Operator instruction parsed.",
+          ? tuiCopy.instructionApplied
+          : tuiCopy.instructionParsed,
       });
       const next = await loadDashboard();
       setData(next);
@@ -272,7 +280,7 @@ function useDashboardState({ interactive }) {
     } catch (err) {
       setInstructionResult({
         instruction: {
-          summary: "Instruction failed.",
+          summary: tuiCopy.instructionFailed,
           should_update_preferences: false,
           requires_confirmation: false,
           rationale: err instanceof Error ? err.message : String(err),

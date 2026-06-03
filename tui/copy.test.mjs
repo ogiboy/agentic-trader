@@ -5,8 +5,10 @@ import {
   dashboardStatusLine,
   dashboardTitle,
   formatPersona,
+  getTuiCopy,
   getPageForShortcut,
   getPageLabel,
+  normalizeTuiLocale,
   rotateInstructionMode,
   rotatePersona,
 } from './copy.mjs';
@@ -41,5 +43,17 @@ describe('Ink TUI copy helpers', () => {
     expect(dashboardStatusLine({ busy: true, page: 'review' })).toContain(
       'working...',
     );
+  });
+
+  it('supports Turkish copy through the shared UI locale env contract', () => {
+    const tr = getTuiCopy('tr-TR');
+    expect(normalizeTuiLocale('tr-TR')).toBe('tr');
+    expect(tr.dashboardTitle).toBe('AGENTIC TRADER // INK KONTROL ODASI');
+    expect(getPageLabel('overview', tr)).toBe('Genel Bakis');
+    expect(formatPersona('portfolio_manager', tr)).toBe('Portfoy Yoneticisi');
+    expect(dashboardStatusLine({ busy: true, page: 'settings', copy: tr }))
+      .toContain('page 7/7: Ayarlar');
+    expect(dashboardStatusLine({ busy: true, page: 'settings', copy: tr }))
+      .toContain('calisiyor...');
   });
 });

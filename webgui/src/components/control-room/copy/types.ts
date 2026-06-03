@@ -1,7 +1,14 @@
 import type { TabId } from '../../control-room.helpers';
 import type { ControlRoomDiagnosticsCopy } from './diagnostics-types';
+import {
+  WEBGUI_LOCALE_OPTIONS,
+  type WebguiLocale,
+} from '@/i18n/locales';
 
-export type ControlRoomLocale = 'en' | 'tr';
+export type ControlRoomLocale = WebguiLocale;
+export {
+  WEBGUI_LOCALE_STORAGE_KEY as CONTROL_ROOM_LOCALE_STORAGE_KEY,
+} from '@/i18n/locales';
 
 export type ControlRoomCopy = {
   common: {
@@ -272,12 +279,7 @@ export type ControlRoomCopy = {
   tabs: Record<TabId, string>;
 };
 
-export const CONTROL_ROOM_LOCALE_STORAGE_KEY = 'agentic-trader-webgui-locale';
-
 export const CONTROL_ROOM_LOCALES: Array<{
   id: ControlRoomLocale;
   label: string;
-}> = [
-  { id: 'en', label: 'English' },
-  { id: 'tr', label: 'Türkçe' },
-];
+}> = WEBGUI_LOCALE_OPTIONS;

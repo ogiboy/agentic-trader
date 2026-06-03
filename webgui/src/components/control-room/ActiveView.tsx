@@ -1,0 +1,118 @@
+import type { ChatPersona } from '@/lib/chat-personas';
+
+import type {
+  DashboardData,
+  InstructionMode,
+  InstructionResult,
+  KeyValueItems,
+  ProposalActionKind,
+  TabId,
+  ToolActionKind,
+} from '../control-room.helpers';
+import { ChatView } from './ChatView';
+import type {
+  ControlRoomDiagnosticsCopySource,
+} from './diagnostics-formatting';
+import { MemoryView } from './MemoryView';
+import { OverviewView } from './OverviewView';
+import { PortfolioView } from './PortfolioView';
+import { ProposalDeskView } from './ProposalDeskView';
+import { ReviewView } from './ReviewView';
+import { RuntimeView } from './RuntimeView';
+import { SettingsView } from './SettingsView';
+
+type ActiveViewProps = Readonly<{
+  tab: TabId;
+  dashboard: DashboardData;
+  diagnosticsCopy: ControlRoomDiagnosticsCopySource;
+  currentCycle: KeyValueItems;
+  system: KeyValueItems;
+  chatPersona: ChatPersona;
+  chatHistory: Array<Record<string, string>>;
+  chatDraft: string;
+  instructionDraft: string;
+  instructionMode: InstructionMode;
+  instructionResult: InstructionResult | null;
+  proposalNote: string;
+  busy: string | null;
+  onChatPersonaChange: (value: ChatPersona) => void;
+  onChatDraftChange: (value: string) => void;
+  onSendChat: () => Promise<void>;
+  onInstructionDraftChange: (value: string) => void;
+  onInstructionModeChange: (value: InstructionMode) => void;
+  onSendInstruction: () => Promise<void>;
+  onToolAction: (kind: ToolActionKind) => void;
+  onProposalNoteChange: (value: string) => void;
+  onProposalAction: (
+    kind: ProposalActionKind,
+    proposalId: string,
+  ) => Promise<void>;
+}>;
+
+/**
+ * Renders the dashboard tab specified by `props.tab` and forwards the relevant
+ * slice of state and handlers to the corresponding view component.
+ *
+ * @param props - Component props containing `tab`, the `dashboard` payload, UI state such as `busy`,
+ *                and any view-specific handlers and data (chat, instruction, tool actions, etc.).
+ * @returns The JSX element for the active tab view.
+ */
+export function ActiveView(props: ActiveViewProps) {
+  switch (props.tab) {
+    case 'overview':
+      return (
+        <OverviewView
+          dashboard={props.dashboard}
+          diagnosticsCopy={props.diagnosticsCopy}
+          currentCycle={props.currentCycle}
+          system={props.system}
+          busy={props.busy}
+          onToolAction={props.onToolAction}
+        />
+      );
+    case 'runtime':
+      return <RuntimeView dashboard={props.dashboard} />;
+    case 'portfolio':
+      return <PortfolioView dashboard={props.dashboard} />;
+    case 'proposals':
+      return (
+        <ProposalDeskView
+          dashboard={props.dashboard}
+          busy={props.busy}
+          proposalNote={props.proposalNote}
+          onProposalAction={props.onProposalAction}
+          onProposalNoteChange={props.onProposalNoteChange}
+        />
+      );
+    case 'review':
+      return <ReviewView dashboard={props.dashboard} />;
+    case 'memory':
+      return <MemoryView dashboard={props.dashboard} />;
+    case 'chat':
+      return (
+        <ChatView
+          dashboard={props.dashboard}
+          chatPersona={props.chatPersona}
+          chatHistory={props.chatHistory}
+          chatDraft={props.chatDraft}
+          busy={props.busy}
+          onChatPersonaChange={props.onChatPersonaChange}
+          onChatDraftChange={props.onChatDraftChange}
+          onSendChat={props.onSendChat}
+        />
+      );
+    case 'settings':
+      return (
+        <SettingsView
+          dashboard={props.dashboard}
+          instructionDraft={props.instructionDraft}
+          instructionMode={props.instructionMode}
+          instructionResult={props.instructionResult}
+          busy={props.busy}
+          onInstructionDraftChange={props.onInstructionDraftChange}
+          onInstructionModeChange={props.onInstructionModeChange}
+          onSendInstruction={props.onSendInstruction}
+        />
+      );
+  }
+}

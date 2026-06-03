@@ -51,3 +51,24 @@ def test_audit_reports_repeated_helpers_and_copy_candidates(tmp_path: Path) -> N
     assert [helper.name for helper in report.repeated_helpers] == ["_object_mapping"]
     assert report.copy_candidates
     assert report.copy_candidates[0].excerpt == "table.add_column('Runtime Status')"
+
+
+def test_default_audit_scope_includes_project_docs_and_tool_js(
+    tmp_path: Path,
+) -> None:
+    ai_file = tmp_path / ".ai" / "decisions.instructions.md"
+    ai_file.parent.mkdir(parents=True)
+    ai_file.write_text("\n".join(["# Decision"] * 501), encoding="utf-8")
+    artifact_file = tmp_path / ".ai" / "qa" / "artifacts" / "coverage.md"
+    artifact_file.parent.mkdir(parents=True)
+    artifact_file.write_text("\n".join(["# Generated"] * 900), encoding="utf-8")
+    tool_file = tmp_path / "tools" / "browser-helper" / "server.js"
+    tool_file.parent.mkdir(parents=True)
+    tool_file.write_text("\n".join(["export const x = 1;"] * 501), encoding="utf-8")
+
+    report = build_report(repo_root=tmp_path)
+
+    oversized_paths = {metric.path for metric in report.oversized_files}
+    assert ".ai/decisions.instructions.md" in oversized_paths
+    assert "tools/browser-helper/server.js" in oversized_paths
+    assert ".ai/qa/artifacts/coverage.md" not in oversized_paths

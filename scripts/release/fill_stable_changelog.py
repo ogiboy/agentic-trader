@@ -112,6 +112,44 @@ def latest_previous_stable_tag(version: str) -> str | None:
     return best_tag
 
 
+def git_commit_ref_exists(ref: str) -> bool:
+    """
+    Determine whether a git ref resolves to a commit in the current checkout.
+
+    Parameters:
+        ref (str): Branch, tag, or commit-ish value to resolve.
+
+    Returns:
+        bool: True when `ref` resolves to a commit object, otherwise False.
+    """
+    try:
+        _run_git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"])
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+
+def default_until_ref(version: str) -> str:
+    """
+    Return the default git-log end ref for a target stable release.
+
+    During semantic-release, the stable changelog filler runs after version files
+    are updated but before the final stable tag necessarily exists. In that
+    pre-tag state, using the target version as a git-log ref fails with exit
+    code 128, so the current checkout (`HEAD`) is the authoritative end of the
+    release range. If the tag already exists, preserve tag-based behavior for
+    reruns.
+
+    Parameters:
+        version (str): Target stable version, with or without a leading `v`.
+
+    Returns:
+        str: The target stable tag when it exists, otherwise `"HEAD"`.
+    """
+    target_tag = _display_version(version)
+    return target_tag if git_commit_ref_exists(target_tag) else "HEAD"
+
+
 def _section_pattern(version: str) -> re.Pattern[str]:
     """
     Builds a compiled regex that locates the changelog section for the given stable version.
@@ -298,7 +336,8 @@ def main() -> int:
     Parses CLI arguments:
     - --version (required): target stable version whose changelog section will be filled.
     - --since (optional): git ref to start the commit range; when omitted, the previous stable tag before --version is used.
-    - --until (optional): git ref to end the commit range; defaults to the provided --version.
+    - --until (optional): git ref to end the commit range; defaults to the target
+      stable tag when that tag exists, otherwise HEAD.
 
     Reads CHANGELOG.md, collects conventional-commit entries from the specified git range, replaces the target version's changelog section if it is empty with rendered release entries, and writes the updated file.
 
@@ -317,7 +356,7 @@ def main() -> int:
     args = parser.parse_args()
 
     since = args.since or latest_previous_stable_tag(args.version)
-    until = args.until or args.version
+    until = args.until or default_until_ref(args.version)
     text = CHANGELOG.read_text(encoding="utf-8")
     entries = collect_commit_entries(since=since, until=until)
     CHANGELOG.write_text(

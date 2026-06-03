@@ -98,19 +98,22 @@ Now:
   WebGUI, docs, tests, helpers, assets, constants, styles, and copy should be
   organized under the module or surface that owns them, with shared utilities
   promoted only after real cross-module use
-- reduce i18n import weight before adding broad new copy: evaluate a Next.js
-  App Router translation-accessor path such as `next-intl` for WebGUI/docs, and
-  evolve Python UI text usage toward a locale-aware `t("namespace.key")` style
-  accessor over direct imports of large label/copy objects
+- reduce i18n import weight before adding broad new copy: WebGUI now has a
+  `next-intl` App Router provider/request/routing foundation, so new WebGUI
+  copy should use translation accessors instead of broad label imports; keep
+  migrating Python/Rich/Ink UI text through the shared locale-aware
+  `ui_text.t("namespace.key")` accessor over direct imports of large label/copy
+  objects
 - keep frontend file naming readable during modularity work: React components
   should be identifiable as components, normally PascalCase filenames, while
   hooks, utilities, constants, styles, copy, and route helpers should be named
-  by their role
+  by their role; WebGUI and docs component files now follow that convention, so
+  avoid reintroducing lowercase component filenames during future splits
 - use module-complete push checkpoints for this refactor track: small commits
   are allowed inside a module, but pushes should present a complete surface, and
   CI/SonarCloud should be checked at the next natural break instead of stopping
   all local work after every push
-- continue the Web GUI control-room modularity track before polishing small UI issues: views, shell chrome, dashboard polling, actions, request/auth helpers, action request helpers, primitives, locale/loading hooks, typed view models, shared formatting helpers, diagnostics/context evidence helpers, and per-locale view copy modules are now split behind a small facade, so the next pass should focus on screen-scoped styles and continued catalog/type-surface shrinkage while keeping route handlers as thin runtime-contract delegates
+- continue the Web GUI control-room modularity track before polishing small UI issues: views, shell chrome, dashboard polling, actions, request/auth helpers, action request helpers, primitives, locale/loading hooks, typed view models, shared formatting helpers, diagnostics/context evidence helpers, PascalCase component files, a small public API facade, and `next-intl` message access are now in place, so the next pass should focus on screen-scoped styles and continued catalog/type-surface shrinkage while keeping route handlers as thin runtime-contract delegates
 - make whole-app shutdown a first-class V1 follow-up: first extend `stop-service` with machine-readable `--json` plus a bounded wait result, then add an explicit `app:stop --runtime` step that stops the trading daemon before optional helper services and refuses to tear down model/browser helpers while a runtime cycle is still live unless the operator asks for a force path
 - treat TUI flicker as a runtime-trust issue, not polish only: add an in-flight or sequence guard around Ink dashboard refreshes, verify Rich monitor DB ownership is closed per tick, and keep visual QA tied to dashboard JSON truth
 - keep LM Studio and other OpenAI-compatible endpoints as explicit adapter/profile work: the managed local service layer remains app-owned Ollama only, while `openai-compatible` or a future `lm-studio` alias should use the OpenAI chat-completions adapter without app-owned Ollama auto-start/adoption

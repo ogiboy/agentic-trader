@@ -5,8 +5,8 @@ import
     sourceHealthSummaryLine,
     withOpenAiSuffix,
     yesNo,
+    type ControlRoomDiagnosticsCopySource,
   } from './diagnostics-formatting';
-import type { ControlRoomCopy } from './labels';
 import { asRecord, asString } from './payload';
 import type { DashboardData } from './types';
 
@@ -19,7 +19,7 @@ function ownershipMode(dashboard: DashboardData, tool: string): string {
 
 export function localToolLines(
   dashboard: DashboardData,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): string[] {
   const diagnostics = diagnosticsCopy(copy);
   const { labels, messages, values } = diagnostics;
@@ -75,7 +75,7 @@ export function localToolLines(
 
 export function localToolActionLines(
   dashboard: DashboardData,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): string[] {
   const { actions } = diagnosticsCopy(copy);
   const modelService = asRecord(dashboard.modelService);

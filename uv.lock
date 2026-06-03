@@ -82,7 +82,7 @@ dev = [
   {name = "ptyprocess", specifier = ">=0.7.0"},
   {name = "pyinstaller", specifier = ">=6.20.0,<7.0.0"},
   {name = "pyright", specifier = ">=1.1.409"},
-  {name = "pysonar", specifier = ">=1.4.0.4676,<2.0.0"},
+  {name = "pysonar", specifier = ">=1.6.0.4905,<2.0.0"},
   {name = "pytest", specifier = ">=9.0.3"},
   {name = "pytest-cov", specifier = ">=7.1.0"},
   {name = "python-semantic-release", specifier = ">=10.0.0,<11.0.0"},
@@ -2339,6 +2339,7 @@ wheels = [
 dependencies = [
   {name = "beautifulsoup4"},
   {name = "curl-cffi"},
+  {name = "frozendict"},
   {name = "multitasking"},
   {name = "numpy"},
   {name = "pandas"},

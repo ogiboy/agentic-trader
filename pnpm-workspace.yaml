@@ -12,15 +12,19 @@ overrides:
   qs: 6.15.2
 
 allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': true
   esbuild: true
   msw: true
   sharp: true
   unrs-resolver: true
 
 ignoredBuiltDependencies:
+  - '@parcel/watcher'
   - sharp
   - unrs-resolver
 
 onlyBuiltDependencies:
+  - '@swc/core'
   - esbuild
   - msw
