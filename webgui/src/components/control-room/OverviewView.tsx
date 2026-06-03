@@ -2,24 +2,21 @@ import { Power, SlidersHorizontal, Wrench } from 'lucide-react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 
-import type {
-  DashboardData,
-  KeyValueItems,
-  ToolActionKind,
+import {
+  asRecord,
+  asRecordArray,
+  asString,
+  formatTimestamp,
+  localToolActionLines,
+  localToolLines,
+  marketLensImage,
+  providerWarningLines,
+  readinessLines,
+  type ControlRoomDiagnosticsCopySource,
+  type DashboardData,
+  type KeyValueItems,
+  type ToolActionKind,
 } from '../control-room.helpers';
-import
-  {
-    asRecord,
-    asRecordArray,
-    asString,
-    formatTimestamp,
-    localToolActionLines,
-    localToolLines,
-    marketLensImage,
-    providerWarningLines,
-    readinessLines,
-    type ControlRoomDiagnosticsCopySource,
-  } from '../control-room.helpers';
 import { KeyValueList, Panel, TextList } from './Primitives';
 
 export function OverviewView({

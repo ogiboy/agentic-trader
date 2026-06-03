@@ -17,7 +17,7 @@ export function ControlRoomContent({
   dashboardAvailable,
   loading,
   loadingSeconds,
-}: ControlRoomContentProps) {
+}: Readonly<ControlRoomContentProps>) {
   if (loading) {
     return <ControlRoomLoadingPanel loadingSeconds={loadingSeconds} />;
   }

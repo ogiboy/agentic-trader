@@ -1,14 +1,14 @@
 'use client';
 
-import type { FeedbackCopy } from '@/components/feedback/copy';
-import { getFeedbackCopy } from '@/components/feedback/copy';
-import { FeedbackResult } from '@/components/feedback/FeedbackResult';
+import type { FeedbackCopy } from './copy';
+import { getFeedbackCopy } from './copy';
+import { FeedbackResult } from './FeedbackResult';
 import {
   parsePageFeedback,
   type ActionResponse,
   type FeedbackOpinion,
-} from '@/components/feedback/schema';
-import { Button } from '@/components/ui/primitives/Button';
+} from './schema';
+import { Button } from '../ui/primitives/Button';
 import {
   Card,
   CardContent,
@@ -16,9 +16,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/primitives/Card';
-import type { DocLanguage } from '@/lib/i18n/config';
-import { cn } from '@/lib/utils';
+} from '../ui/primitives/Card';
+import type { DocLanguage } from '../../lib/i18n/config';
+import { cn } from '../../lib/utils';
 import { MessageSquareText, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';

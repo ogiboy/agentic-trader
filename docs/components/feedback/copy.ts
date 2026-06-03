@@ -1,4 +1,4 @@
-import type { DocLanguage } from '@/lib/i18n/config';
+import type { DocLanguage } from '../../lib/i18n/config';
 
 export type FeedbackCopy = {
   title: string;

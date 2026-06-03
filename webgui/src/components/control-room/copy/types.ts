@@ -2,11 +2,13 @@ import type { TabId } from '../../control-room.helpers';
 import type { ControlRoomDiagnosticsCopy } from './diagnostics-types';
 import {
   WEBGUI_LOCALE_OPTIONS,
-  WEBGUI_LOCALE_STORAGE_KEY,
   type WebguiLocale,
 } from '@/i18n/locales';
 
 export type ControlRoomLocale = WebguiLocale;
+export {
+  WEBGUI_LOCALE_STORAGE_KEY as CONTROL_ROOM_LOCALE_STORAGE_KEY,
+} from '@/i18n/locales';
 
 export type ControlRoomCopy = {
   common: {
@@ -276,8 +278,6 @@ export type ControlRoomCopy = {
   };
   tabs: Record<TabId, string>;
 };
-
-export const CONTROL_ROOM_LOCALE_STORAGE_KEY = WEBGUI_LOCALE_STORAGE_KEY;
 
 export const CONTROL_ROOM_LOCALES: Array<{
   id: ControlRoomLocale;

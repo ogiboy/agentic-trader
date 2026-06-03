@@ -1,19 +1,16 @@
 import type { ReactNode, SyntheticEvent } from 'react';
 import { useTranslations } from 'next-intl';
 
-import type {
-  DashboardData,
-  MessageTone,
-  TabId,
+import {
+  asRecord,
+  asString,
+  cx,
+  localizedStatusText,
+  type ControlRoomDiagnosticsCopySource,
+  type DashboardData,
+  type MessageTone,
+  type TabId,
 } from '../control-room.helpers';
-import
-  {
-    asRecord,
-    asString,
-    cx,
-    localizedStatusText,
-    type ControlRoomDiagnosticsCopySource,
-  } from '../control-room.helpers';
 import {
   WEBGUI_LOCALE_OPTIONS,
   normalizeWebguiLocale,

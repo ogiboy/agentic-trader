@@ -1,6 +1,6 @@
-import { getFeedbackCopy } from '@/components/feedback/copy';
-import type { ActionResponse } from '@/components/feedback/schema';
-import type { DocLanguage } from '@/lib/i18n/config';
+import { getFeedbackCopy } from './copy';
+import type { ActionResponse } from './schema';
+import type { DocLanguage } from '../../lib/i18n/config';
 
 type FeedbackResultProps = {
   locale: DocLanguage;
