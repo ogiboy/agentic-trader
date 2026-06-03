@@ -82,92 +82,6 @@
     }
   },
   "paths": {
-    "/act": {
-      "post": {
-        "tags": [
-          "Legacy"
-        ],
-        "summary": "Combined action (OpenClaw format)",
-        "description": "Routes to click/type/scroll/press/etc based on \"kind\" parameter.",
-        "deprecated": true,
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "userId",
-                  "kind"
-                ],
-                "properties": {
-                  "userId": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "type": "string",
-                    "description": "Action kind: click, type, scroll, press, key, select_option, drag, hover, screenshot, wait, back, forward."
-                  },
-                  "targetId": {
-                    "type": "string"
-                  },
-                  "ref": {
-                    "type": "string"
-                  },
-                  "selector": {
-                    "type": "string"
-                  },
-                  "text": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "direction": {
-                    "type": "string"
-                  },
-                  "url": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Action result.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/sessions/{userId}/traces": {
       "get": {
         "tags": [
@@ -2624,6 +2538,92 @@
         "responses": {
           "200": {
             "description": "Navigation result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/act": {
+      "post": {
+        "tags": [
+          "Legacy"
+        ],
+        "summary": "Combined action (OpenClaw format)",
+        "description": "Routes to click/type/scroll/press/etc based on \"kind\" parameter.",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "kind"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "Action kind: click, type, scroll, press, key, select_option, drag, hover, screenshot, wait, back, forward."
+                  },
+                  "targetId": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string"
+                  },
+                  "selector": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "direction": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Action result.",
             "content": {
               "application/json": {
                 "schema": {
