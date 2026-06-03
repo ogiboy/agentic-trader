@@ -27,7 +27,7 @@ license-files = ["LICENSE"]
 name = "agentic-trader"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
-version = "0.12.5"
+version = "0.12.6"
 
 [dependency-groups]
 dev = [
