@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from uuid import uuid4
 
 from agentic_trader.config import Settings
@@ -8,10 +7,16 @@ from agentic_trader.execution.intent import (
     build_execution_intent,
 )
 from agentic_trader.execution.symbols import is_v1_us_equity_symbol
+from agentic_trader.engine.paper_broker_execution import (
+    apply_projected_fill,
+    close_paper_position,
+    guarded_no_fill_outcome,
+    projected_gross_exposure,
+    would_exceed_cash,
+    would_exceed_open_position_limit,
+)
 from agentic_trader.engine.paper_broker_fill import (
     FillProjection,
-    apply_buy,
-    apply_sell,
     project_fill,
     rejects_same_direction,
 )
@@ -20,6 +25,7 @@ from agentic_trader.engine.paper_broker_intent import (
     paper_outcome,
     quantity_from_intent,
 )
+from agentic_trader.engine.paper_broker_records import order_record_from_decision
 from agentic_trader.schemas import ExecutionDecision, PositionExitDecision, StrategyPlan
 from agentic_trader.storage.db import TradingDatabase
 
@@ -46,21 +52,7 @@ class PaperBroker:
             decision (ExecutionDecision): The execution decision whose fields (symbol, side, approved,
                 entry_price, stop_loss, take_profit, position_size_pct, confidence, rationale) are recorded.
         """
-        self.db.insert_order(
-            {
-                "order_id": order_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "symbol": decision.symbol,
-                "side": decision.side,
-                "approved": decision.approved,
-                "entry_price": decision.entry_price,
-                "stop_loss": decision.stop_loss,
-                "take_profit": decision.take_profit,
-                "position_size_pct": decision.position_size_pct,
-                "confidence": decision.confidence,
-                "rationale": decision.rationale,
-            }
-        )
+        self.db.insert_order(order_record_from_decision(order_id, decision))
 
     def _would_exceed_cash(
         self, decision: ExecutionDecision, current_qty: float, projected_cash: float
@@ -76,7 +68,7 @@ class PaperBroker:
         Returns:
             `True` if the decision is a buy, the current position is not short (quantity >= 0), and `projected_cash` is less than 0; `False` otherwise.
         """
-        return decision.side == "buy" and current_qty >= 0 and projected_cash < 0
+        return would_exceed_cash(decision, current_qty, projected_cash)
 
     def _would_exceed_exposure(
         self,
@@ -98,15 +90,16 @@ class PaperBroker:
         current_gross_exposure = sum(
             abs(item.market_value) for item in self.db.list_positions()
         )
-        projected_gross_exposure = (
-            current_gross_exposure
-            - current_market_value
-            + abs(projection.new_quantity * decision.entry_price)
+        projected_exposure = projected_gross_exposure(
+            current_gross_exposure=current_gross_exposure,
+            current_market_value=current_market_value,
+            projection=projection,
+            entry_price=decision.entry_price,
         )
         max_allowed_exposure = max(
             0.0, account.equity * self.settings.max_gross_exposure_pct
         )
-        return projected_gross_exposure > max_allowed_exposure
+        return projected_exposure > max_allowed_exposure
 
     def _would_exceed_open_position_limit(
         self, current_qty: float, new_quantity: float
@@ -121,12 +114,12 @@ class PaperBroker:
         Returns:
             bool: `True` if the resulting number of open positions would be greater than settings.max_open_positions, `False` otherwise.
         """
-        projected_open_positions = len(self.db.list_positions())
-        if current_qty == 0 and new_quantity != 0:
-            projected_open_positions += 1
-        elif current_qty != 0 and new_quantity == 0:
-            projected_open_positions -= 1
-        return projected_open_positions > self.settings.max_open_positions
+        return would_exceed_open_position_limit(
+            current_open_positions=len(self.db.list_positions()),
+            current_qty=current_qty,
+            new_quantity=new_quantity,
+            max_open_positions=self.settings.max_open_positions,
+        )
 
     def _guarded_no_fill_outcome(
         self,
@@ -136,19 +129,10 @@ class PaperBroker:
         decision: ExecutionDecision,
         simulated_metadata: dict[str, object] | None,
     ) -> ExecutionOutcome | None:
-        if decision.approved and decision.side != "hold":
-            return None
-        status = "rejected" if not decision.approved else "no_fill"
-        return paper_outcome(
-            intent,
+        return guarded_no_fill_outcome(
+            intent=intent,
             order_id=order_id,
-            status=status,
-            message=(
-                "Execution guard rejected the intent."
-                if status == "rejected"
-                else "Hold intent recorded without a fill."
-            ),
-            rejection_reason=decision.rationale if status == "rejected" else None,
+            decision=decision,
             simulated_metadata=simulated_metadata,
         )
 
@@ -344,25 +328,13 @@ class PaperBroker:
         projection: FillProjection,
         simulated_metadata: dict[str, object] | None,
     ) -> ExecutionOutcome:
-        self.db.apply_fill(
-            fill_id=f"fill-{uuid4().hex[:12]}",
+        return apply_projected_fill(
+            self.db,
+            intent=intent,
             order_id=order_id,
-            symbol=decision.symbol,
-            side=decision.side,
+            decision=decision,
             quantity=quantity,
-            price=decision.entry_price,
-            cash_delta=projection.cash_delta,
-            realized_pnl_delta=projection.realized_pnl_delta,
-            new_quantity=projection.new_quantity,
-            new_average_price=projection.new_average_price,
-        )
-        return paper_outcome(
-            intent,
-            order_id=order_id,
-            status="filled",
-            message="Paper intent filled immediately.",
-            filled_quantity=quantity,
-            average_fill_price=decision.entry_price,
+            projection=projection,
             simulated_metadata=simulated_metadata,
         )
 
@@ -404,66 +376,8 @@ class PaperBroker:
         )
 
     def close_position(self, decision: PositionExitDecision) -> str:
-        position = self.db.get_position(decision.symbol)
-        if position is None or position.quantity == 0:
-            return f"paper-{uuid4().hex[:12]}"
-
-        order_id = f"paper-{uuid4().hex[:12]}"
-        quantity = abs(position.quantity)
-        if decision.side == "buy":
-            projection = apply_buy(
-                quantity=quantity,
-                price=decision.exit_price,
-                current_qty=position.quantity,
-                current_avg=position.average_price,
-            )
-        else:
-            projection = apply_sell(
-                quantity=quantity,
-                price=decision.exit_price,
-                current_qty=position.quantity,
-                current_avg=position.average_price,
-            )
-
-        self.db.insert_order(
-            {
-                "order_id": order_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "symbol": decision.symbol,
-                "side": decision.side,
-                "approved": True,
-                "entry_price": decision.exit_price,
-                "stop_loss": decision.exit_price,
-                "take_profit": decision.exit_price,
-                "position_size_pct": 0.0,
-                "confidence": 1.0,
-                "rationale": f"Exit triggered: {decision.reason}. {decision.rationale}",
-            }
+        return close_paper_position(
+            self.db,
+            decision,
+            self.db.get_position(decision.symbol),
         )
-        self.db.apply_fill(
-            fill_id=f"fill-{uuid4().hex[:12]}",
-            order_id=order_id,
-            symbol=decision.symbol,
-            side=decision.side,
-            quantity=quantity,
-            price=decision.exit_price,
-            cash_delta=projection.cash_delta,
-            realized_pnl_delta=projection.realized_pnl_delta,
-            new_quantity=projection.new_quantity,
-            new_average_price=projection.new_average_price,
-        )
-        self.db.delete_position_plan(decision.symbol)
-        self.db.close_trade_journal(
-            symbol=decision.symbol,
-            exit_order_id=order_id,
-            exit_reason=decision.reason,
-            exit_price=decision.exit_price,
-            realized_pnl=projection.realized_pnl_delta,
-            notes=decision.rationale,
-        )
-        self.db.record_account_mark(
-            source="position_closed",
-            note=f"{decision.symbol} exited via {decision.reason}.",
-            symbol=decision.symbol,
-        )
-        return order_id
