@@ -152,10 +152,11 @@ Good changes fit into one of these buckets:
 - keep V1 scoped to Alpaca-ready US active trading through explicit paper/external-paper/manual-approval gates; defer Turkey-specific market, KAP/CBRT, TRY/FX, and broker expansion to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite
-- keep frontend i18n access lightweight: evaluate `next-intl` or an equivalent
-  App Router-friendly provider/routing layer before adding more large
-  per-component label imports, and require a migration plan for message
-  namespaces, typed access, routing, and tests
+- keep frontend i18n access lightweight: WebGUI now uses `next-intl` for the
+  App Router provider/request/routing layer, so new WebGUI copy should flow
+  through message namespaces and accessors instead of broad per-component label
+  imports; docs should stay compatible with this pattern through its Fumadocs
+  locale routing
 - keep Python i18n as a first-class surface too: CLI, Rich, Ink/TUI, docs
   generation, and operator-facing errors should consume locale-aware text
   accessors while stable JSON/API contract keys remain English and schema-owned

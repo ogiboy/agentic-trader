@@ -201,7 +201,13 @@ Ink TUI'yi doğrudan çalıştır:
 
 ```bash
 pnpm start:tui
+AGENTIC_TRADER_UI_LOCALE=tr pnpm start:tui
 ```
+
+Terminal yüzeyleri Python tarafındaki locale ayarını paylaşır.
+`agentic-trader --locale tr locale --json` tek komutluk ön izleme yapar;
+`agentic-trader locale --set tr` ise `AGENTIC_TRADER_UI_LOCALE=tr` değerini
+yerel environment dosyasına yazar.
 
 ## Bir şey ters hissedildiğinde önce bakılacak yerler
 
