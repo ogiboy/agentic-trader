@@ -3,19 +3,27 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
-from agentic_trader.json_utils import object_dict_list as _object_mapping_list
 from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.researchd.crewai_setup import default_crewai_flow_dir
+from agentic_trader.researchd.orchestrator_contract import (
+    contract_error_items as _contract_error_items,
+)
+from agentic_trader.researchd.orchestrator_contract import (
+    contract_memory_update as _contract_memory_update,
+)
+from agentic_trader.researchd.orchestrator_contract import (
+    contract_payload_items as _contract_payload_items,
+)
+from agentic_trader.researchd.orchestrator_contract import (
+    sidecar_process_env as _sidecar_process_env,
+)
 from agentic_trader.researchd.orchestrator_types import (
-    ContractPayloadItems,
     ContractRunner,
     ResearchPipelineResult,
     research_world_state_summary,
@@ -25,41 +33,10 @@ from agentic_trader.researchd.orchestrator_noop_backend import NoopResearchBacke
 from agentic_trader.researchd.providers import (
     ResearchProviderOutput,
     provider_health_from_output,
-    source_attributions_from_output,
 )
-from agentic_trader.schemas import DataSourceAttribution, EntityDossier, MacroEvent
-from agentic_trader.schemas import RawEvidenceRecord
-from agentic_trader.schemas import ResearchFinding, ResearchSidecarState
-from agentic_trader.schemas import SocialSignal, WorldStateSnapshot
+from agentic_trader.schemas import ResearchSidecarState, WorldStateSnapshot
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.time_utils import utc_now_iso
-
-_SHELL_ENV_ALLOWLIST = {
-    "HOME",
-    "LANG",
-    "LC_ALL",
-    "PATH",
-    "PYTHONUTF8",
-    "REQUESTS_CA_BUNDLE",
-    "SSL_CERT_FILE",
-    "TEMP",
-    "TERM",
-    "TMP",
-    "TMPDIR",
-    "UV_CACHE_DIR",
-    "UV_PYTHON",
-    "VIRTUAL_ENV",
-}
-_MODEL_ENV_PREFIXES = (
-    "ANTHROPIC_",
-    "CREWAI_",
-    "GEMINI_",
-    "GOOGLE_",
-    "GROQ_",
-    "LITELLM_",
-    "MISTRAL_",
-    "OPENAI_",
-)
 
 __all__ = ("CrewAiResearchBackend", "NoopResearchBackend")
 
@@ -385,67 +362,3 @@ class CrewAiResearchBackend:
             memory_update=memory_update,
         )
 
-
-def _contract_payload_items(
-    provider_outputs: list[ResearchProviderOutput],
-    payload: dict[str, object],
-) -> ContractPayloadItems:
-    raw_evidence: list[RawEvidenceRecord] = []
-    macro_events: list[MacroEvent] = []
-    social_signals: list[SocialSignal] = []
-    attributions: list[DataSourceAttribution] = []
-    for output in provider_outputs:
-        raw_evidence.extend(output.raw_evidence)
-        macro_events.extend(output.macro_events)
-        social_signals.extend(output.social_signals)
-        attributions.extend(source_attributions_from_output(output))
-    macro_events.extend(
-        MacroEvent.model_validate(item)
-        for item in _object_mapping_list(payload.get("macro_events"))
-    )
-    social_signals.extend(
-        SocialSignal.model_validate(item)
-        for item in _object_mapping_list(payload.get("social_signals"))
-    )
-    return ContractPayloadItems(
-        raw_evidence=raw_evidence,
-        macro_events=macro_events,
-        social_signals=social_signals,
-        findings=[
-            ResearchFinding.model_validate(item)
-            for item in _object_mapping_list(payload.get("findings"))
-        ],
-        dossiers=[
-            EntityDossier.model_validate(item)
-            for item in _object_mapping_list(payload.get("dossiers"))
-        ],
-        attributions=attributions,
-    )
-
-
-def _contract_memory_update(payload: dict[str, object]) -> dict[str, object]:
-    memory_update = _object_mapping(payload.get("memory_update", {})) or {}
-    memory_update.setdefault("status", "not_written")
-    memory_update.setdefault("raw_web_text_injected", False)
-    memory_update.setdefault("broker_access", False)
-    memory_update["contract_version"] = str(payload.get("contract_version") or "unknown")
-    return memory_update
-
-
-def _contract_error_items(value: object) -> list[object]:
-    if isinstance(value, list):
-        return cast(list[object], value)
-    if isinstance(value, tuple):
-        return list(cast(tuple[object, ...], value))
-    if value is None:
-        return []
-    return [value]
-
-
-def _sidecar_process_env() -> dict[str, str]:
-    env: dict[str, str] = {}
-    for key, value in os.environ.items():
-        if key in _SHELL_ENV_ALLOWLIST or key.startswith(_MODEL_ENV_PREFIXES):
-            env[key] = value
-    env["CREWAI_TRACING_ENABLED"] = "false"
-    return env
