@@ -47,6 +47,7 @@ import { mountSystemRoutes } from './lib/routes/system.js';
 import { mountTabContentRoutes } from './lib/routes/tabs-content.js';
 import { mountTabEvaluationRoutes } from './lib/routes/tabs-evaluation.js';
 import { mountTabHistoryRoutes } from './lib/routes/tabs-history.js';
+import { mountTabInteractionRoutes } from './lib/routes/tabs-interaction.js';
 import { mountTabLifecycleRoutes } from './lib/routes/tabs-lifecycle.js';
 import { mountTabNavigationRoutes } from './lib/routes/tabs-navigation.js';
 import { mountTraceRoutes } from './lib/routes/traces.js';
@@ -2481,69 +2482,15 @@ app.get('/tabs/:tabId/snapshot', async (req, res) => {
   }
 });
 
-// Wait for page ready
-/**
- * @openapi
- * /tabs/{tabId}/wait:
- *   post:
- *     tags: [Interaction]
- *     summary: Wait for a selector or timeout
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [userId]
- *             properties:
- *               userId:
- *                 type: string
- *               selector:
- *                 type: string
- *               timeout:
- *                 type: integer
- *                 description: Max wait in ms.
- *     responses:
- *       200:
- *         description: Wait completed.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post('/tabs/:tabId/wait', async (req, res) => {
-  try {
-    const { userId, timeout = 10000, waitForNetwork = true } = req.body;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    const { tabState } = found;
-    const ready = await waitForPageReady(tabState.page, {
-      timeout,
-      waitForNetwork,
-    });
-
-    res.json({ ok: true, ready });
-  } catch (err) {
-    log('error', 'wait failed', { reqId: req.reqId, error: err.message });
-    handleRouteError(err, req, res);
-  }
+mountTabInteractionRoutes(app, {
+  findTab,
+  handleRouteError,
+  log,
+  normalizeUserId,
+  pluginEvents,
+  sessions,
+  waitForPageReady,
+  withTabLock,
 });
 
 // Click
@@ -2996,154 +2943,6 @@ app.post('/tabs/:tabId/type', async (req, res) => {
         });
       }
     }
-    handleRouteError(err, req, res);
-  }
-});
-
-// Press key
-/**
- * @openapi
- * /tabs/{tabId}/press:
- *   post:
- *     tags: [Interaction]
- *     summary: Press a keyboard key
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [userId, key]
- *             properties:
- *               userId:
- *                 type: string
- *               key:
- *                 type: string
- *                 description: Key name (e.g. "Enter", "Escape", "Tab").
- *     responses:
- *       200:
- *         description: Key pressed.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post('/tabs/:tabId/press', async (req, res) => {
-  const tabId = req.params.tabId;
-
-  try {
-    const { userId, key } = req.body;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-    tabState.consecutiveTimeouts = 0;
-    tabState.consecutiveFailures = 0;
-
-    await withTabLock(tabId, async () => {
-      await tabState.page.keyboard.press(key);
-    });
-
-    pluginEvents.emit('tab:press', { userId, tabId, key });
-    res.json({ ok: true });
-  } catch (err) {
-    log('error', 'press failed', { reqId: req.reqId, error: err.message });
-    handleRouteError(err, req, res);
-  }
-});
-
-// Scroll
-/**
- * @openapi
- * /tabs/{tabId}/scroll:
- *   post:
- *     tags: [Interaction]
- *     summary: Scroll the page
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [userId]
- *             properties:
- *               userId:
- *                 type: string
- *               direction:
- *                 type: string
- *                 description: '"up" or "down" (default "down").'
- *               amount:
- *                 type: integer
- *                 description: Pixels to scroll.
- *     responses:
- *       200:
- *         description: Scroll result.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post('/tabs/:tabId/scroll', async (req, res) => {
-  try {
-    const { userId, direction = 'down', amount = 500 } = req.body;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-    tabState.consecutiveTimeouts = 0;
-    tabState.consecutiveFailures = 0;
-
-    const isVertical = direction === 'up' || direction === 'down';
-    const delta = direction === 'up' || direction === 'left' ? -amount : amount;
-    await tabState.page.mouse.wheel(
-      isVertical ? 0 : delta,
-      isVertical ? delta : 0,
-    );
-    await tabState.page.waitForTimeout(300);
-
-    pluginEvents.emit('tab:scroll', {
-      userId,
-      tabId: req.params.tabId,
-      direction,
-      amount,
-    });
-    res.json({ ok: true });
-  } catch (err) {
-    log('error', 'scroll failed', { reqId: req.reqId, error: err.message });
     handleRouteError(err, req, res);
   }
 });

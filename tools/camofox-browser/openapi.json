@@ -185,76 +185,6 @@
         }
       }
     },
-    "/tabs/{tabId}/wait": {
-      "post": {
-        "tags": [
-          "Interaction"
-        ],
-        "summary": "Wait for a selector or timeout",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "userId"
-                ],
-                "properties": {
-                  "userId": {
-                    "type": "string"
-                  },
-                  "selector": {
-                    "type": "string"
-                  },
-                  "timeout": {
-                    "type": "integer",
-                    "description": "Max wait in ms."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Wait completed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/tabs/{tabId}/click": {
       "post": {
         "tags": [
@@ -416,145 +346,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tabs/{tabId}/press": {
-      "post": {
-        "tags": [
-          "Interaction"
-        ],
-        "summary": "Press a keyboard key",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "userId",
-                  "key"
-                ],
-                "properties": {
-                  "userId": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string",
-                    "description": "Key name (e.g. \"Enter\", \"Escape\", \"Tab\")."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Key pressed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tabs/{tabId}/scroll": {
-      "post": {
-        "tags": [
-          "Interaction"
-        ],
-        "summary": "Scroll the page",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "userId"
-                ],
-                "properties": {
-                  "userId": {
-                    "type": "string"
-                  },
-                  "direction": {
-                    "type": "string",
-                    "description": "\"up\" or \"down\" (default \"down\")."
-                  },
-                  "amount": {
-                    "type": "integer",
-                    "description": "Pixels to scroll."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Scroll result.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    }
-                  }
                 }
               }
             }
@@ -1584,6 +1375,215 @@
           },
           "404": {
             "description": "Session not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/wait": {
+      "post": {
+        "tags": [
+          "Interaction"
+        ],
+        "summary": "Wait for a selector or timeout",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "selector": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "integer",
+                    "description": "Max wait in ms."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wait completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/press": {
+      "post": {
+        "tags": [
+          "Interaction"
+        ],
+        "summary": "Press a keyboard key",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "key"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string",
+                    "description": "Key name (e.g. \"Enter\", \"Escape\", \"Tab\")."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Key pressed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/scroll": {
+      "post": {
+        "tags": [
+          "Interaction"
+        ],
+        "summary": "Scroll the page",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "direction": {
+                    "type": "string",
+                    "description": "\"up\" or \"down\" (default \"down\")."
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "description": "Pixels to scroll."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scroll result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
             "content": {
               "application/json": {
                 "schema": {
