@@ -1,8 +1,8 @@
-import { CurrentFocusPanel } from '@/components/home/current-focus-panel';
-import { EntryPointGrid } from '@/components/home/entry-point-grid';
-import { HomeHero } from '@/components/home/home-hero';
-import { RepoGuardrailAlert } from '@/components/home/repo-guardrail-alert';
-import { WorkflowTabs } from '@/components/home/workflow-tabs';
+import { CurrentFocusPanel } from '@/components/home/CurrentFocusPanel';
+import { EntryPointGrid } from '@/components/home/EntryPointGrid';
+import { HomeHero } from '@/components/home/HomeHero';
+import { RepoGuardrailAlert } from '@/components/home/RepoGuardrailAlert';
+import { WorkflowTabs } from '@/components/home/WorkflowTabs';
 import { getHomeContent } from '@/lib/home/content';
 import type { DocLanguage } from '@/lib/i18n/config';
 

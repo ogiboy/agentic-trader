@@ -2,13 +2,13 @@
 
 import type { FeedbackCopy } from '@/components/feedback/copy';
 import { getFeedbackCopy } from '@/components/feedback/copy';
-import { FeedbackResult } from '@/components/feedback/feedback-result';
+import { FeedbackResult } from '@/components/feedback/FeedbackResult';
 import {
   parsePageFeedback,
   type ActionResponse,
   type FeedbackOpinion,
 } from '@/components/feedback/schema';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/primitives/Button';
 import {
   Card,
   CardContent,
@@ -16,7 +16,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from '@/components/ui/primitives/Card';
 import type { DocLanguage } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils';
 import { MessageSquareText, ThumbsDown, ThumbsUp } from 'lucide-react';

@@ -4,7 +4,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from '@/components/ui/primitives/Card';
 import type { HomeCurrentFocus } from '@/lib/home/content/types';
 import { Bot, FileSearch, LayoutPanelTop } from 'lucide-react';
 

@@ -1,6 +1,11 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/primitives/Badge';
+import { Button } from '@/components/ui/primitives/Button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/primitives/Card';
 import { docLanguages, languageLabels } from '@/lib/i18n/config';
 import { withLanguagePrefix } from '@/lib/i18n/routing';
 import Link from 'next/link';

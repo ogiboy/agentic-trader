@@ -1,4 +1,4 @@
-import { Feedback } from '@/components/feedback/client';
+import { Feedback } from '@/components/feedback/Feedback';
 import type { DocLanguage } from '@/lib/i18n/config';
 import type { source } from '@/lib/source';
 import { getMDXComponents } from '@/mdx-components';

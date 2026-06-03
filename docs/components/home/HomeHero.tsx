@@ -1,7 +1,12 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/primitives/Badge';
+import { Button } from '@/components/ui/primitives/Button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/primitives/Card';
+import { Separator } from '@/components/ui/primitives/Separator';
 import type { HomeContent } from '@/lib/home/content/types';
 import type { DocLanguage } from '@/lib/i18n/config';
 import { withLanguagePrefix } from '@/lib/i18n/routing';

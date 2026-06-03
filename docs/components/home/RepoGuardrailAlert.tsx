@@ -1,4 +1,8 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/primitives/Alert';
 import type { DocLanguage } from '@/lib/i18n/config';
 import { ShieldCheck } from 'lucide-react';
 

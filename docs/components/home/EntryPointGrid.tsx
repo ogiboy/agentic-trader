@@ -1,12 +1,12 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/primitives/Badge';
+import { Button } from '@/components/ui/primitives/Button';
 import {
   Card,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from '@/components/ui/primitives/Card';
 import type { HomeEntryPoint } from '@/lib/home/content/types';
 import type { DocLanguage } from '@/lib/i18n/config';
 import { withLanguagePrefix } from '@/lib/i18n/routing';
