@@ -424,8 +424,8 @@ def test_normalize_locale_falls_back_to_english() -> None:
 
 
 def test_translation_facade_resolves_catalog_first_keys() -> None:
-    assert ui_text.t("title.runtime_status") == "Runtime Status"
-    assert ui_text.translate("label.model_service") == "Model Service"
+    assert ui_text.t("title.runtime_status", locale="en") == "Runtime Status"
+    assert ui_text.translate("label.model_service", locale="en") == "Model Service"
 
 
 def test_translation_facade_resolves_domain_first_keys() -> None:
