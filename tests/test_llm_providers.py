@@ -8,10 +8,10 @@ from agentic_trader.config import Settings
 from agentic_trader.llm.providers import (
     OllamaProvider,
     OpenAICompatibleProvider,
+    build_provider,
     openai_compatible_content,
     openai_compatible_error_from_response,
     openai_compatible_model_ids,
-    build_provider,
 )
 
 

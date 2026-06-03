@@ -24,13 +24,13 @@ Local policy:
 Setup:
 
 ```sh
-pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts
+pnpm run setup:camofox
 ```
 
 The browser binary download is separate and explicit:
 
 ```sh
-pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser
+make fetch-camofox
 ```
 
 Start through Agentic Trader rather than calling `node server.js` directly:

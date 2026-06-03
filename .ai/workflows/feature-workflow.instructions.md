@@ -23,11 +23,50 @@ ask for clarification rather than creating a parallel path.
    implementation, operator surface, persistence/evidence, tests/QA, and
    docs/memory updates.
 4. Prefer additive migrations and explicit unavailable/degraded states.
-5. Implement the smallest coherent slice.
-6. Run focused tests near the touched modules.
-7. Run broader checks when the change crosses module boundaries.
-8. Update `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, and
+5. Map module-owned files before editing: code, constants, helpers, styles,
+   copy/i18n, tests, fixtures, and assets should have an obvious owner.
+6. Implement the smallest coherent slice.
+7. Run focused tests near the touched modules.
+8. Run broader checks when the change crosses module boundaries.
+9. Commit logical slices when they are internally consistent.
+10. Push only after the touched module or surface is complete enough to be
+   reviewed as a finished unit, unless the user explicitly asks for an earlier
+   checkpoint.
+11. Update `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, and
    `.ai/decisions.instructions.md` when the change creates durable assumptions.
+
+## Modularity And I18n Discipline
+
+- Python, CLI, Rich, Ink/TUI, WebGUI, and docs all follow the same modularity
+  rule: repeated functions, constants, labels, and static data belong in
+  explicit module-local seams before they become shared project-level helpers.
+- Shared helpers must earn their scope through real cross-module use. Avoid
+  dumping unrelated strings, options, or formatting helpers into global files.
+- Terminal and browser copy must be localizable. Dashboard/observer JSON keys
+  stay stable English contract keys, but rendered labels and operator text
+  should flow through the UI text/i18n layer.
+- For Next.js surfaces, prefer a translation accessor model such as
+  `useTranslations("ControlRoom")` plus `t("section.key")` over large imported
+  label objects in component files. A future dependency such as `next-intl`
+  should be introduced only with routing/provider setup, typed message
+  organization, and WebGUI/docs migration tests.
+- For Python surfaces, keep the current typed text catalog direction but evolve
+  usage toward a small locale-aware accessor so commands and TUI components
+  import a function/context rather than broad copy tables.
+- React component files should be clearly identifiable, normally PascalCase for
+  components, with hooks, utilities, constants, styles, copy, and route helpers
+  named separately by role.
+
+## Push And CI Cadence
+
+- A feature branch may contain several small commits for one module, but pushes
+  should normally happen at module-complete checkpoints.
+- Do not pause the whole goal after every push just to watch CI. Keep working
+  locally, then inspect CI/SonarCloud after the next natural break or after a
+  short delay, and fold any failures into the next coherent push.
+- Treat SonarCloud issues as local quality work, not remote noise. Reproduce
+  locally where possible through lint, typecheck, coverage, and focused tests
+  before assuming a cloud-only false positive.
 
 ## Advisory Commands
 
@@ -88,5 +127,6 @@ Files to avoid:
 Edge cases:
 Focused tests:
 Broad checks:
+VS Code checks:
 Version impact:
 ```

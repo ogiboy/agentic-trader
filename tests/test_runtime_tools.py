@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from agentic_trader.config import Settings
-from agentic_trader.system import model_service, runtime_tools
+from agentic_trader.system import model_service, model_service_probe, runtime_tools
 from agentic_trader.system.camofox_service import CamofoxServiceStatus
 from agentic_trader.system.model_service import ModelServiceState, ModelServiceStatus
 from agentic_trader.system.tool_ownership import write_tool_ownership
@@ -945,7 +945,7 @@ def test_model_service_http_probes_and_port_selection(
         return FakeResponse(["not", "a", "dict"])
 
     monkeypatch.setattr(
-        model_service.httpx,
+        model_service_probe.httpx,
         "get",
         get_models,
     )
@@ -956,7 +956,7 @@ def test_model_service_http_probes_and_port_selection(
     )
 
     monkeypatch.setattr(
-        model_service.httpx,
+        model_service_probe.httpx,
         "get",
         raising(RuntimeError("down")),
     )
@@ -1017,14 +1017,14 @@ def test_model_service_http_probes_and_port_selection(
         post_payloads.append(json)
         return FakeResponse({"response": "OK"})
 
-    monkeypatch.setattr(model_service.httpx, "post", fake_post)
+    monkeypatch.setattr(model_service_probe.httpx, "post", fake_post)
     assert model_service.probe_ollama_generation(
         "http://127.0.0.1:11434", "qwen3:8b"
     ) == (True, "Generation probe succeeded.")
     assert post_payloads[0]["model"] == "qwen3:8b"
 
     monkeypatch.setattr(
-        model_service.httpx,
+        model_service_probe.httpx,
         "post",
         post_response_none,
     )
@@ -1033,7 +1033,7 @@ def test_model_service_http_probes_and_port_selection(
     ) == (False, "Ollama generation response did not include text.")
 
     monkeypatch.setattr(
-        model_service.httpx,
+        model_service_probe.httpx,
         "post",
         post_refused,
     )
@@ -1042,7 +1042,7 @@ def test_model_service_http_probes_and_port_selection(
     ) == (False, "refused")
 
     monkeypatch.setattr(
-        model_service.httpx,
+        model_service_probe.httpx,
         "post",
         post_load_failed,
     )
@@ -1051,7 +1051,7 @@ def test_model_service_http_probes_and_port_selection(
     ) == (False, "load failed")
 
     monkeypatch.setattr(
-        model_service.httpx,
+        model_service_probe.httpx,
         "post",
         post_array,
     )
@@ -1060,7 +1060,7 @@ def test_model_service_http_probes_and_port_selection(
     ) == (False, "Ollama generation response was not a JSON object.")
 
     monkeypatch.setattr(
-        model_service.httpx,
+        model_service_probe.httpx,
         "post",
         raising(RuntimeError("token=secret")),
     )

@@ -1,11 +1,13 @@
 import { runChat } from '../../../lib/agentic-trader';
+import { API_ERRORS } from '../../../lib/api-errors';
 import { isChatPersona } from '../../../lib/chat-personas';
-import {
-  beginRequestGuard,
-  parseJsonObjectBody,
-  redactAndCapText,
-  rejectUnsafeWebguiRequest,
-} from '../../../lib/http';
+import
+  {
+    beginRequestGuard,
+    parseJsonObjectBody,
+    redactAndCapText,
+    rejectUnsafeWebguiRequest,
+  } from '../../../lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,21 +36,24 @@ export async function POST(request: Request) {
 
   try {
     if (typeof body.message !== 'string') {
-      return Response.json({ error: 'invalid message' }, { status: 400 });
+      return Response.json({ error: API_ERRORS.invalidMessage }, { status: 400 });
     }
     const message = body.message.trim();
     if (!message) {
-      return Response.json({ error: 'missing chat message' }, { status: 400 });
+      return Response.json(
+        { error: API_ERRORS.missingChatMessage },
+        { status: 400 },
+      );
     }
     if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
       return Response.json(
-        { error: 'chat message too large' },
+        { error: API_ERRORS.chatMessageTooLarge },
         { status: 413 },
       );
     }
     const persona = body.persona;
     if (persona !== undefined && !isChatPersona(persona)) {
-      return Response.json({ error: 'invalid persona' }, { status: 400 });
+      return Response.json({ error: API_ERRORS.invalidPersona }, { status: 400 });
     }
     const guard = beginRequestGuard({
       key: 'chat',

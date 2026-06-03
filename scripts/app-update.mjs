@@ -174,13 +174,7 @@ function updatePlan() {
     updateStep(
       'camofox-tool-root',
       'Update optional Camofox helper package dependencies without fetching browser binaries',
-      [
-        'pnpm',
-        '--dir',
-        'tools/camofox-browser',
-        '--ignore-workspace',
-        'update',
-      ],
+      ['scripts/run-camofox-pnpm.sh', '--ignore-workspace', 'update'],
       'camofox',
       {
         reason:

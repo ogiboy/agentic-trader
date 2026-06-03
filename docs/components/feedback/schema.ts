@@ -1,3 +1,5 @@
+import { FEEDBACK_SCHEMA_COPY } from './content/schema-copy';
+
 export type FeedbackOpinion = 'good' | 'bad';
 
 export type PageFeedbackInput = {
@@ -53,12 +55,12 @@ function assertString(value: unknown, field: string) {
 
 export function parsePageFeedback(input: PageFeedbackInput): PageFeedback {
   if (!FEEDBACK_OPINIONS.has(input.opinion)) {
-    throw new Error('opinion must be either good or bad');
+    throw new Error(FEEDBACK_SCHEMA_COPY.invalidOpinion);
   }
 
   const url = assertString(input.url, 'url');
   if (!url) {
-    throw new Error('url is required');
+    throw new Error(FEEDBACK_SCHEMA_COPY.urlRequired);
   }
 
   const title = typeof input.title === 'string' ? input.title.trim() : '';
@@ -71,7 +73,7 @@ export function parsePageFeedback(input: PageFeedbackInput): PageFeedback {
   return {
     opinion: input.opinion,
     message: message.slice(0, 2000),
-    title: title || 'Untitled page',
+    title: title || FEEDBACK_SCHEMA_COPY.untitledPage,
     url,
     submittedAt,
   };
@@ -82,7 +84,7 @@ export function parseBlockFeedback(input: BlockFeedbackInput): BlockFeedback {
   const blockId = assertString(input.blockId, 'blockId');
 
   if (!blockId) {
-    throw new Error('blockId is required');
+    throw new Error(FEEDBACK_SCHEMA_COPY.blockIdRequired);
   }
 
   const blockBody =

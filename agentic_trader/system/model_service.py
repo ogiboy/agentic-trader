@@ -10,16 +10,9 @@ from __future__ import annotations
 import os
 import shutil
 import signal
-import socket
 import subprocess
-import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping, cast
-from urllib.parse import urlparse
-
-import httpx
-from pydantic import BaseModel, Field
 
 from agentic_trader.config import Settings
 from agentic_trader.runtime_status import is_process_alive
@@ -28,275 +21,82 @@ from agentic_trader.security import (
     is_loopback_host,
     open_private_append_binary,
     redact_sensitive_text,
-    write_private_text,
 )
-from agentic_trader.system.tool_roots import local_tool_status_payload
-
-DEFAULT_APP_MANAGED_PORT = 11435
-APP_MANAGED_ORPHAN_PORTS = (DEFAULT_APP_MANAGED_PORT, *range(11436, 11466))
-KNOWN_OLLAMA_SERVICE_PORTS = (11434, *APP_MANAGED_ORPHAN_PORTS)
-LOCAL_HTTP_SCHEME = "http"
-LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
-DEFAULT_MODEL_CHOICES = (
-    "qwen3:8b",
-    "llama3.2:3b",
-    "deepseek-r1:8b",
-    "gemma3:4b",
+from agentic_trader.system import model_service_process as _process_helpers
+from agentic_trader.system.model_service_probe import base_url as _base_url
+from agentic_trader.system.model_service_probe import (
+    fetch_ollama_tags,
+    model_service_api_root_from_base_url,
+    ollama_error_from_response,
+    probe_ollama_generation,
+    same_loopback_api_root,
 )
-MINIMAL_ENV_KEYS = (
-    "PATH",
-    "HOME",
-    "TMPDIR",
-    "USER",
-    "LOGNAME",
-    "SHELL",
-    "USERPROFILE",
-    "APPDATA",
-    "LOCALAPPDATA",
-    "SYSTEMROOT",
-    "WINDIR",
+from agentic_trader.system.model_service_report import (
+    ModelServiceStatusProbe,
 )
+from agentic_trader.system.model_service_report import (
+    generation_probe_status as _report_generation_probe_status,
+)
+from agentic_trader.system.model_service_report import (
+    model_service_status_from_probe as _report_model_service_status_from_probe,
+)
+from agentic_trader.system.model_service_report import (
+    model_service_status_message_for_probe as _report_status_message_for_probe,
+)
+from agentic_trader.system.model_service_state import (
+    ModelServiceState,
+    model_service_dir,
+    model_service_state_path,
+    read_model_service_state,
+    remove_model_service_state,
+    tail_model_service_text,
+    write_model_service_state,
+)
+from agentic_trader.system.model_service_status import (
+    ModelServiceStatus,
+    app_owned_model_status_message,
+    base_url_mismatch_message,
+    host_model_status_message,
+    model_service_status_message,
+    model_status_notes,
+)
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
+_api_root_from_base_url = model_service_api_root_from_base_url
+_fetch_ollama_tags = fetch_ollama_tags
+_read_state = read_model_service_state
+_remove_state = remove_model_service_state
+_same_loopback_api_root = same_loopback_api_root
+sys = _process_helpers.sys
+_tail_text = tail_model_service_text
+_write_state = write_model_service_state
 
-def _json_object_or_none(value: object) -> Mapping[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    return {
-        str(key): item for key, item in cast(Mapping[object, object], value).items()
-    }
+__all__ = [
+    "ModelServiceState",
+    "ModelServiceStatus",
+    "app_owned_model_status_message",
+    "base_url_mismatch_message",
+    "fetch_ollama_tags",
+    "generation_probe_status",
+    "host_model_status_message",
+    "model_service_api_root_from_base_url",
+    "model_service_state_path",
+    "model_service_status_message",
+    "model_status_notes",
+    "ollama_error_from_response",
+    "probe_ollama_generation",
+    "same_loopback_api_root",
+]
 
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
-
-
-def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
-    rows: list[Mapping[str, object]] = []
-    for item in _object_list(value):
-        row = _json_object_or_none(item)
-        if row is not None:
-            rows.append(row)
-    return rows
-
-
-def _string_list(value: object) -> list[str]:
-    return [item for item in _object_list(value) if isinstance(item, str)]
-
-
-class ModelServiceState(BaseModel):
-    """Persisted state for an app-owned model-service process."""
-
-    provider: str = "ollama"
-    owner: str | None = None
-    pid: int
-    host: str
-    port: int
-    base_url: str
-    started_at: str
-    stdout_log_path: str
-    stderr_log_path: str
-    command: list[str]
-    app_owned: bool = True
-
-
-class ModelServiceStatus(BaseModel):
-    """Operator-facing local model service status."""
-
-    tool_id: str = "ollama"
-    tool_status_id: str = "ollama_cli"
-    tool_consumers: list[str] = Field(default_factory=list)
-    tool_fallback_order: list[str] = Field(default_factory=list)
-    tool_ownership_modes: list[str] = Field(default_factory=list)
-    install_hint: str = ""
-    notes: list[str] = Field(default_factory=list)
-    provider: str = "ollama"
-    command_available: bool
-    command_path: str | None = None
-    configured_base_url: str
-    configured_model: str
-    service_reachable: bool
-    model_available: bool
-    generation_checked: bool = False
-    generation_available: bool | None = None
-    generation_message: str | None = None
-    available_models: list[str] = Field(default_factory=list)
-    app_owned: bool = False
-    owner: str | None = None
-    pid: int | None = None
-    host: str | None = None
-    port: int | None = None
-    base_url: str | None = None
-    stdout_log_path: str | None = None
-    stderr_log_path: str | None = None
-    stdout_tail: list[str] = Field(default_factory=list)
-    stderr_tail: list[str] = Field(default_factory=list)
-    state_path: str
-    message: str
-    suggested_models: list[str] = Field(
-        default_factory=lambda: list(DEFAULT_MODEL_CHOICES)
-    )
-    runtime_base_url_matches_app_service: bool = False
-
-    def is_owned_by_host(self, host_id: str) -> bool:
-        """
-        Determine whether this status is owned by the given host identifier.
-
-        Parameters:
-            host_id (str): Runtime host identifier to compare against the persisted owner.
-
-        Returns:
-            `true` if `app_owned` is true and `owner` equals `host_id`, `false` otherwise.
-        """
-
-        return self.app_owned and self.owner == host_id
-
-
-def model_service_dir(settings: Settings) -> Path:
-    """
-    Get the runtime directory path used to store model service state and logs.
-
-    Parameters:
-        settings (Settings): Application settings providing `runtime_dir`.
-
-    Returns:
-        Path: Path pointing to the "model_service" subdirectory under `settings.runtime_dir`.
-    """
-    return settings.runtime_dir / "model_service"
-
-
-def model_service_state_path(settings: Settings) -> Path:
-    return model_service_dir(settings) / "ollama_service.json"
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _read_state(settings: Settings) -> ModelServiceState | None:
-    path = model_service_state_path(settings)
-    if not path.exists():
-        return None
-    try:
-        return ModelServiceState.model_validate_json(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-def _write_state(settings: Settings, state: ModelServiceState) -> None:
-    write_private_text(
-        model_service_state_path(settings),
-        state.model_dump_json(indent=2),
-    )
-
-
-def _remove_state(settings: Settings) -> None:
-    path = model_service_state_path(settings)
-    try:
-        path.unlink()
-    except FileNotFoundError:
-        return
-
-
-def read_model_service_state(settings: Settings) -> ModelServiceState | None:
-    return _read_state(settings)
-
-
-def write_model_service_state(settings: Settings, state: ModelServiceState) -> None:
-    _write_state(settings, state)
-
-
-def remove_model_service_state(settings: Settings) -> None:
-    _remove_state(settings)
-
-
-def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
-    if not path:
-        return []
-    log_path = Path(path)
-    if not log_path.exists():
-        return []
-    try:
-        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    return [redact_sensitive_text(line, max_length=300) for line in lines[-limit:]]
-
-
-def tail_model_service_text(path: str | None, *, limit: int = 12) -> list[str]:
-    return _tail_text(path, limit=limit)
-
-
-def _api_root_from_base_url(base_url: str) -> str:
-    """
-    Normalize a base URL to its API root by removing a trailing `/v1` segment and extraneous trailing slashes.
-
-    If `base_url` includes a scheme and network location, the returned value preserves them (and any path preceding `/v1`). For inputs without a scheme/netloc the function treats the value as a path-like string.
-
-    Returns:
-        The normalized API root string with a trailing `/v1` removed if present and without trailing slashes.
-    """
-    parsed = urlparse(base_url)
-    if parsed.scheme and parsed.netloc:
-        path = parsed.path.rstrip("/")
-        trimmed = base_url.removesuffix("/")
-        if path == "/v1":
-            return trimmed[: -len("/v1")]
-        return trimmed
-    return base_url.removesuffix("/v1").rstrip("/")
-
-
-def model_service_api_root_from_base_url(base_url: str) -> str:
-    return _api_root_from_base_url(base_url)
-
-
-def _same_loopback_api_root(left: str, right: str) -> bool:
-    """
-    Determine whether two API base URLs refer to the same loopback API root.
-
-    When either input lacks a URL scheme, compares the raw strings ignoring a trailing slash. When schemes are present, compares scheme, effective port (uses 443 for https and 80 for http when unspecified), and path ignoring trailing slashes. Treats loopback hostnames (for example, "localhost", "127.0.0.1", "::1") as interchangeable.
-
-    Returns:
-        `true` if the URLs represent the same API root under the rules above, `false` otherwise.
-    """
-    left_parsed = urlparse(left)
-    right_parsed = urlparse(right)
-    if not left_parsed.scheme or not right_parsed.scheme:
-        return left.rstrip("/") == right.rstrip("/")
-    if left_parsed.scheme != right_parsed.scheme:
-        return False
-    left_host = left_parsed.hostname or ""
-    right_host = right_parsed.hostname or ""
-    left_port = left_parsed.port or (443 if left_parsed.scheme == "https" else 80)
-    right_port = right_parsed.port or (443 if right_parsed.scheme == "https" else 80)
-    if left_port != right_port:
-        return False
-    if left_parsed.path.rstrip("/") != right_parsed.path.rstrip("/"):
-        return False
-    if left_host == right_host:
-        return True
-    return is_loopback_host(left_host) and is_loopback_host(right_host)
-
-
-def same_loopback_api_root(left: str, right: str) -> bool:
-    return _same_loopback_api_root(left, right)
-
-
-def _base_url(host: str, port: int) -> str:
-    """
-    Constructs an HTTP base URL from the given host and port.
-
-    Returns:
-        The base URL string in the form `http://{host}:{port}`.
-    """
-    return f"{LOCAL_HTTP_SCHEME}://{host}:{port}"
+DEFAULT_APP_MANAGED_PORT = _process_helpers.DEFAULT_APP_MANAGED_PORT
+APP_MANAGED_ORPHAN_PORTS = _process_helpers.APP_MANAGED_ORPHAN_PORTS
+KNOWN_OLLAMA_SERVICE_PORTS = _process_helpers.KNOWN_OLLAMA_SERVICE_PORTS
+LSOF_LISTEN_FILTER = _process_helpers.LSOF_LISTEN_FILTER
+MINIMAL_ENV_KEYS = _process_helpers.MINIMAL_ENV_KEYS
 
 
 def _is_port_available(host: str, port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.2)
-        return sock.connect_ex((host, port)) != 0
+    return _process_helpers.is_port_available(host, port)
 
 
 def model_service_port_available(host: str, port: int) -> bool:
@@ -304,12 +104,7 @@ def model_service_port_available(host: str, port: int) -> bool:
 
 
 def _minimal_process_env(*, ollama_host: str | None = None) -> dict[str, str]:
-    """Return a subprocess env that does not inherit provider/broker secrets."""
-
-    env = {key: os.environ[key] for key in MINIMAL_ENV_KEYS if key in os.environ}
-    if ollama_host:
-        env["OLLAMA_HOST"] = ollama_host
-    return env
+    return _process_helpers.minimal_process_env(ollama_host=ollama_host)
 
 
 def minimal_model_service_process_env(
@@ -319,21 +114,7 @@ def minimal_model_service_process_env(
 
 
 def _process_command_line(pid: int) -> str | None:
-    if sys.platform.startswith("win"):
-        return _windows_process_command_line(pid)
-    try:
-        completed = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
+    return _process_helpers.process_command_line(pid)
 
 
 def model_service_process_command_line(pid: int) -> str | None:
@@ -341,189 +122,23 @@ def model_service_process_command_line(pid: int) -> str | None:
 
 
 def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
-    """
-    Locate host-owned "ollama serve" process PIDs for diagnostics.
-
-    Parameters:
-        command_path (str | None): Optional path to an `ollama` executable to include when matching process command names.
-
-    Returns:
-        list[int]: Sorted, deduplicated list of PIDs for processes that appear to be running `ollama serve`. On Windows this returns an empty list.
-    """
-
-    if sys.platform.startswith("win"):
-        return []
-    executable_names = {"ollama"}
-    if command_path:
-        executable_names.add(Path(command_path).name)
-    try:
-        completed = subprocess.run(
-            ["ps", "-ax", "-o", "pid=,command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return _ollama_listener_pids_from_lsof()
-    if completed.returncode != 0:
-        return _ollama_listener_pids_from_lsof()
-    pids: list[int] = []
-    for line in completed.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        pid_text, _, command_line = stripped.partition(" ")
-        if not pid_text.isdigit():
-            continue
-        if _is_ollama_serve_command(command_line, executable_names):
-            pids.append(int(pid_text))
-    return sorted(set(pids) | set(_ollama_listener_pids_from_lsof()))
+    return _process_helpers.external_ollama_serve_pids(command_path)
 
 
 def external_ollama_serve_pids(command_path: str | None) -> list[int]:
     return _external_ollama_serve_pids(command_path)
 
 
-def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> bool:
-    """
-    Determines whether a process command line represents an Ollama "serve" invocation using one of the provided executable names.
-
-    Parameters:
-        command_line (str): The raw command-line string to inspect.
-        executable_names (set[str]): A set of executable base names (filenames, without path) considered valid Ollama executables.
-
-    Returns:
-        `true` if the command line begins with an executable whose filename is in `executable_names` and the second token is `"serve"`, `false` otherwise.
-    """
-    parts = command_line.replace("\\", "/").lower().split()
-    if len(parts) < 2:
-        return False
-    return Path(parts[0]).name in executable_names and parts[1] == "serve"
-
-
 def _ollama_listener_pids_from_lsof() -> list[int]:
-    """Return Ollama listener PIDs without relying on process-list permissions."""
-
-    output = _run_lsof_listener_scan()
-    if output is None:
-        return []
-    return sorted(_parse_ollama_listener_pids(output))
+    return _process_helpers.ollama_listener_pids_from_lsof()
 
 
 def ollama_listener_pids_from_lsof() -> list[int]:
     return _ollama_listener_pids_from_lsof()
 
 
-def _run_lsof_listener_scan() -> str | None:
-    """
-    Run a short `lsof` scan for listening TCP sockets and return its raw output.
-
-    Returns:
-        `str`: Raw stdout from `lsof -nP -iTCP -sTCP:LISTEN -Fpcn` when the command succeeds.
-        `None`: If running on Windows, the command fails, times out, or any error occurs.
-    """
-    if sys.platform.startswith("win"):
-        return None
-    try:
-        completed = subprocess.run(
-            ["lsof", "-nP", "-iTCP", LSOF_LISTEN_FILTER, "-Fpcn"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout
-
-
-def _parse_ollama_listener_pids(output: str) -> set[int]:
-    """
-    Parse lsof -F formatted output and return PIDs that own loopback listening endpoints for known Ollama service ports.
-
-    The input must be the raw text produced by lsof with field-formatting (records prefixed by `p` for pid, `c` for command, `n` for name/address). This function collects the most-recent `p`/`c` context and, for each `n` record, extracts the host and port; it includes the current PID when the command name is `ollama`, the host is a loopback address, and the port is one of the recognized Ollama service ports.
-
-    Parameters:
-        output (str): lsof -F output to parse.
-
-    Returns:
-        set[int]: Set of unique PIDs matching loopback Ollama listener records.
-    """
-    current_pid: int | None = None
-    current_command: str | None = None
-    pids: set[int] = set()
-    for line in output.splitlines():
-        if line.startswith("p") and line[1:].isdigit():
-            current_pid = int(line[1:])
-            current_command = None
-            continue
-        if line.startswith("c"):
-            current_command = line[1:].strip().lower()
-            continue
-        if not line.startswith("n") or current_pid is None:
-            continue
-        endpoint = line[1:].strip()
-        host, _, port_text = endpoint.rpartition(":")
-        if _is_known_ollama_listener(current_command, host, port_text):
-            pids.add(current_pid)
-    return pids
-
-
-def _is_known_ollama_listener(command: str | None, host: str, port_text: str) -> bool:
-    """
-    Determine whether an lsof listener record represents a known Ollama loopback service.
-
-    Parameters:
-        command (str | None): The process command name extracted from lsof (`c` record), or None if unavailable.
-        host (str): The listener host string extracted from lsof (may be an IP or hostname).
-        port_text (str): The listener port text extracted from lsof (may be non-numeric).
-
-    Returns:
-        `True` if `command` is exactly "ollama", `port_text` is a decimal port contained in KNOWN_OLLAMA_SERVICE_PORTS, and `host` is a loopback address; `False` otherwise.
-    """
-    port = int(port_text) if port_text.isdigit() else None
-    return (
-        command == "ollama"
-        and port in KNOWN_OLLAMA_SERVICE_PORTS
-        and is_loopback_host(host)
-    )
-
-
 def _listening_loopback_ports_for_pid(pid: int) -> set[int]:
-    """
-    Collects TCP listening port numbers bound to loopback interfaces for the given process ID using `lsof`.
-
-    Parameters:
-        pid (int): Process ID to inspect.
-
-    Returns:
-        set[int]: A set of port numbers the process is listening on via loopback, or an empty set if none are found or the `lsof` query fails.
-    """
-    try:
-        completed = subprocess.run(
-            ["lsof", "-nP", "-a", "-p", str(pid), "-iTCP", LSOF_LISTEN_FILTER, "-FpPn"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return set()
-    if completed.returncode != 0:
-        return set()
-    ports: set[int] = set()
-    for line in completed.stdout.splitlines():
-        if not line.startswith("n"):
-            continue
-        endpoint = line[1:].strip()
-        host, _, port_text = endpoint.rpartition(":")
-        if not port_text.isdigit() or not is_loopback_host(host):
-            continue
-        ports.add(int(port_text))
-    return ports
+    return _process_helpers.listening_loopback_ports_for_pid(pid)
 
 
 def listening_loopback_ports_for_pid(pid: int) -> set[int]:
@@ -599,55 +214,8 @@ def _stop_pid(pid: int) -> bool:
     return stopped or not is_process_alive(pid)
 
 
-def _windows_process_command_line(pid: int) -> str | None:
-    query = (
-        "Get-CimInstance Win32_Process "
-        f'-Filter "ProcessId = {pid}" | Select-Object -ExpandProperty CommandLine'
-    )
-    try:
-        completed = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", query],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
-
-
 def _listen_port_owner_pid(host: str, port: int) -> int | None:
-    query_host = "127.0.0.1" if host == "localhost" else host.strip("[]")
-    try:
-        completed = subprocess.run(
-            [
-                "lsof",
-                "-nP",
-                "-a",
-                f"-iTCP@{query_host}:{port}",
-                LSOF_LISTEN_FILTER,
-                "-Fp",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    pids = {
-        int(line[1:])
-        for line in completed.stdout.splitlines()
-        if line.startswith("p") and line[1:].isdigit()
-    }
-    if len(pids) != 1:
-        return None
-    return next(iter(pids))
+    return _process_helpers.listen_port_owner_pid(host, port)
 
 
 def model_service_listen_port_owner_pid(host: str, port: int) -> int | None:
@@ -713,149 +281,6 @@ def choose_app_managed_port(host: str, preferred_port: int) -> int:
     raise RuntimeError("no_free_model_service_port_found")
 
 
-def _fetch_ollama_tags(
-    api_root: str, *, timeout_seconds: float = 2.0
-) -> tuple[bool, list[str], str]:
-    try:
-        response = httpx.get(f"{api_root}/api/tags", timeout=timeout_seconds)
-        response.raise_for_status()
-        payload = response.json()
-    except Exception as exc:
-        return (
-            False,
-            [],
-            f"Unable to reach Ollama: {redact_sensitive_text(exc, max_length=160)}",
-        )
-    models: list[str] = []
-    payload_object = _json_object_or_none(payload)
-    for item in _object_mapping_list(
-        payload_object.get("models") if payload_object is not None else None
-    ):
-        name = item.get("name")
-        if isinstance(name, str):
-            models.append(name)
-    return True, sorted(models), "Ollama is reachable."
-
-
-def fetch_ollama_tags(
-    api_root: str, *, timeout_seconds: float = 2.0
-) -> tuple[bool, list[str], str]:
-    return _fetch_ollama_tags(api_root, timeout_seconds=timeout_seconds)
-
-
-def _ollama_error_from_response(response: httpx.Response) -> str:
-    try:
-        payload = response.json()
-    except Exception:
-        return f"HTTP {getattr(response, 'status_code', 'error')}"
-    payload_object = _json_object_or_none(payload)
-    if payload_object is not None:
-        error_obj = payload_object.get("error")
-        if isinstance(error_obj, str) and error_obj.strip():
-            return error_obj.strip()[:240]
-        error_mapping = _json_object_or_none(error_obj)
-        if error_mapping is not None:
-            message = error_mapping.get("message")
-            if isinstance(message, str) and message.strip():
-                return message.strip()[:240]
-    return f"HTTP {getattr(response, 'status_code', 'error')}"
-
-
-def ollama_error_from_response(response: httpx.Response) -> str:
-    return _ollama_error_from_response(response)
-
-
-def _probe_ollama_generation(
-    api_root: str,
-    model_name: str,
-    *,
-    timeout_seconds: float = 20.0,
-) -> tuple[bool, str]:
-    body: dict[str, Any] = {
-        "model": model_name,
-        "prompt": "Reply with OK.",
-        "stream": False,
-        "options": {"num_predict": 4},
-    }
-    try:
-        response = httpx.post(
-            f"{api_root}/api/generate",
-            json=body,
-            timeout=timeout_seconds,
-        )
-        if response.status_code >= 400:
-            return False, _ollama_error_from_response(response)
-        payload = response.json()
-    except Exception as exc:
-        return False, redact_sensitive_text(exc, max_length=240)
-    payload_object = _json_object_or_none(payload)
-    if payload_object is None:
-        return False, "Ollama generation response was not a JSON object."
-    error = payload_object.get("error")
-    if isinstance(error, str) and error.strip():
-        return False, redact_sensitive_text(error, max_length=240)
-    generated = payload_object.get("response")
-    if isinstance(generated, str):
-        return True, "Generation probe succeeded."
-    return False, "Ollama generation response did not include text."
-
-
-def probe_ollama_generation(
-    api_root: str,
-    model_name: str,
-    *,
-    timeout_seconds: float = 20.0,
-) -> tuple[bool, str]:
-    return _probe_ollama_generation(
-        api_root,
-        model_name,
-        timeout_seconds=timeout_seconds,
-    )
-
-
-def _model_service_message(
-    *,
-    reachable: bool,
-    model_available: bool,
-    generation_checked: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-    fallback_message: str,
-) -> str:
-    if not reachable:
-        return fallback_message
-    if not model_available:
-        return "Ollama is reachable, but the configured model is not listed."
-    if generation_checked and generation_available is False:
-        detail = generation_message or "generation probe failed"
-        return (
-            "Ollama is reachable and the configured model is listed, but a "
-            f"generation probe failed: {detail}"
-        )
-    if generation_checked and generation_available is True:
-        return "Ollama is reachable and the configured model can generate."
-    return fallback_message
-
-
-def model_service_status_message(
-    *,
-    reachable: bool,
-    model_available: bool,
-    generation_checked: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-    fallback_message: str,
-) -> str:
-    return _model_service_message(
-        reachable=reachable,
-        model_available=model_available,
-        generation_checked=generation_checked,
-        generation_available=generation_available,
-        generation_message=generation_message,
-        fallback_message=fallback_message,
-    )
-
-
 def _generation_probe_status(
     *,
     include_generation: bool,
@@ -864,16 +289,13 @@ def _generation_probe_status(
     api_root: str,
     model_name: str,
 ) -> tuple[bool | None, str | None]:
-    if not include_generation:
-        return None, None
-    if not reachable:
-        return False, "Generation probe skipped because Ollama is unreachable."
-    if not model_available:
-        return (
-            False,
-            "Generation probe skipped because the configured model is not listed.",
-        )
-    return _probe_ollama_generation(api_root, model_name)
+    return _report_generation_probe_status(
+        include_generation=include_generation,
+        reachable=reachable,
+        model_available=model_available,
+        api_root=api_root,
+        model_name=model_name,
+    )
 
 
 def generation_probe_status(
@@ -893,45 +315,9 @@ def generation_probe_status(
     )
 
 
-def _base_url_mismatch_message(
+def _model_service_status_message_for_probe(
     *,
-    include_generation: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-) -> str:
-    message = (
-        "App-managed Ollama is running on a different base URL than the "
-        "runtime uses; set AGENTIC_TRADER_BASE_URL to the app-owned URL "
-        "with /v1 when you want cycles to use it."
-    )
-    if include_generation and generation_available is False:
-        detail = generation_message or "generation probe failed"
-        return f"{message} Generation probe also failed: {detail}"
-    return message
-
-
-def base_url_mismatch_message(
-    *,
-    include_generation: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-) -> str:
-    return _base_url_mismatch_message(
-        include_generation=include_generation,
-        generation_available=generation_available,
-        generation_message=generation_message,
-    )
-
-
-def _append_stale_app_managed_message(status_message: str) -> str:
-    return (
-        f"{status_message} Stale app-managed Ollama processes were "
-        "detected; run agentic-trader model-service stop to clean them."
-    )
-
-
-def _app_owned_model_status_message(
-    *,
+    app_owned: bool,
     reachable: bool,
     model_available: bool,
     include_generation: bool,
@@ -939,42 +325,11 @@ def _app_owned_model_status_message(
     generation_message: str | None,
     fetch_message: str,
     runtime_base_url_matches_app_service: bool,
+    ollama_serve_pids: list[int],
     orphan_app_managed_pids: list[int],
 ) -> str:
-    if not reachable:
-        status_message = fetch_message
-    elif not runtime_base_url_matches_app_service:
-        status_message = _base_url_mismatch_message(
-            include_generation=include_generation,
-            generation_available=generation_available,
-            generation_message=generation_message,
-        )
-    else:
-        status_message = _model_service_message(
-            reachable=reachable,
-            model_available=model_available,
-            generation_checked=include_generation,
-            generation_available=generation_available,
-            generation_message=generation_message,
-            fallback_message="App-managed Ollama is running.",
-        )
-    if orphan_app_managed_pids:
-        return _append_stale_app_managed_message(status_message)
-    return status_message
-
-
-def app_owned_model_status_message(
-    *,
-    reachable: bool,
-    model_available: bool,
-    include_generation: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-    fetch_message: str,
-    runtime_base_url_matches_app_service: bool,
-    orphan_app_managed_pids: list[int],
-) -> str:
-    return _app_owned_model_status_message(
+    return _report_status_message_for_probe(
+        app_owned=app_owned,
         reachable=reachable,
         model_available=model_available,
         include_generation=include_generation,
@@ -982,95 +337,16 @@ def app_owned_model_status_message(
         generation_message=generation_message,
         fetch_message=fetch_message,
         runtime_base_url_matches_app_service=runtime_base_url_matches_app_service,
-        orphan_app_managed_pids=orphan_app_managed_pids,
-    )
-
-
-def _host_model_status_message(
-    *,
-    status_message: str,
-    reachable: bool,
-    ollama_serve_pids: list[int],
-) -> str:
-    if len(ollama_serve_pids) > 1:
-        return (
-            f"{status_message} Multiple host/default Ollama serve processes were "
-            "detected; stop duplicates or use the app-managed model service if "
-            "generation fails."
-        )
-    if reachable and ollama_serve_pids:
-        return (
-            f"{status_message} This is a host/default Ollama service; "
-            "model-service stop will not kill it."
-        )
-    return status_message
-
-
-def host_model_status_message(
-    *,
-    status_message: str,
-    reachable: bool,
-    ollama_serve_pids: list[int],
-) -> str:
-    return _host_model_status_message(
-        status_message=status_message,
-        reachable=reachable,
-        ollama_serve_pids=ollama_serve_pids,
-    )
-
-
-def _model_status_notes(
-    *,
-    tool_payload: Mapping[str, object],
-    ollama_serve_pids: list[int],
-    orphan_app_managed_pids: list[int],
-) -> list[str]:
-    raw_notes = tool_payload.get("notes", [])
-    notes = _string_list(raw_notes)
-    if ollama_serve_pids:
-        notes.append(f"ollama_process_count={len(ollama_serve_pids)}")
-    if len(ollama_serve_pids) > 1:
-        notes.append("external_ollama_duplicate_processes_detected")
-    if orphan_app_managed_pids:
-        notes.append(
-            f"orphan_app_managed_ollama_process_count={len(orphan_app_managed_pids)}"
-        )
-    return notes
-
-
-def model_status_notes(
-    *,
-    tool_payload: Mapping[str, object],
-    ollama_serve_pids: list[int],
-    orphan_app_managed_pids: list[int],
-) -> list[str]:
-    return _model_status_notes(
-        tool_payload=tool_payload,
         ollama_serve_pids=ollama_serve_pids,
         orphan_app_managed_pids=orphan_app_managed_pids,
     )
 
 
-def build_model_service_status(
+def _model_service_status_probe(
     settings: Settings,
     *,
-    tail_limit: int = 12,
-    include_generation: bool = False,
-) -> ModelServiceStatus:
-    """
-    Assemble the operator-facing model service status for the Ollama tool.
-
-    Probe persisted or app-owned Ollama state and the configured API to produce a consolidated read-only status that includes reachability, available models, optional generation probe results, ownership and process details, log tails, notes, and a user-facing message.
-
-    Parameters:
-        settings (Settings): Runtime settings used to derive the configured base URL, configured model name, and state/log paths.
-        tail_limit (int): Maximum number of lines to include for stdout and stderr tails.
-        include_generation (bool): If True, perform a short generation request to verify model generation capability.
-
-    Returns:
-        ModelServiceStatus: Status payload containing command availability and path, configured base URL and model, service reachability and model availability, optional generation results and message, available models list, ownership and process/log details (owner, pid, host, port, base_url, stdout/stderr paths and tails), notes, a user-facing message, and the persisted state file path.
-    """
-
+    include_generation: bool,
+) -> ModelServiceStatusProbe:
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None
     app_owned = app_state is not None
@@ -1085,7 +361,7 @@ def build_model_service_status(
         if app_state is not None
         else _api_root_from_base_url(settings.base_url)
     )
-    reachable, models, message = _fetch_ollama_tags(api_root)
+    reachable, models, fetch_message = _fetch_ollama_tags(api_root)
     model_available = settings.model_name in models
     generation_available, generation_message = _generation_probe_status(
         include_generation=include_generation,
@@ -1094,14 +370,6 @@ def build_model_service_status(
         api_root=api_root,
         model_name=settings.model_name,
     )
-    status_message = _model_service_message(
-        reachable=reachable,
-        model_available=model_available,
-        generation_checked=include_generation,
-        generation_available=generation_available,
-        generation_message=generation_message,
-        fallback_message=message,
-    )
     runtime_base_url_matches_app_service = bool(
         app_state is not None
         and _same_loopback_api_root(
@@ -1109,66 +377,67 @@ def build_model_service_status(
             app_state.base_url,
         )
     )
-    if app_owned:
-        status_message = _app_owned_model_status_message(
-            reachable=reachable,
-            model_available=model_available,
-            include_generation=include_generation,
-            generation_available=generation_available,
-            generation_message=generation_message,
-            fetch_message=message,
-            runtime_base_url_matches_app_service=runtime_base_url_matches_app_service,
-            orphan_app_managed_pids=orphan_app_managed_pids,
-        )
-    else:
-        status_message = _host_model_status_message(
-            status_message=status_message,
-            reachable=reachable,
-            ollama_serve_pids=ollama_serve_pids,
-        )
-    tool_payload = local_tool_status_payload("ollama")
-    notes = _model_status_notes(
-        tool_payload=tool_payload,
+    status_message = _model_service_status_message_for_probe(
+        app_owned=app_owned,
+        reachable=reachable,
+        model_available=model_available,
+        include_generation=include_generation,
+        generation_available=generation_available,
+        generation_message=generation_message,
+        fetch_message=fetch_message,
+        runtime_base_url_matches_app_service=runtime_base_url_matches_app_service,
         ollama_serve_pids=ollama_serve_pids,
         orphan_app_managed_pids=orphan_app_managed_pids,
     )
-    return ModelServiceStatus(
-        tool_id=tool_payload["tool_id"],
-        tool_status_id=tool_payload["tool_status_id"],
-        tool_consumers=tool_payload["tool_consumers"],
-        tool_fallback_order=tool_payload["tool_fallback_order"],
-        tool_ownership_modes=tool_payload["tool_ownership_modes"],
-        install_hint=tool_payload["install_hint"],
-        notes=notes,
-        command_available=command_path is not None,
+    return ModelServiceStatusProbe(
+        app_state=app_state,
+        app_owned=app_owned,
         command_path=command_path,
-        configured_base_url=settings.base_url,
-        configured_model=settings.model_name,
-        service_reachable=reachable,
+        ollama_serve_pids=ollama_serve_pids,
+        orphan_app_managed_pids=orphan_app_managed_pids,
+        api_root=api_root,
+        reachable=reachable,
+        models=models,
+        fetch_message=fetch_message,
         model_available=model_available,
-        generation_checked=include_generation,
         generation_available=generation_available,
         generation_message=generation_message,
-        available_models=models,
-        app_owned=app_owned,
-        owner=app_state.owner if app_state is not None else None,
-        pid=app_state.pid if app_state is not None else None,
-        host=app_state.host if app_state is not None else None,
-        port=app_state.port if app_state is not None else None,
-        base_url=app_state.base_url if app_state is not None else api_root,
-        stdout_log_path=app_state.stdout_log_path if app_state is not None else None,
-        stderr_log_path=app_state.stderr_log_path if app_state is not None else None,
-        stdout_tail=_tail_text(
-            app_state.stdout_log_path if app_state is not None else None,
-            limit=tail_limit,
-        ),
-        stderr_tail=_tail_text(
-            app_state.stderr_log_path if app_state is not None else None,
-            limit=tail_limit,
-        ),
-        state_path=str(model_service_state_path(settings)),
-        message=status_message,
         runtime_base_url_matches_app_service=runtime_base_url_matches_app_service,
+        status_message=status_message,
+    )
+
+
+def _model_service_status_from_probe(
+    settings: Settings,
+    *,
+    probe: ModelServiceStatusProbe,
+    tail_limit: int,
+    include_generation: bool,
+) -> ModelServiceStatus:
+    return _report_model_service_status_from_probe(
+        settings,
+        probe=probe,
+        tail_limit=tail_limit,
+        include_generation=include_generation,
+    )
+
+
+def build_model_service_status(
+    settings: Settings,
+    *,
+    tail_limit: int = 12,
+    include_generation: bool = False,
+) -> ModelServiceStatus:
+    """Assemble the operator-facing Ollama model-service status."""
+    probe = _model_service_status_probe(
+        settings,
+        include_generation=include_generation,
+    )
+    return _model_service_status_from_probe(
+        settings,
+        probe=probe,
+        tail_limit=tail_limit,
+        include_generation=include_generation,
     )
 
 
@@ -1179,24 +448,7 @@ def start_model_service(
     port: int | None = None,
     models_dir: Path | None = None,
 ) -> ModelServiceStatus:
-    """
-    Start and persist an app-managed Ollama `serve` process bound to a loopback address.
-
-    Attempts to start `ollama serve` using a minimal environment and owner-restricted logs, writes a persisted ModelServiceState, and waits briefly for the process and API to become reachable before returning the computed service status.
-
-    Parameters:
-        settings (Settings): Application settings used to determine defaults and persist state.
-        host (str | None): Optional loopback host to bind the service to; must be a loopback address.
-        port (int | None): Optional preferred port to attempt before falling back to configured/default app-managed ports.
-        models_dir (Path | None): Optional directory to expose to Ollama via `OLLAMA_MODELS`; created if provided.
-
-    Returns:
-        ModelServiceStatus: The status of the model service after the start attempt (may reflect a running service, a failed start, or existing state).
-
-    Raises:
-        RuntimeError: If the Ollama CLI is not found on PATH or if `host` is not a loopback address.
-    """
-
+    """Start and persist an app-managed Ollama serve process on loopback."""
     command_path = shutil.which("ollama")
     if command_path is None:
         raise RuntimeError("Ollama CLI is not installed or not on PATH.")
@@ -1253,8 +505,6 @@ def start_model_service(
 
 
 def stop_model_service(settings: Settings) -> ModelServiceStatus:
-    """Stop only the app-owned Ollama process, never an external service."""
-
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None
     if state is None:
@@ -1270,8 +520,6 @@ def stop_model_service(settings: Settings) -> ModelServiceStatus:
 
 
 def pull_model(settings: Settings, model_name: str) -> dict[str, object]:
-    """Pull an Ollama model through the CLI with redacted output."""
-
     command_path = shutil.which("ollama")
     if command_path is None:
         raise RuntimeError("Ollama CLI is not installed or not on PATH.")

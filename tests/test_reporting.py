@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from tests.typing_helpers import approx
-
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.schemas import (
@@ -18,9 +16,24 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
+from tests.typing_helpers import approx
 
 
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
+    """
+    Builds a fully populated RunArtifacts instance for the given ticker symbol.
+
+    Returns a RunArtifacts containing a market snapshot, research coordinator brief,
+    regime assessment, strategy plan, risk plan, manager decision, execution decision,
+    and review note populated with representative sample values tied to the provided
+    symbol.
+
+    Parameters:
+        symbol (str): Ticker symbol to associate with the generated artifacts (default: "AAPL").
+
+    Returns:
+        RunArtifacts: A populated RunArtifacts object for the specified symbol.
+    """
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,

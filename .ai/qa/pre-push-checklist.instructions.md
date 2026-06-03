@@ -4,6 +4,12 @@ Use this before pushing broad V1, runtime, WebGUI, sidecar, setup, security, or
 release-sensitive work. The goal is to prove the product still behaves like a
 safe paper-trading desk, not only that static checks are green.
 
+Push broad work only at coherent module/surface checkpoints. Small commits are
+fine inside a module, but avoid pushing a half-migrated module unless the user
+explicitly asks for a checkpoint. After a push, do not idle only to watch CI;
+continue useful local work and inspect CI/SonarCloud at the next break or after
+roughly five minutes so the next push can include any remote-gate fixes.
+
 Apply tiers by risk. Prompt/docs-only changes need Tier 1 plus the affected
 docs or prompt validation. Runtime, broker, security, setup, and broad V1 work
 need every relevant tier. If a command or optional helper is unavailable, record
@@ -19,6 +25,9 @@ fully passed.
 - confirm version files are intentionally bumped or intentionally unchanged
 - confirm no runtime artifacts, `.env` files, logs, screenshots, or local tool
   state are staged accidentally
+- check local editor diagnostics when available: VS Code Problems, Comments,
+  and Output panels should not show new Pylance, Mypy, ESLint, TypeScript,
+  Sonar, or test-run failures for touched files
 
 ## Tier 2: Product-Readiness Gate
 
@@ -96,6 +105,8 @@ Run when UI, docs, WebGUI, terminal rendering, or operator copy changes:
   exit
 - Rich menu pass for submenu navigation, Ctrl+C, and observer-mode messages
 - attach screenshots or terminal transcripts when the change is visual
+- VS Code GUI pass for Problems, Comments, and Output panels after local checks
+  so editor-visible diagnostics are not ignored when command-line checks pass
 
 ## Tier 5: Security Gate
 
@@ -133,3 +144,15 @@ flows, model-provider defaults, support posture, or product docs:
 Open a GitHub issue for real blockers that need more than a small immediate
 fix. Do not create issues for tiny problems that can be repaired in the same
 push.
+
+## Remote Quality Follow-Up
+
+Use this after a module-complete push or PR update:
+
+- inspect GitHub checks and SonarCloud quality gate once the previous push has
+  had time to run
+- track every open Sonar issue that applies to the branch; fix it locally or
+  record why it is stale/false-positive before merge
+- do not merge a V1/modularity/i18n branch until CI is green, coverage is above
+  the current V1 target, Sonar quality gate passes, and strict Pylance/Pyright
+  diagnostics are clean for the relevant source tree

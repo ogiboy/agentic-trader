@@ -5,17 +5,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import type { DocLanguage } from '@/lib/i18n/config';
+import type { HomeCurrentFocus } from '@/lib/home/content/types';
 import { Bot, FileSearch, LayoutPanelTop } from 'lucide-react';
 
-type CurrentFocusItem = {
-  icon: 'bot' | 'layout' | 'inspect';
-  text: string;
-};
-
 type CurrentFocusPanelProps = {
-  locale: DocLanguage;
-  items: CurrentFocusItem[];
+  focus: HomeCurrentFocus;
 };
 
 const icons = {
@@ -24,24 +18,21 @@ const icons = {
   inspect: FileSearch,
 } as const;
 
-export function CurrentFocusPanel({
-  locale,
-  items,
-}: Readonly<CurrentFocusPanelProps>) {
+/**
+ * Render a panel showing the current focus with its title, description, and a list of items.
+ *
+ * @param focus - The focus data to render. Must include `title`, `description`, and `items`, where each item provides an `icon` key (mapped to a local icon) and `text`.
+ * @returns A Card element containing the focus title, description, and a vertical list of items with their icons.
+ */
+export function CurrentFocusPanel({ focus }: Readonly<CurrentFocusPanelProps>) {
   return (
     <Card className='docs-home-panel sticky top-6'>
       <CardHeader>
-        <CardTitle>
-          {locale === 'en' ? 'Current V1 focus' : 'Güncel V1 odağı'}
-        </CardTitle>
-        <CardDescription>
-          {locale === 'en'
-            ? 'The project is in hardening mode, not in “invent a parallel system” mode.'
-            : 'Proje şu anda sertleştirme aşamasında; paralel bir sistem icat etme aşamasında değil.'}
-        </CardDescription>
+        <CardTitle>{focus.title}</CardTitle>
+        <CardDescription>{focus.description}</CardDescription>
       </CardHeader>
       <CardContent className='flex flex-col gap-4 text-sm text-muted-foreground'>
-        {items.map((item, index) => {
+        {focus.items.map((item, index) => {
           const Icon = icons[item.icon];
 
           return (

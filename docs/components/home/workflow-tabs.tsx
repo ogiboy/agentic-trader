@@ -1,14 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { WorkflowTrack } from '@/lib/home/content/types';
-import type { DocLanguage } from '@/lib/i18n/config';
 
 type WorkflowTabsProps = {
-  locale: DocLanguage;
+  note: string;
   tracks: WorkflowTrack[];
 };
 
-export function WorkflowTabs({ locale, tracks }: Readonly<WorkflowTabsProps>) {
+/**
+ * Renders a tabbed workflow panel where each track becomes a tab containing cards, with a footer note below.
+ *
+ * @param note - Text displayed below the tabs as a muted footer note.
+ * @param tracks - Array of workflow tracks; each track's `label` is used for the tab trigger and its `cards` populate the tab content.
+ * @returns The section element containing the tabs, their card contents, and the footer note.
+ */
+export function WorkflowTabs({ note, tracks }: Readonly<WorkflowTabsProps>) {
   return (
     <section className='docs-home-panel p-6 sm:p-8'>
       <Tabs className='flex flex-col gap-6' defaultValue={tracks[0]?.id}>
@@ -36,11 +42,7 @@ export function WorkflowTabs({ locale, tracks }: Readonly<WorkflowTabsProps>) {
           </TabsContent>
         ))}
       </Tabs>
-      <p className='mt-5 text-sm text-muted-foreground'>
-        {locale === 'en'
-          ? 'The docs should stay close to the runtime truth, not become a second architecture.'
-          : 'Dokümanlar runtime gerçeğine yakın durmalı; ikinci bir mimari anlatısı olmamalı.'}
-      </p>
+      <p className='mt-5 text-sm text-muted-foreground'>{note}</p>
     </section>
   );
 }

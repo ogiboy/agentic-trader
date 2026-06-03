@@ -3,6 +3,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
+import { WEBGUI_SITE_METADATA } from './site-metadata';
 
 const jetBrainsMono = localFont({
   src: [
@@ -31,8 +32,8 @@ const jetBrainsMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Agentic Trader Web GUI',
-  description: 'Local-first command center for Agentic Trader',
+  title: WEBGUI_SITE_METADATA.title,
+  description: WEBGUI_SITE_METADATA.description,
   icons: {
     shortcut: '/favicon.ico',
     apple: '/apple-touch-icon.png',

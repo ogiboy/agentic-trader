@@ -1,5 +1,16 @@
-import type { DashboardData, InstructionMode } from '../control-room.helpers';
-import { formatList, formatTimestamp } from '../control-room.helpers';
+import type {
+  DashboardData,
+  InstructionMode,
+  InstructionResult,
+} from '../control-room.helpers';
+import
+  {
+    asRecord,
+    asRecordArray,
+    asString,
+    formatList,
+    formatTimestamp,
+  } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
@@ -31,27 +42,31 @@ export function SettingsView({
   dashboard: DashboardData;
   instructionDraft: string;
   instructionMode: InstructionMode;
-  instructionResult: DashboardData | null;
+  instructionResult: InstructionResult | null;
   busy: string | null;
   onInstructionDraftChange: (value: string) => void;
   onInstructionModeChange: (value: InstructionMode) => void;
   onSendInstruction: () => Promise<void>;
 }>) {
-  const recentRunLines = dashboard.recentRuns?.runs?.length
-    ? dashboard.recentRuns.runs.map(
-        (run: Record<string, string>) =>
-          `${formatTimestamp(run.created_at)} | ${run.symbol} | ${run.interval} | ${copy.settings.fields.approved}=${run.approved}`,
+  const recentRuns = asRecord(dashboard.recentRuns);
+  const preferences = asRecord(dashboard.preferences);
+  const instruction = asRecord(instructionResult?.instruction);
+  const recentRunRows = asRecordArray(recentRuns.runs);
+  const recentRunLines = recentRunRows.length
+    ? recentRunRows.map(
+        (run) =>
+          `${formatTimestamp(run.created_at)} | ${asString(run.symbol)} | ${asString(run.interval)} | ${copy.settings.fields.approved}=${asString(run.approved)}`,
       )
     : [copy.settings.recentRunsEmpty];
   const instructionLines = instructionResult
     ? [
-        `${copy.settings.fields.instructionSummary}: ${instructionResult.instruction?.summary ?? '-'}`,
-        `${copy.settings.fields.shouldUpdatePreferences}: ${instructionResult.instruction?.should_update_preferences ?? false}`,
-        `${copy.settings.fields.requiresConfirmation}: ${instructionResult.instruction?.requires_confirmation ?? false}`,
+        `${copy.settings.fields.instructionSummary}: ${asString(instruction.summary)}`,
+        `${copy.settings.fields.shouldUpdatePreferences}: ${asString(instruction.should_update_preferences, 'false')}`,
+        `${copy.settings.fields.requiresConfirmation}: ${asString(instruction.requires_confirmation, 'false')}`,
         `${copy.settings.fields.applied}: ${
           instructionResult.applied ? copy.common.yes : copy.common.no
         }`,
-        `${copy.settings.fields.instructionRationale}: ${instructionResult.instruction?.rationale ?? '-'}`,
+        `${copy.settings.fields.instructionRationale}: ${asString(instruction.rationale)}`,
       ]
     : [
         copy.settings.instructionEmpty,
@@ -66,43 +81,43 @@ export function SettingsView({
           items={[
             [
               copy.settings.fields.regions,
-              formatList(dashboard.preferences?.regions),
+              formatList(preferences.regions),
             ],
             [
               copy.settings.fields.exchanges,
-              formatList(dashboard.preferences?.exchanges),
+              formatList(preferences.exchanges),
             ],
             [
               copy.settings.fields.currencies,
-              formatList(dashboard.preferences?.currencies),
+              formatList(preferences.currencies),
             ],
             [
               copy.settings.fields.sectors,
-              formatList(dashboard.preferences?.sectors),
+              formatList(preferences.sectors),
             ],
             [
               copy.settings.fields.risk,
-              dashboard.preferences?.risk_profile ?? '-',
+              asString(preferences.risk_profile),
             ],
             [
               copy.settings.fields.style,
-              dashboard.preferences?.trade_style ?? '-',
+              asString(preferences.trade_style),
             ],
             [
               copy.settings.fields.behavior,
-              dashboard.preferences?.behavior_preset ?? '-',
+              asString(preferences.behavior_preset),
             ],
             [
               copy.settings.fields.agentProfile,
-              dashboard.preferences?.agent_profile ?? '-',
+              asString(preferences.agent_profile),
             ],
             [
               copy.settings.fields.tone,
-              dashboard.preferences?.agent_tone ?? '-',
+              asString(preferences.agent_tone),
             ],
             [
               copy.settings.fields.strictness,
-              dashboard.preferences?.strictness_preset ?? '-',
+              asString(preferences.strictness_preset),
             ],
           ]}
         />

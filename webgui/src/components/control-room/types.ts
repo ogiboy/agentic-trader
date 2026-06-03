@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
+import type { JsonRecord } from '@/lib/json-record';
 
-export type DashboardData = Record<string, any>;
+export type DashboardRecord = JsonRecord;
+export type DashboardData = DashboardRecord;
+export type InstructionResult = DashboardRecord;
 
 export type TabId =
   | 'overview'

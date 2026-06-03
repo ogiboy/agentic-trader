@@ -68,19 +68,23 @@ class Finding:
 
 def _iter_prompt_docs(roots: Iterable[Path]) -> Iterable[Path]:
     for root in roots:
-        if root.is_file():
-            if root.name.endswith(PROMPT_DOC_SUFFIXES):
-                yield root
-            continue
-        if not root.exists():
-            continue
-        for current_root, dirs, files in os.walk(root):
-            dirs[:] = [name for name in dirs if name not in SKIP_DIRS]
-            current = Path(current_root)
-            for file_name in files:
-                path = current / file_name
-                if path.name.endswith(PROMPT_DOC_SUFFIXES):
-                    yield path
+        yield from _iter_prompt_doc_root(root)
+
+
+def _iter_prompt_doc_root(root: Path) -> Iterable[Path]:
+    if root.is_file():
+        if root.name.endswith(PROMPT_DOC_SUFFIXES):
+            yield root
+        return
+    if not root.exists():
+        return
+    for current_root, dirs, files in os.walk(root):
+        dirs[:] = [name for name in dirs if name not in SKIP_DIRS]
+        current = Path(current_root)
+        for file_name in files:
+            path = current / file_name
+            if path.name.endswith(PROMPT_DOC_SUFFIXES):
+                yield path
 
 
 def _line_findings(path: Path, text: str) -> list[Finding]:

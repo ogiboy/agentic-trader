@@ -1,0 +1,142 @@
+"""Help UI catalog field declarations."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class HelpTextFields:
+    """Typed help copy fields for UITextCatalog."""
+
+    help_camofox_service_app: str
+    help_idea_change_pct: str
+    help_idea_ema_9: str
+    help_idea_gap_pct: str
+    help_idea_preset: str
+    help_idea_price: str
+    help_idea_range_pct: str
+    help_idea_relative_volume: str
+    help_idea_rsi: str
+    help_idea_sma_20: str
+    help_idea_sma_50: str
+    help_idea_spread_pct: str
+    help_idea_volume: str
+    help_idea_vwap: str
+    help_interval: str
+    help_json: str
+    help_chat_message: str
+    help_chat_persona: str
+    help_instruct_apply: str
+    help_instruct_message: str
+    help_monitor_refresh_seconds: str
+    help_locale_override: str
+    help_locale_persist: str
+    help_launch_background: str
+    help_launch_continuous: str
+    help_launch_max_cycles: str
+    help_launch_poll_seconds: str
+    help_launch_symbols: str
+    help_lookback: str
+    help_candidate_freshness: str
+    help_candidate_liquidity: str
+    help_candidate_materiality: str
+    help_candidate_risk_notes: str
+    help_candidate_source: str
+    help_enrich_provider_context: str
+    help_fetch_provider_news: str
+    help_model_name_to_pull: str
+    help_model_service_app: str
+    help_model_service_host: str
+    help_model_service_port: str
+    help_memory_explorer_limit: str
+    help_memory_explorer_use_latest_run: str
+    help_ollama_owner: str
+    help_position_plan_repair_apply: str
+    help_position_plan_repair_max_holding_bars: str
+    help_proposal_candidate_id: str
+    help_proposal_candidates_limit: str
+    help_proposal_candidates_status_filter: str
+    help_promotion_notes: str
+    help_research_cycle_run_cadence_seconds: str
+    help_research_cycle_run_cycles: str
+    help_research_cycle_run_max_proposals_per_cycle: str
+    help_research_cycle_run_persist: str
+    help_research_cycle_run_sleep: str
+    help_research_cycle_run_symbols: str
+    help_research_cycle_plan_cadence_seconds: str
+    help_research_cycle_plan_max_proposals_per_cycle: str
+    help_research_cycle_plan_symbols: str
+    help_research_cycle_pause: str
+    help_research_cycle_reason: str
+    help_research_cycle_resume: str
+    help_research_cycle_trigger_now: str
+    help_research_probe: str
+    help_research_refresh_persist: str
+    help_runtime_event_limit: str
+    help_provider_check: str
+    help_calendar_status_symbol: str
+    help_trade_journal_limit: str
+    help_risk_report_date: str
+    help_evidence_bundle_include_latest_smoke: str
+    help_evidence_bundle_label: str
+    help_evidence_bundle_output_dir: str
+    help_observer_api_allow_nonlocal: str
+    help_observer_api_host: str
+    help_observer_api_port: str
+    help_firecrawl_owner: str
+    help_camofox_owner: str
+    help_camofox_service_host: str
+    help_camofox_service_port: str
+    help_run_id: str
+    help_restart_service_grace_seconds: str
+    help_trade_context_id: str
+    help_run_replay_id: str
+    help_export_report_output: str
+    help_export_report_run_id: str
+    help_runtime_mode_provider_check: str
+    help_runtime_mode_target: str
+    help_news_classify_source: str
+    help_news_company_name: str
+    help_news_sector: str
+    help_news_brief_symbol: str
+    help_setup_dry_run: str
+    help_stop_service_force: str
+    help_strategy_catalog_preset_filter: str
+    help_strategy_catalog_status_filter: str
+    help_strategy_profile_name: str
+    help_symbol: str
+    help_tool_ownership_app: str
+    help_trade_confidence: str
+    help_trade_invalidation: str
+    help_trade_limit_price: str
+    help_trade_notional: str
+    help_trade_order_type: str
+    help_trade_quantity: str
+    help_trade_reference_price: str
+    help_trade_review_notes: str
+    help_trade_source: str
+    help_trade_stop_loss: str
+    help_trade_take_profit: str
+    help_trade_thesis: str
+    help_trade_side: str
+    help_trade_proposals_limit: str
+    help_trade_proposals_status_filter: str
+    help_trade_proposal_approval_notes: str
+    help_trade_proposal_id_approve: str
+    help_trade_proposal_id_reject: str
+    help_trade_proposal_reconcile_id: str
+    help_trade_proposal_reconciliation_notes: str
+    help_trade_proposal_refresh_id: str
+    help_trade_proposal_refresh_notes: str
+    help_trade_proposal_rejection_reason: str
+    help_backtest_warmup_bars: str
+    help_backtest_compare_baseline: str
+    help_backtest_compare_memory: str
+    help_backtest_output: str
+    help_v1_provider_check: str
+    help_webgui_open_browser: str
+    help_webgui_service_app: str
+
+
+__all__ = ("HelpTextFields",)

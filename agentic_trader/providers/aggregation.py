@@ -22,6 +22,18 @@ from agentic_trader.providers.local import (
     LocalFundamentalProvider,
     LocalMacroProvider,
 )
+from agentic_trader.providers.provider_collection import (
+    collect_disclosures as _collect_disclosures_impl,
+)
+from agentic_trader.providers.provider_collection import (
+    collect_provider_news as _collect_provider_news_impl,
+)
+from agentic_trader.providers.provider_collection import (
+    first_fundamental_snapshot as _first_fundamental_snapshot_impl,
+)
+from agentic_trader.providers.provider_collection import (
+    first_macro_snapshot as _first_macro_snapshot_impl,
+)
 from agentic_trader.providers.public_sources import (
     FinnhubFundamentalProvider,
     FmpFundamentalProvider,
@@ -41,7 +53,6 @@ from agentic_trader.schemas import (
     NewsSignal,
     SymbolIdentity,
 )
-from agentic_trader.security import safe_exception_note
 
 
 def _market_provider_list() -> list[MarketDataProvider]:
@@ -146,222 +157,31 @@ def canonical_news_from_signals(
     return events
 
 
-def _first_fundamental_snapshot(
-    providers: list[FundamentalDataProvider], symbol: SymbolIdentity
-) -> tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
-    """
-    Select the first available fundamental snapshot from a list of providers, collecting provider errors and extra attributions for providers that returned "missing".
-
-    Parameters:
-        providers (list[FundamentalDataProvider]): Ordered providers to query for fundamental data.
-        symbol (SymbolIdentity): Resolved symbol identity used to request fundamental data.
-
-    Returns:
-        tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
-            - FundamentalSnapshot: The first snapshot whose attribution has a source_role other than "missing", or a synthesized "missing" snapshot if no provider produced a usable snapshot. If only "missing" snapshots were returned, the first missing snapshot is returned.
-            - list[str]: Collected error messages from providers that raised exceptions while fetching data.
-            - list[DataSourceAttribution]: Attributions corresponding to any additional providers that returned "missing" (excludes the first successful snapshot and, when no success, excludes the first missing snapshot).
-    """
-    errors: list[str] = []
-    missing_snapshots: list[FundamentalSnapshot] = []
-    for provider in providers:
-        try:
-            snapshot = provider.get_fundamental_data(symbol)
-        except Exception as exc:
-            errors.append(safe_exception_note(provider.metadata().provider_id, exc))
-            continue
-        if snapshot.attribution.source_role != "missing":
-            return snapshot, errors, [item.attribution for item in missing_snapshots]
-        missing_snapshots.append(snapshot)
-    if missing_snapshots:
-        if len(missing_snapshots) == len(providers):
-            return (
-                FundamentalSnapshot(
-                    symbol_identity=symbol,
-                    attribution=source_attribution(
-                        source_name="fundamental_provider_unavailable",
-                        provider_type="fundamental",
-                        source_role="missing",
-                        fetched_at=utc_now_iso(),
-                        freshness="missing",
-                        notes=errors,
-                    ),
-                    missing_fields=["fundamental_snapshot"],
-                    summary="No fundamental provider produced a snapshot.",
-                ),
-                errors,
-                [item.attribution for item in missing_snapshots],
-            )
-        return (
-            missing_snapshots[0],
-            errors,
-            [item.attribution for item in missing_snapshots[1:]],
-        )
-    return (
-        FundamentalSnapshot(
-            symbol_identity=symbol,
-            attribution=source_attribution(
-                source_name="fundamental_provider_unavailable",
-                provider_type="fundamental",
-                source_role="missing",
-                fetched_at=utc_now_iso(),
-                freshness="missing",
-                notes=errors,
-            ),
-            missing_fields=["fundamental_snapshot"],
-            summary="No fundamental provider produced a snapshot.",
-        ),
-        errors,
-        [],
-    )
-
-
 def first_fundamental_snapshot(
     providers: list[FundamentalDataProvider], symbol: SymbolIdentity
 ) -> tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
     """Return the first usable fundamental snapshot through the public aggregation seam."""
-    return _first_fundamental_snapshot(providers, symbol)
+    return _first_fundamental_snapshot_impl(providers, symbol)
 
 
 def _first_macro_snapshot(
     providers: list[MacroDataProvider], symbol: SymbolIdentity
 ) -> tuple[MacroSnapshot, list[str]]:
-    errors: list[str] = []
-    for provider in providers:
-        try:
-            return provider.get_macro_context(symbol), errors
-        except Exception as exc:
-            errors.append(safe_exception_note(provider.metadata().provider_id, exc))
-    return (
-        MacroSnapshot(
-            region=symbol.region,
-            currency=symbol.currency,
-            attribution=source_attribution(
-                source_name="macro_provider_unavailable",
-                provider_type="macro",
-                source_role="missing",
-                fetched_at=utc_now_iso(),
-                freshness="missing",
-                notes=errors,
-            ),
-            missing_fields=["macro_snapshot"],
-            summary="No macro provider produced a snapshot.",
-        ),
-        errors,
-    )
-
-
-def _collect_disclosures(
-    providers: list[DisclosureProvider], symbol: SymbolIdentity, *, limit: int
-) -> tuple[list[DisclosureEvent], list[str], list[DataSourceAttribution]]:
-    """
-    Collect disclosures from multiple providers, aggregating results, provider errors, and attributions for providers that returned no disclosures.
-
-    Parameters:
-        providers (list[DisclosureProvider]): Ordered list of disclosure provider adapters to query.
-        symbol (SymbolIdentity): Symbol identity used to request disclosures.
-        limit (int): Maximum number of disclosure events to return.
-
-    Returns:
-        disclosures (list[DisclosureEvent]): Up to `limit` disclosure events aggregated from all providers (preserves provider order).
-        errors (list[str]): Error messages for providers that raised exceptions, formatted as "<provider_id>: <error>".
-        empty_attributions (list[DataSourceAttribution]): Attributions for providers that returned no disclosures, indicating a missing source.
-    """
-    disclosures: list[DisclosureEvent] = []
-    errors: list[str] = []
-    empty_attributions: list[DataSourceAttribution] = []
-    for provider in providers:
-        try:
-            provider_metadata = provider.metadata()
-        except Exception as exc:
-            provider_name = type(provider).__name__
-            errors.append(safe_exception_note(f"{provider_name}: metadata failed", exc))
-            continue
-        try:
-            provider_disclosures = provider.get_disclosures(symbol, limit=limit)
-        except Exception as exc:
-            errors.append(safe_exception_note(provider_metadata.provider_id, exc))
-            continue
-        disclosures.extend(provider_disclosures)
-        if not provider_disclosures:
-            empty_attributions.append(
-                source_attribution(
-                    source_name=provider_metadata.provider_id,
-                    provider_type="disclosure",
-                    source_role="missing",
-                    fetched_at=utc_now_iso(),
-                    freshness="missing",
-                    notes=[
-                        "no_disclosures_returned",
-                        *provider_metadata.notes,
-                    ],
-                )
-            )
-    return disclosures[:limit], errors, empty_attributions
+    return _first_macro_snapshot_impl(providers, symbol)
 
 
 def collect_disclosures(
     providers: list[DisclosureProvider], symbol: SymbolIdentity, *, limit: int
 ) -> tuple[list[DisclosureEvent], list[str], list[DataSourceAttribution]]:
     """Collect disclosures through the public aggregation seam."""
-    return _collect_disclosures(providers, symbol, limit=limit)
-
-
-def _collect_provider_news(
-    providers: list[NewsProvider], symbol: SymbolIdentity, *, limit: int
-) -> tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
-    """
-    Aggregate news events from multiple providers for a given symbol and collect provider-level errors and missing-source attributions.
-
-    Parameters:
-        providers (list[NewsProvider]): Ordered list of news providers to query.
-        symbol (SymbolIdentity): Symbol identity used to scope provider queries.
-        limit (int): Maximum number of news events to return (slice applied after aggregation).
-
-    Returns:
-        tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
-            events: Aggregated news events from all providers, truncated to `limit`.
-            errors: Strings of provider exceptions formatted as "<provider_id>: <exception>" for providers that raised.
-            empty_attributions: Attributions for providers that returned no events (source_role="missing"), with notes including "no_news_events_returned" and the provider's metadata notes.
-    """
-    events: list[NewsEvent] = []
-    errors: list[str] = []
-    empty_attributions: list[DataSourceAttribution] = []
-    for provider in providers:
-        try:
-            provider_metadata = provider.metadata()
-        except Exception as exc:
-            provider_name = type(provider).__name__
-            errors.append(safe_exception_note(f"{provider_name}: metadata failed", exc))
-            continue
-        try:
-            provider_events = provider.get_news(symbol, limit=limit)
-        except Exception as exc:
-            errors.append(safe_exception_note(provider_metadata.provider_id, exc))
-            continue
-        events.extend(provider_events)
-        if not provider_events:
-            empty_attributions.append(
-                source_attribution(
-                    source_name=provider_metadata.provider_id,
-                    provider_type="news",
-                    source_role="missing",
-                    fetched_at=utc_now_iso(),
-                    freshness="missing",
-                    notes=[
-                        "no_news_events_returned",
-                        *provider_metadata.notes,
-                    ],
-                )
-            )
-    return events[:limit], errors, empty_attributions
+    return _collect_disclosures_impl(providers, symbol, limit=limit)
 
 
 def collect_provider_news(
     providers: list[NewsProvider], symbol: SymbolIdentity, *, limit: int
 ) -> tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
     """Collect provider news through the public aggregation seam."""
-    return _collect_provider_news(providers, symbol, limit=limit)
+    return _collect_provider_news_impl(providers, symbol, limit=limit)
 
 
 def _attributions(
@@ -406,6 +226,23 @@ def _completeness_score(attributions: list[DataSourceAttribution]) -> float:
     )
 
 
+@dataclass(frozen=True)
+class _ProviderSnapshotBundle:
+    fundamental: FundamentalSnapshot
+    macro: MacroSnapshot
+    errors: list[str]
+    extra_fundamental_attributions: list[DataSourceAttribution]
+
+
+@dataclass(frozen=True)
+class _EventBundle:
+    news_events: list[NewsEvent]
+    disclosures: list[DisclosureEvent]
+    errors: list[str]
+    empty_news_attributions: list[DataSourceAttribution]
+    empty_disclosure_attributions: list[DataSourceAttribution]
+
+
 def build_canonical_analysis_snapshot(
     snapshot: MarketSnapshot,
     *,
@@ -415,29 +252,7 @@ def build_canonical_analysis_snapshot(
     providers: ProviderSet | None = None,
     lookback: str | None = None,
 ) -> CanonicalAnalysisSnapshot:
-    """
-    Build a canonical analysis snapshot by aggregating market, fundamental, macro, news, and disclosure data from configured providers.
-
-    Constructs a CanonicalAnalysisSnapshot for the given runtime MarketSnapshot by:
-    - resolving the symbol identity (using optional investment preferences),
-    - deriving a canonical market snapshot (respecting an optional lookback),
-    - selecting the first available fundamental and macro snapshots from configured providers (collecting provider errors and missing-role attributions),
-    - either converting provided NewsSignal items into canonical NewsEvent objects or fetching news from providers,
-    - fetching disclosures from configured disclosure providers,
-    - assembling source attributions (including empty/missing attributions and aggregation error notes),
-    - computing a completeness score and a summary string.
-
-    Parameters:
-        snapshot (MarketSnapshot): Runtime market snapshot to base the canonical market alignment on.
-        settings (Settings): Application settings used to build the default provider set and limits.
-        preferences (InvestmentPreferences | None): Optional investment preferences affecting symbol resolution.
-        news_items (list[NewsSignal] | None): Optional pre-fetched lightweight news signals to convert instead of calling news providers.
-        providers (ProviderSet | None): Optional override of the provider configuration; if omitted, a default provider set is used.
-        lookback (str | None): Optional lookback window to apply when deriving the canonical market snapshot; if omitted the snapshot's context_pack lookback is used when available.
-
-    Returns:
-        CanonicalAnalysisSnapshot: Aggregated canonical snapshot containing market, fundamental, macro, news_events, disclosures, source attributions, missing sections, completeness score, and a human-readable summary.
-    """
+    """Build canonical market, fundamental, macro, news, and disclosure context."""
     provider_set = providers or default_provider_set(settings)
     symbol_identity = resolve_symbol_identity(snapshot.symbol, preferences)
     market = market_snapshot_from_runtime_snapshot(
@@ -446,15 +261,80 @@ def build_canonical_analysis_snapshot(
         lookback=lookback
         or (snapshot.context_pack.lookback if snapshot.context_pack else None),
     )
+    provider_snapshots = _provider_snapshots(provider_set, symbol_identity)
+    events = _event_bundle(
+        settings,
+        provider_set=provider_set,
+        symbol_identity=symbol_identity,
+        news_items=news_items,
+    )
+    missing_sections = _missing_sections(
+        market_missing=bool(market.missing_fields),
+        fundamental_missing=bool(provider_snapshots.fundamental.missing_fields),
+        macro_missing=bool(provider_snapshots.macro.missing_fields),
+        news_missing=not events.news_events,
+        disclosures_missing=not events.disclosures,
+    )
+    attributions = _canonical_attributions(
+        market=market.attribution,
+        fundamental=provider_snapshots.fundamental.attribution,
+        macro=provider_snapshots.macro.attribution,
+        news_events=events.news_events,
+        disclosures=events.disclosures,
+        extra_attributions=[
+            *provider_snapshots.extra_fundamental_attributions,
+            *events.empty_news_attributions,
+            *events.empty_disclosure_attributions,
+        ],
+        error_notes=[*provider_snapshots.errors, *events.errors],
+    )
 
+    return CanonicalAnalysisSnapshot(
+        symbol_identity=symbol_identity,
+        generated_at=utc_now_iso(),
+        market=market,
+        fundamental=provider_snapshots.fundamental,
+        news_events=events.news_events,
+        disclosures=events.disclosures,
+        macro=provider_snapshots.macro,
+        source_attributions=attributions,
+        missing_sections=missing_sections,
+        completeness_score=_completeness_score(attributions),
+        summary=_canonical_summary(
+            symbol_identity=symbol_identity,
+            market_rows=market.rows,
+            news_count=len(events.news_events),
+            disclosure_count=len(events.disclosures),
+            missing_sections=missing_sections,
+        ),
+    )
+
+
+def _provider_snapshots(
+    provider_set: ProviderSet, symbol_identity: SymbolIdentity
+) -> _ProviderSnapshotBundle:
     fundamental, fundamental_errors, extra_fundamental_attributions = (
-        _first_fundamental_snapshot(
+        first_fundamental_snapshot(
             provider_set.fundamental,
             symbol_identity,
         )
     )
     macro, macro_errors = _first_macro_snapshot(provider_set.macro, symbol_identity)
+    return _ProviderSnapshotBundle(
+        fundamental=fundamental,
+        macro=macro,
+        errors=[*fundamental_errors, *macro_errors],
+        extra_fundamental_attributions=extra_fundamental_attributions,
+    )
 
+
+def _event_bundle(
+    settings: Settings,
+    *,
+    provider_set: ProviderSet,
+    symbol_identity: SymbolIdentity,
+    news_items: list[NewsSignal] | None,
+) -> _EventBundle:
     if news_items is not None:
         news_events = canonical_news_from_signals(
             news_items,
@@ -463,48 +343,63 @@ def build_canonical_analysis_snapshot(
         news_errors: list[str] = []
         empty_news_attributions: list[DataSourceAttribution] = []
     else:
-        news_events, news_errors, empty_news_attributions = _collect_provider_news(
+        news_events, news_errors, empty_news_attributions = collect_provider_news(
             provider_set.news,
             symbol_identity,
             limit=settings.news_headline_limit,
         )
-    disclosures, disclosure_errors, empty_disclosure_attributions = (
-        _collect_disclosures(
-            provider_set.disclosures,
-            symbol_identity,
-            limit=5,
-        )
+    disclosures, disclosure_errors, empty_disclosure_attributions = collect_disclosures(
+        provider_set.disclosures,
+        symbol_identity,
+        limit=5,
     )
-
-    missing_sections: list[str] = []
-    if market.missing_fields:
-        missing_sections.append("market")
-    if fundamental.missing_fields:
-        missing_sections.append("fundamentals")
-    if macro.missing_fields:
-        missing_sections.append("macro")
-    if not news_events:
-        missing_sections.append("news")
-    if not disclosures:
-        missing_sections.append("disclosures")
-
-    error_notes = [
-        *fundamental_errors,
-        *macro_errors,
-        *news_errors,
-        *disclosure_errors,
-    ]
-    attributions = _attributions(
-        market=market.attribution,
-        fundamental=fundamental.attribution,
-        macro=macro.attribution,
+    return _EventBundle(
         news_events=news_events,
         disclosures=disclosures,
-        extra_attributions=[
-            *extra_fundamental_attributions,
-            *empty_news_attributions,
-            *empty_disclosure_attributions,
-        ],
+        errors=[*news_errors, *disclosure_errors],
+        empty_news_attributions=empty_news_attributions,
+        empty_disclosure_attributions=empty_disclosure_attributions,
+    )
+
+
+def _missing_sections(
+    *,
+    market_missing: bool,
+    fundamental_missing: bool,
+    macro_missing: bool,
+    news_missing: bool,
+    disclosures_missing: bool,
+) -> list[str]:
+    sections: list[str] = []
+    for name, missing in (
+        ("market", market_missing),
+        ("fundamentals", fundamental_missing),
+        ("macro", macro_missing),
+        ("news", news_missing),
+        ("disclosures", disclosures_missing),
+    ):
+        if missing:
+            sections.append(name)
+    return sections
+
+
+def _canonical_attributions(
+    *,
+    market: DataSourceAttribution,
+    fundamental: DataSourceAttribution,
+    macro: DataSourceAttribution,
+    news_events: list[NewsEvent],
+    disclosures: list[DisclosureEvent],
+    extra_attributions: list[DataSourceAttribution],
+    error_notes: list[str],
+) -> list[DataSourceAttribution]:
+    attributions = _attributions(
+        market=market,
+        fundamental=fundamental,
+        macro=macro,
+        news_events=news_events,
+        disclosures=disclosures,
+        extra_attributions=extra_attributions,
     )
     if error_notes:
         attributions.append(
@@ -517,21 +412,20 @@ def build_canonical_analysis_snapshot(
                 notes=error_notes,
             )
         )
+    return attributions
 
-    return CanonicalAnalysisSnapshot(
-        symbol_identity=symbol_identity,
-        generated_at=utc_now_iso(),
-        market=market,
-        fundamental=fundamental,
-        news_events=news_events,
-        disclosures=disclosures,
-        macro=macro,
-        source_attributions=attributions,
-        missing_sections=missing_sections,
-        completeness_score=_completeness_score(attributions),
-        summary=(
-            f"Canonical analysis snapshot for {symbol_identity.symbol}: "
-            f"market rows={market.rows}, news={len(news_events)}, "
-            f"disclosures={len(disclosures)}, missing={','.join(missing_sections) or 'none'}."
-        ),
+
+def _canonical_summary(
+    *,
+    symbol_identity: SymbolIdentity,
+    market_rows: int,
+    news_count: int,
+    disclosure_count: int,
+    missing_sections: list[str],
+) -> str:
+    return (
+        f"Canonical analysis snapshot for {symbol_identity.symbol}: "
+        f"market rows={market_rows}, news={news_count}, "
+        f"disclosures={disclosure_count}, "
+        f"missing={','.join(missing_sections) or 'none'}."
     )

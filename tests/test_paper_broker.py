@@ -1,13 +1,12 @@
 from pathlib import Path
 
-from tests.typing_helpers import approx
-
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.execution.intent import ExecutionIntent
 from agentic_trader.schemas import ExecutionDecision, MarketSnapshot
 from agentic_trader.storage.db import TradingDatabase
+from tests.typing_helpers import approx
 
 
 def test_paper_broker_updates_account_and_positions(tmp_path: Path) -> None:

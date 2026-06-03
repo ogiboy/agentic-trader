@@ -1,17 +1,21 @@
-import type { DashboardData, TabId } from './control-room/types';
+import { asRecord, asRecordArray, asString } from './control-room/payload';
+import type { DashboardData } from './control-room/types';
 
 export type {
   DashboardData,
+  DashboardRecord,
   InstructionMode,
+  InstructionResult,
   KeyValueItems,
   MessageTone,
   PanelAccent,
   ProposalActionKind,
   TabId,
-  ToolActionKind,
+  ToolActionKind
 } from './control-room/types';
 
-export {
+export
+{
   accountCurrency,
   canonicalLines,
   marketContextLines,
@@ -20,46 +24,42 @@ export {
   proposalHeadline,
   proposalLines,
   tradeContextLines,
-  unavailableSectionLines,
+  unavailableSectionLines
 } from './control-room/context-formatting';
-export {
+export
+{
   failedCheckNames,
   formatSourceHealthCount,
   localizedStatusText,
-  localToolActionLines,
-  localToolLines,
   providerWarningLines,
   readinessLines,
   sourceHealthSummaryLine,
-  systemStatusItems,
+  systemStatusItems
 } from './control-room/diagnostics-formatting';
-export {
+export
+{
+  localToolActionLines,
+  localToolLines
+} from './control-room/diagnostics-tool-lines';
+export
+{
   cx,
   formatList,
   formatNumber,
   formatPercent,
-  formatTimestamp,
+  formatTimestamp
 } from './control-room/formatting';
-
-export const tabs: Array<{ id: TabId; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'runtime', label: 'Runtime' },
-  { id: 'portfolio', label: 'Portfolio' },
-  { id: 'proposals', label: 'Proposals' },
-  { id: 'review', label: 'Review' },
-  { id: 'memory', label: 'Decision Evidence' },
-  { id: 'chat', label: 'Chat' },
-  { id: 'settings', label: 'Settings' },
-];
+export
+{
+  asRecord,
+  asRecordArray,
+  asString,
+  asStringArray,
+  isRecord
+} from './control-room/payload';
 
 export const marketLensImage =
   'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1600&q=80';
-
-type ChatHistoryEntry = {
-  persona?: string;
-  response_text?: string;
-  user_message?: string;
-};
 
 /**
  * Convert dashboard chat history into a simple list of chat records.
@@ -70,10 +70,11 @@ type ChatHistoryEntry = {
 export function normalizeChatHistory(
   data: DashboardData | null,
 ): Array<Record<string, string>> {
-  const entries = (data?.chatHistory?.entries || []) as ChatHistoryEntry[];
+  const chatHistory = asRecord(data?.chatHistory);
+  const entries = asRecordArray(chatHistory.entries);
   return [...entries].reverse().map((entry) => ({
-    user: entry.user_message ?? '',
-    persona: entry.persona ?? '',
-    response: entry.response_text ?? '',
+    user: asString(entry.user_message, ''),
+    persona: asString(entry.persona, ''),
+    response: asString(entry.response_text, ''),
   }));
 }

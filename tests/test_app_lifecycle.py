@@ -800,7 +800,7 @@ def test_app_update_dry_run_plans_all_owner_lanes() -> None:
     - The planned commands include:
       - "pnpm update --recursive --latest"
       - "uv sync --locked --all-extras --group dev"
-      - "pnpm --dir tools/camofox-browser --ignore-workspace update"
+      - "scripts/run-camofox-pnpm.sh --ignore-workspace update"
       - "pnpm run check"
       - "pnpm run app:doctor -- --json"
     - The planned commands do not include "fetch:camofox", "model-service pull", or "webgui-service start".
@@ -816,7 +816,7 @@ def test_app_update_dry_run_plans_all_owner_lanes() -> None:
     commands = [" ".join(step["command"]) for step in payload["steps"]]
     assert "pnpm update --recursive --latest" in commands
     assert "uv sync --locked --all-extras --group dev" in commands
-    assert "pnpm --dir tools/camofox-browser --ignore-workspace update" in commands
+    assert "scripts/run-camofox-pnpm.sh --ignore-workspace update" in commands
     assert "pnpm run check" in commands
     assert "pnpm run app:doctor -- --json" in commands
     assert not any("fetch:camofox" in command for command in commands)

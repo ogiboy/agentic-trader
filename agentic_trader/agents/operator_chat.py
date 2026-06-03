@@ -180,6 +180,68 @@ def _apply_keyword_preference(
     return False
 
 
+KeywordOptions = tuple[tuple[tuple[str, ...], Any], ...]
+PreferenceKeywordRule = tuple[str, KeywordOptions]
+
+FALLBACK_PREFERENCE_KEYWORDS: tuple[PreferenceKeywordRule, ...] = (
+    (
+        "risk_profile",
+        (
+            (("conservative",), "conservative"),
+            (("balanced",), "balanced"),
+            (("aggressive",), "aggressive"),
+        ),
+    ),
+    (
+        "trade_style",
+        (
+            (("intraday",), "intraday"),
+            (("position",), "position"),
+            (("swing",), "swing"),
+        ),
+    ),
+    (
+        "behavior_preset",
+        (
+            (("trend",), "trend_biased"),
+            (("contrarian",), "contrarian"),
+            (("preservation", "defensive"), "capital_preservation"),
+        ),
+    ),
+    (
+        "agent_profile",
+        (
+            (("explain", "explanatory"), "explanatory"),
+            (("disciplined",), "disciplined"),
+        ),
+    ),
+    (
+        "agent_tone",
+        (
+            (("supportive",), "supportive"),
+            (("forensic",), "forensic"),
+            (("direct",), "direct"),
+        ),
+    ),
+    (
+        "strictness_preset",
+        (
+            (("paranoid",), "paranoid"),
+            (("strict",), "strict"),
+            (("standard",), "standard"),
+        ),
+    ),
+    (
+        "intervention_style",
+        (
+            (("hands off", "hands-off"), "hands_off"),
+            (("protective",), "protective"),
+            (("balanced intervention", "balanced oversight"), "balanced"),
+        ),
+    ),
+)
+
+
 def _fallback_instruction(message: str) -> OperatorInstruction:
     """
     Parse a freeform operator message into a conservative OperatorInstruction proposing safe preference updates.
@@ -199,75 +261,8 @@ def _fallback_instruction(message: str) -> OperatorInstruction:
     lowered = message.lower()
     update = PreferenceUpdate()
     changed_fields = [
-        _apply_keyword_preference(
-            lowered,
-            update,
-            "risk_profile",
-            (
-                (("conservative",), "conservative"),
-                (("balanced",), "balanced"),
-                (("aggressive",), "aggressive"),
-            ),
-        ),
-        _apply_keyword_preference(
-            lowered,
-            update,
-            "trade_style",
-            (
-                (("intraday",), "intraday"),
-                (("position",), "position"),
-                (("swing",), "swing"),
-            ),
-        ),
-        _apply_keyword_preference(
-            lowered,
-            update,
-            "behavior_preset",
-            (
-                (("trend",), "trend_biased"),
-                (("contrarian",), "contrarian"),
-                (("preservation", "defensive"), "capital_preservation"),
-            ),
-        ),
-        _apply_keyword_preference(
-            lowered,
-            update,
-            "agent_profile",
-            (
-                (("explain", "explanatory"), "explanatory"),
-                (("disciplined",), "disciplined"),
-            ),
-        ),
-        _apply_keyword_preference(
-            lowered,
-            update,
-            "agent_tone",
-            (
-                (("supportive",), "supportive"),
-                (("forensic",), "forensic"),
-                (("direct",), "direct"),
-            ),
-        ),
-        _apply_keyword_preference(
-            lowered,
-            update,
-            "strictness_preset",
-            (
-                (("paranoid",), "paranoid"),
-                (("strict",), "strict"),
-                (("standard",), "standard"),
-            ),
-        ),
-        _apply_keyword_preference(
-            lowered,
-            update,
-            "intervention_style",
-            (
-                (("hands off", "hands-off"), "hands_off"),
-                (("protective",), "protective"),
-                (("balanced intervention", "balanced oversight"), "balanced"),
-            ),
-        ),
+        _apply_keyword_preference(lowered, update, field_name, options)
+        for field_name, options in FALLBACK_PREFERENCE_KEYWORDS
     ]
 
     return OperatorInstruction(

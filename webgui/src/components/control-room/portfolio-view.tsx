@@ -1,13 +1,17 @@
 import type { DashboardData } from '../control-room.helpers';
-import {
-  accountCurrency,
-  formatList,
-  formatNumber,
-  formatPercent,
-  formatTimestamp,
-  positionPlanCoverageLines,
-  unavailableSectionLines,
-} from '../control-room.helpers';
+import
+  {
+    accountCurrency,
+    asRecord,
+    asRecordArray,
+    asString,
+    formatList,
+    formatNumber,
+    formatPercent,
+    formatTimestamp,
+    positionPlanCoverageLines,
+    unavailableSectionLines,
+  } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { JsonPreview, KeyValueList, Panel, TextList } from './primitives';
 
@@ -22,25 +26,33 @@ export function PortfolioView({
   dashboard,
 }: Readonly<{ copy: ControlRoomCopy; dashboard: DashboardData }>) {
   const currency = accountCurrency(dashboard);
-  const accounting =
-    dashboard.financeOps?.accounting ?? dashboard.portfolio?.accounting ?? {};
+  const financeOps = asRecord(dashboard.financeOps);
+  const portfolio = asRecord(dashboard.portfolio);
+  const accounting = asRecord(financeOps.accounting || portfolio.accounting);
+  const snapshot = asRecord(portfolio.snapshot);
+  const riskReport = asRecord(dashboard.riskReport);
+  const riskReportRecord = asRecord(riskReport.report);
+  const journal = asRecord(dashboard.journal);
+  const journalEntries = asRecordArray(journal.entries);
+  const preferences = asRecord(dashboard.preferences);
+  const costModel = asRecord(accounting.cost_model);
   const portfolioUnavailable = unavailableSectionLines(
-    dashboard.portfolio,
+    portfolio,
     copy.portfolio.unavailable.portfolio,
   );
   const riskUnavailable = unavailableSectionLines(
-    dashboard.riskReport,
+    riskReport,
     copy.portfolio.unavailable.riskReport,
   );
   const journalLines =
     unavailableSectionLines(
-      dashboard.journal,
+      journal,
       copy.portfolio.unavailable.tradeJournal,
     ) ||
-    (dashboard.journal?.entries?.length
-      ? dashboard.journal.entries.map(
-          (entry: DashboardData) =>
-            `${formatTimestamp(entry.opened_at)} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
+    (journalEntries.length
+      ? journalEntries.map(
+          (entry) =>
+            `${formatTimestamp(entry.opened_at)} | ${asString(entry.symbol)} | ${asString(entry.journal_status)} | ${asString(entry.planned_side)} | ${asString(entry.realized_pnl)}`,
         )
       : [copy.portfolio.emptyTradeJournal]);
 
@@ -55,27 +67,27 @@ export function PortfolioView({
               items={[
                 [
                   `${copy.portfolio.fields.cash} (${currency})`,
-                  formatNumber(dashboard.portfolio?.snapshot?.cash),
+                  formatNumber(snapshot.cash),
                 ],
                 [
                   `${copy.portfolio.fields.marketValue} (${currency})`,
-                  formatNumber(dashboard.portfolio?.snapshot?.market_value),
+                  formatNumber(snapshot.market_value),
                 ],
                 [
                   `${copy.portfolio.fields.equity} (${currency})`,
-                  formatNumber(dashboard.portfolio?.snapshot?.equity),
+                  formatNumber(snapshot.equity),
                 ],
                 [
                   `${copy.portfolio.fields.realizedPnl} (${currency})`,
-                  formatNumber(dashboard.portfolio?.snapshot?.realized_pnl),
+                  formatNumber(snapshot.realized_pnl),
                 ],
                 [
                   `${copy.portfolio.fields.unrealizedPnl} (${currency}, ${copy.portfolio.fields.paperMark})`,
-                  formatNumber(dashboard.portfolio?.snapshot?.unrealized_pnl),
+                  formatNumber(snapshot.unrealized_pnl),
                 ],
                 [
                   copy.portfolio.fields.openPositions,
-                  String(dashboard.portfolio?.snapshot?.open_positions ?? '-'),
+                  asString(snapshot.open_positions),
                 ],
                 [
                   copy.portfolio.fields.markedAt,
@@ -83,11 +95,11 @@ export function PortfolioView({
                 ],
                 [
                   copy.portfolio.fields.markSource,
-                  accounting?.mark_source ?? '-',
+                  asString(accounting.mark_source),
                 ],
               ]}
             />
-            <JsonPreview value={dashboard.portfolio?.positions || []} />
+            <JsonPreview value={portfolio.positions || []} />
           </>
         )}
       </Panel>
@@ -100,41 +112,41 @@ export function PortfolioView({
               items={[
                 [
                   `${copy.portfolio.fields.equity} (${currency})`,
-                  formatNumber(dashboard.riskReport?.report?.equity),
+                  formatNumber(riskReportRecord.equity),
                 ],
                 [
                   copy.portfolio.fields.grossExposure,
-                  formatPercent(
-                    dashboard.riskReport?.report?.gross_exposure_pct,
-                  ),
+                  formatPercent(riskReportRecord.gross_exposure_pct),
                 ],
                 [
                   copy.portfolio.fields.largestPosition,
-                  formatPercent(
-                    dashboard.riskReport?.report?.largest_position_pct,
-                  ),
+                  formatPercent(riskReportRecord.largest_position_pct),
                 ],
                 [
                   copy.portfolio.fields.drawdown,
-                  formatPercent(
-                    dashboard.riskReport?.report?.drawdown_from_peak_pct,
-                  ),
+                  formatPercent(riskReportRecord.drawdown_from_peak_pct),
                 ],
                 [
                   copy.portfolio.fields.warnings,
-                  String((dashboard.riskReport?.report?.warnings || []).length),
+                  String(
+                    Array.isArray(riskReportRecord.warnings)
+                      ? riskReportRecord.warnings.length
+                      : 0,
+                  ),
                 ],
                 [
                   copy.portfolio.fields.generatedAt,
-                  formatTimestamp(dashboard.riskReport?.report?.generated_at),
+                  formatTimestamp(riskReportRecord.generated_at),
                 ],
               ]}
             />
             <TextList
               items={
-                dashboard.riskReport?.report?.warnings || [
-                  copy.portfolio.noWarnings,
-                ]
+                Array.isArray(riskReportRecord.warnings)
+                  ? riskReportRecord.warnings.map((warning) =>
+                      asString(warning),
+                    )
+                  : [copy.portfolio.noWarnings]
               }
             />
           </>
@@ -151,35 +163,35 @@ export function PortfolioView({
           items={[
             [
               copy.portfolio.fields.regions,
-              formatList(dashboard.preferences?.regions),
+              formatList(preferences.regions),
             ],
             [
               copy.portfolio.fields.exchanges,
-              formatList(dashboard.preferences?.exchanges),
+              formatList(preferences.exchanges),
             ],
             [
               copy.portfolio.fields.currencies,
-              formatList(dashboard.preferences?.currencies),
+              formatList(preferences.currencies),
             ],
             [
               copy.portfolio.fields.risk,
-              dashboard.preferences?.risk_profile ?? '-',
+              asString(preferences.risk_profile),
             ],
             [
               copy.portfolio.fields.style,
-              dashboard.preferences?.trade_style ?? '-',
+              asString(preferences.trade_style),
             ],
             [
               copy.portfolio.fields.behavior,
-              dashboard.preferences?.behavior_preset ?? '-',
+              asString(preferences.behavior_preset),
             ],
             [
               copy.portfolio.fields.tone,
-              dashboard.preferences?.agent_tone ?? '-',
+              asString(preferences.agent_tone),
             ],
             [
               copy.portfolio.fields.strictness,
-              dashboard.preferences?.strictness_preset ?? '-',
+              asString(preferences.strictness_preset),
             ],
           ]}
         />
@@ -190,21 +202,21 @@ export function PortfolioView({
             [copy.portfolio.fields.currency, currency],
             [
               copy.portfolio.fields.markStatus,
-              accounting.mark_status ?? 'mark_time_unavailable',
+              asString(accounting.mark_status, 'mark_time_unavailable'),
             ],
             [
               copy.portfolio.fields.deskFees,
-              accounting.cost_model?.fees ?? '-',
+              asString(costModel.fees),
             ],
             [
               copy.portfolio.fields.slippage,
-              accounting.cost_model?.slippage_bps == null
+              costModel.slippage_bps == null
                 ? '-'
-                : `${accounting.cost_model.slippage_bps} ${copy.portfolio.fields.basisPoints}`,
+                : `${asString(costModel.slippage_bps)} ${copy.portfolio.fields.basisPoints}`,
             ],
             [
               copy.portfolio.fields.rejectionEvidence,
-              accounting.rejection_evidence ?? '-',
+              asString(accounting.rejection_evidence),
             ],
           ]}
         />

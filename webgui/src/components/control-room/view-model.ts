@@ -1,45 +1,54 @@
-import {
-  localizedStatusText,
-  systemStatusItems,
-  type DashboardData,
-  type KeyValueItems,
-} from '../control-room.helpers';
+import
+  {
+    asRecord,
+    asString,
+    localizedStatusText,
+    systemStatusItems,
+    type DashboardData,
+    type KeyValueItems,
+  } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 
 export function currentCycleItems(
   dashboard: DashboardData | null,
   copy: ControlRoomCopy,
 ): KeyValueItems {
+  const status = asRecord(dashboard?.status);
+  const state = asRecord(status.state);
+  const doctor = asRecord(dashboard?.doctor);
+  const agentActivity = asRecord(dashboard?.agentActivity);
   return [
-    [copy.currentCycle.runtime, dashboard?.status?.runtime_state ?? '-'],
+    [copy.currentCycle.runtime, asString(status.runtime_state)],
     [
       copy.currentCycle.mode,
-      dashboard?.status?.runtime_mode ?? dashboard?.doctor?.runtime_mode ?? '-',
+      asString(status.runtime_mode, asString(doctor.runtime_mode)),
     ],
     [
       copy.currentCycle.currentSymbol,
-      dashboard?.status?.state?.current_symbol ?? '-',
+      asString(state.current_symbol),
     ],
     [
       copy.currentCycle.cycleCount,
-      String(dashboard?.status?.state?.cycle_count ?? '-'),
+      asString(state.cycle_count),
     ],
     [
       copy.currentCycle.status,
-      localizedStatusText(dashboard?.status?.status_message, copy),
+      localizedStatusText(status.status_message, copy),
     ],
     [
       copy.currentCycle.currentStage,
-      dashboard?.agentActivity?.current_stage ?? '-',
+      asString(agentActivity.current_stage),
     ],
     [
       copy.currentCycle.stageStatus,
-      dashboard?.agentActivity?.current_stage_status ?? '-',
+      asString(agentActivity.current_stage_status),
     ],
     [
       copy.currentCycle.lastOutcome,
-      dashboard?.agentActivity?.last_outcome_message ??
+      asString(
+        agentActivity.last_outcome_message,
         copy.currentCycle.waitingOutcome,
+      ),
     ],
   ];
 }

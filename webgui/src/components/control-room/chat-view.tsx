@@ -1,10 +1,12 @@
-import {
-  CHAT_PERSONAS,
-  formatChatPersona,
-  type ChatPersona,
-} from '@/lib/chat-personas';
+import
+  {
+    CHAT_PERSONAS,
+    formatChatPersona,
+    type ChatPersona,
+  } from '@/lib/chat-personas';
 
 import type { DashboardData } from '../control-room.helpers';
+import { asRecord, asString } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { Panel, TextList } from './primitives';
 
@@ -36,6 +38,12 @@ export function ChatView({
   onChatDraftChange: (value: string) => void;
   onSendChat: () => Promise<void>;
 }>) {
+  const agentActivity = asRecord(dashboard.agentActivity);
+  const tradeContext = asRecord(dashboard.tradeContext);
+  const tradeRecord = asRecord(tradeContext.record);
+  const toolOutputs = asRecord(tradeRecord.tool_outputs);
+  const retrievedMemory = asRecord(tradeRecord.retrieved_memory_summary);
+
   return (
     <div className='grid grid--2'>
       <Panel title={copy.chat.panels.operatorChat} accent='lime'>
@@ -91,13 +99,13 @@ export function ChatView({
       <Panel title={copy.chat.panels.decisionWorkflowContext} accent='cyan'>
         <TextList
           items={[
-            `${copy.chat.workflow.currentStage}: ${dashboard.agentActivity?.current_stage ?? '-'}`,
-            `${copy.chat.workflow.stageStatus}: ${dashboard.agentActivity?.current_stage_status ?? '-'}`,
-            `${copy.chat.workflow.stageDetail}: ${dashboard.agentActivity?.current_stage_message ?? '-'}`,
-            `${copy.chat.workflow.lastCompleted}: ${dashboard.agentActivity?.last_completed_stage ?? '-'}`,
-            `${copy.chat.workflow.completedDetail}: ${dashboard.agentActivity?.last_completed_message ?? '-'}`,
-            `${copy.chat.workflow.toolRoles}: ${Object.keys(dashboard.tradeContext?.record?.tool_outputs || {}).join(', ') || '-'}`,
-            `${copy.chat.workflow.memoryRoles}: ${Object.keys(dashboard.tradeContext?.record?.retrieved_memory_summary || {}).join(', ') || '-'}`,
+            `${copy.chat.workflow.currentStage}: ${asString(agentActivity.current_stage)}`,
+            `${copy.chat.workflow.stageStatus}: ${asString(agentActivity.current_stage_status)}`,
+            `${copy.chat.workflow.stageDetail}: ${asString(agentActivity.current_stage_message)}`,
+            `${copy.chat.workflow.lastCompleted}: ${asString(agentActivity.last_completed_stage)}`,
+            `${copy.chat.workflow.completedDetail}: ${asString(agentActivity.last_completed_message)}`,
+            `${copy.chat.workflow.toolRoles}: ${Object.keys(toolOutputs).join(', ') || '-'}`,
+            `${copy.chat.workflow.memoryRoles}: ${Object.keys(retrievedMemory).join(', ') || '-'}`,
           ]}
         />
       </Panel>

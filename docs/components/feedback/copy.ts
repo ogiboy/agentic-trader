@@ -6,6 +6,7 @@ export type FeedbackCopy = {
   helpful: string;
   needsWork: string;
   noteLabel: string;
+  noteFallback: string;
   notePlaceholder: string;
   destinationSummary: string;
   submit: string;
@@ -27,6 +28,7 @@ const feedbackCopy: Record<DocLanguage, FeedbackCopy> = {
     helpful: 'Helpful',
     needsWork: 'Needs work',
     noteLabel: 'Optional note',
+    noteFallback: 'No additional note provided.',
     notePlaceholder: 'Tell us what was clear, missing, or confusing.',
     destinationSummary:
       'Stores a draft in this browser and gives you a GitHub issue link to submit when ready.',
@@ -51,6 +53,7 @@ const feedbackCopy: Record<DocLanguage, FeedbackCopy> = {
     helpful: 'İşe yaradı',
     needsWork: 'Geliştirilmeli',
     noteLabel: 'İsteğe bağlı not',
+    noteFallback: 'Ek not girilmedi.',
     notePlaceholder: 'Neyin açık, eksik veya kafa karıştırıcı olduğunu yaz.',
     destinationSummary:
       'Taslağı bu tarayıcıda tutar ve hazır olduğunda gönderebilmen için GitHub issue bağlantısı verir.',
