@@ -25,6 +25,7 @@ import {
   createProxyPool,
   normalizePlaywrightProxy,
 } from './lib/proxy.js';
+import { createGoogleSerpHelpers } from './lib/google-serp.js';
 import { windowSnapshot } from './lib/snapshot.js';
 import {
   ensureTracesDir,
@@ -156,6 +157,13 @@ function log(level, msg, fields = {}) {
     process.stdout.write(line + '\n');
   }
 }
+
+const {
+  extractGoogleSerp,
+  isGoogleSearchBlocked,
+  isGoogleSearchUrl,
+  isGoogleSerp,
+} = createGoogleSerpHelpers({ log });
 
 const app = express();
 app.use(express.json({ limit: '100kb' }));
@@ -1690,257 +1698,6 @@ async function dismissConsentDialogs(page) {
       // Selector not found or not clickable, continue
     }
   }
-}
-
-// --- Google SERP detection ---
-function isGoogleSerp(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname.includes('google.') && parsed.pathname === '/search';
-  } catch {
-    return false;
-  }
-}
-
-function isGoogleSearchUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname.includes('google.') && parsed.pathname === '/search';
-  } catch {
-    return false;
-  }
-}
-
-async function isGoogleSearchBlocked(page) {
-  if (!page || page.isClosed()) return false;
-
-  const url = page.url();
-  if (url.includes('google.com/sorry/')) return true;
-
-  const bodyText = await page
-    .evaluate(() => document.body?.innerText?.slice(0, 600) || '')
-    .catch(() => '');
-  return /Our systems have detected unusual traffic|About this page|If you're having trouble accessing Google Search|SG_REL/.test(
-    bodyText,
-  );
-}
-
-// --- Google SERP: combined extraction (refs + snapshot in one DOM pass) ---
-/**
- * Extracts structured reference identifiers and a human-readable snapshot from a Google Search results page.
- *
- * Performs a best-effort DOM extraction of search inputs, navigation links, result blocks, "People also ask" items,
- * pagination links, and grouped external links. Builds a Map of `refs` keyed by internal ref IDs (e.g. "e1") and
- * an annotated multi-line `snapshot` string describing the page structure and found items.
- *
- * @param {import('playwright').Page} page - Playwright Page instance representing the loaded Google results tab.
- * @returns {{ refs: Map<string, {role: string, name: string, nth: number}>, snapshot: string }}
- *   An object containing:
- *   - `refs`: Map from ref ID to an object with `role` (semantic role like "link" or "button"), `name` (display text),
- *     and `nth` (zero-based disambiguation index for that role+name).
- *   - `snapshot`: Annotated, newline-separated string describing headings, searchbox, navigation, result links/groups,
- *     snippets, and pagination found on the page.
- */
-async function extractGoogleSerp(page) {
-  const refs = new Map();
-  if (!page || page.isClosed()) return { refs, snapshot: '' };
-
-  const start = Date.now();
-
-  const alreadyRendered = await page
-    .evaluate(
-      () => !!document.querySelector('#rso h3, #search h3, #rso [data-snhf]'),
-    )
-    .catch(() => false);
-  if (!alreadyRendered) {
-    try {
-      await page.waitForSelector('#rso h3, #search h3, #rso [data-snhf]', {
-        timeout: 5000,
-      });
-    } catch {
-      try {
-        await page.waitForSelector(
-          '#rso a[href]:not([href^="/search"]), #search a[href]:not([href^="/search"])',
-          { timeout: 2000 },
-        );
-      } catch {}
-    }
-  }
-
-  const extracted = await page.evaluate(() => {
-    const snapshot = [];
-    const elements = [];
-    let refCounter = 1;
-
-    /**
-     * Create and register a new accessibility reference and return its identifier.
-     *
-     * Registers a ref entry (with role and name) in the local elements list and assigns a unique id.
-     * @param {string} role - The ARIA role of the element (e.g., "button", "link").
-     * @param {string} name - The accessible name or label used to identify the element.
-     * @returns {string} The generated reference id (e.g., "e1").
-     */
-    function addRef(role, name) {
-      const id = 'e' + refCounter++;
-      elements.push({ id, role, name });
-      return id;
-    }
-
-    snapshot.push(
-      '- heading "' + document.title.replaceAll('"', String.raw`\"`) + '"',
-    );
-
-    const searchInput = document.querySelector(
-      'input[name="q"], textarea[name="q"]',
-    );
-    if (searchInput) {
-      const name = 'Search';
-      const refId = addRef('searchbox', name);
-      snapshot.push(
-        '- searchbox "' +
-          name +
-          '" [' +
-          refId +
-          ']: ' +
-          (searchInput.value || ''),
-      );
-    }
-
-    const navContainer = document.querySelector(
-      'div[role="navigation"], div[role="list"]',
-    );
-    if (navContainer) {
-      const navLinks = navContainer.querySelectorAll('a');
-      if (navLinks.length > 0) {
-        snapshot.push('- navigation:');
-        navLinks.forEach((a) => {
-          const text = (a.textContent || '').trim();
-          if (!text || text.length < 1) return;
-          if (/^\d+$/.test(text) && Number.parseInt(text) < 50) return;
-          const refId = addRef('link', text);
-          snapshot.push('  - link "' + text + '" [' + refId + ']');
-        });
-      }
-    }
-
-    const resultContainer =
-      document.querySelector('#rso') || document.querySelector('#search');
-    if (resultContainer) {
-      const resultBlocks = resultContainer.querySelectorAll(':scope > div');
-      for (const block of resultBlocks) {
-        const h3 = block.querySelector('h3');
-        const mainLink = h3 ? h3.closest('a') : null;
-
-        if (h3 && mainLink) {
-          const title = h3.textContent.trim().replaceAll('"', String.raw`\"`);
-          const href = mainLink.href;
-          const cite = block.querySelector('cite');
-          const displayUrl = cite ? cite.textContent.trim() : '';
-
-          let snippet = '';
-          for (const sel of [
-            '[data-sncf]',
-            '[data-content-feature="1"]',
-            '.VwiC3b',
-            'div[style*="-webkit-line-clamp"]',
-            'span.aCOpRe',
-          ]) {
-            const el = block.querySelector(sel);
-            if (el) {
-              snippet = el.textContent.trim().slice(0, 300);
-              break;
-            }
-          }
-          if (!snippet) {
-            const allText = block.textContent.trim().replace(/\s+/g, ' ');
-            const titleLen =
-              title.length + (displayUrl ? displayUrl.length : 0);
-            if (allText.length > titleLen + 20) {
-              snippet = allText.slice(titleLen).trim().slice(0, 300);
-            }
-          }
-
-          const refId = addRef('link', title);
-          snapshot.push(
-            '- link "' + title + '" [' + refId + ']:',
-            '  - /url: ' + href,
-          );
-          if (displayUrl) snapshot.push('  - cite: ' + displayUrl);
-          if (snippet) snapshot.push('  - text: ' + snippet);
-        } else {
-          const blockLinks = block.querySelectorAll(
-            'a[href^="http"]:not([href*="google.com/search"])',
-          );
-          if (blockLinks.length > 0) {
-            const blockText = block.textContent
-              .trim()
-              .replace(/\s+/g, ' ')
-              .slice(0, 200);
-            if (blockText.length > 10) {
-              snapshot.push('- group:', '  - text: ' + blockText);
-              blockLinks.forEach((a) => {
-                const linkText = (a.textContent || '')
-                  .trim()
-                  .replaceAll('"', String.raw`\"`)
-                  .slice(0, 100);
-                if (linkText.length > 2) {
-                  const refId = addRef('link', linkText);
-                  snapshot.push(
-                    '  - link "' + linkText + '" [' + refId + ']:',
-                    '    - /url: ' + a.href,
-                  );
-                }
-              });
-            }
-          }
-        }
-      }
-    }
-
-    const paaItems = document.querySelectorAll(
-      '[jsname="Cpkphb"], div.related-question-pair',
-    );
-    if (paaItems.length > 0) {
-      snapshot.push('- heading "People also ask"');
-      paaItems.forEach((q) => {
-        const text = (q.textContent || '')
-          .trim()
-          .replaceAll('"', String.raw`\"`)
-          .slice(0, 150);
-        if (text) {
-          const refId = addRef('button', text);
-          snapshot.push('  - button "' + text + '" [' + refId + ']');
-        }
-      });
-    }
-
-    const nextLink = document.querySelector(
-      '#botstuff a[aria-label="Next page"], td.d6cvqb a, a#pnnext',
-    );
-    if (nextLink) {
-      const refId = addRef('link', 'Next');
-      snapshot.push(
-        '- navigation "pagination":',
-        '  - link "Next" [' + refId + ']',
-      );
-    }
-
-    return { snapshot: snapshot.join('\n'), elements };
-  });
-
-  const seenCounts = new Map();
-  for (const el of extracted.elements) {
-    const key = `${el.role}:${el.name}`;
-    const nth = seenCounts.get(key) || 0;
-    seenCounts.set(key, nth + 1);
-    refs.set(el.id, { role: el.role, name: el.name, nth });
-  }
-
-  log('info', 'extractGoogleSerp', {
-    elapsed: Date.now() - start,
-    refs: refs.size,
-  });
-  return { refs, snapshot: extracted.snapshot };
 }
 
 const REFRESH_READY_TIMEOUT_MS = 2500;
