@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
+
+import pytest
 
 
 def _load_bootstrap_changelog() -> ModuleType:
@@ -149,3 +152,38 @@ def test_fill_stable_changelog_ignores_prerelease_tags_for_previous_stable() -> 
 
     assert changelog._stable_version_tuple("v0.12.5-beta.184+g854a22e") is None
     assert changelog._stable_version_tuple("v0.12.4") == (0, 12, 4)
+
+
+def test_fill_stable_changelog_defaults_until_to_head_before_tag_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    changelog = _load_fill_stable_changelog()
+
+    def missing_ref(args: list[str]) -> str:
+        if args[:3] == ["rev-parse", "--verify", "--quiet"]:
+            raise subprocess.CalledProcessError(128, ["git", *args])
+        raise AssertionError(f"unexpected git command: {args!r}")
+
+    monkeypatch.setattr(changelog, "_run_git", missing_ref)
+
+    assert changelog.default_until_ref("v0.13.0") == "HEAD"
+
+
+def test_fill_stable_changelog_defaults_until_to_existing_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    changelog = _load_fill_stable_changelog()
+
+    def existing_ref(args: list[str]) -> str:
+        if args == [
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "v0.13.0^{commit}",
+        ]:
+            return "abc1234"
+        raise AssertionError(f"unexpected git command: {args!r}")
+
+    monkeypatch.setattr(changelog, "_run_git", existing_ref)
+
+    assert changelog.default_until_ref("0.13.0") == "v0.13.0"
