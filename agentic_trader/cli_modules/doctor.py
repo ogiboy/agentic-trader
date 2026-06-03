@@ -37,8 +37,9 @@ HealthCheck = Callable[[Settings], LLMHealthStatus]
 
 
 class OpenDatabase(Protocol):
-    def __call__(self, settings: Settings, *, read_only: bool = False) -> TradingDatabase:
-        ...
+    def __call__(
+        self, settings: Settings, *, read_only: bool = False
+    ) -> TradingDatabase: ...
 
 
 def run_doctor_command(

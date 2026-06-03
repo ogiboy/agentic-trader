@@ -9,15 +9,17 @@ import shutil
 import subprocess
 import sys
 import time
-import pexpect
-import pandas as pd
-from agentic_trader.market.features import build_snapshot
 from argparse import ArgumentParser, Namespace
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
+
+import pandas as pd
+import pexpect
+
+from agentic_trader.market.features import build_snapshot
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"

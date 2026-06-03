@@ -265,9 +265,11 @@ def system_status_table(
     table.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
     table.add_row(
         TITLE_RUNTIME_MODE,
-        runtime_state.runtime_mode
-        if runtime_state is not None
-        else settings.runtime_mode,
+        (
+            runtime_state.runtime_mode
+            if runtime_state is not None
+            else settings.runtime_mode
+        ),
     )
     table.add_row(LABEL_MODEL, settings.model_name)
     table.add_row(LABEL_BASE_URL, settings.base_url)

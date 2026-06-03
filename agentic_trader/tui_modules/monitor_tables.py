@@ -67,7 +67,9 @@ def render_preferences(preferences: InvestmentPreferences) -> Table:
     table.add_column(LABEL_VALUE)
     table.add_row(LABEL_REGIONS, UI_LIST_SEPARATOR.join(preferences.regions) or "-")
     table.add_row(LABEL_EXCHANGES, UI_LIST_SEPARATOR.join(preferences.exchanges) or "-")
-    table.add_row(LABEL_CURRENCIES, UI_LIST_SEPARATOR.join(preferences.currencies) or "-")
+    table.add_row(
+        LABEL_CURRENCIES, UI_LIST_SEPARATOR.join(preferences.currencies) or "-"
+    )
     table.add_row(LABEL_SECTORS, UI_LIST_SEPARATOR.join(preferences.sectors) or "-")
     table.add_row(LABEL_RISK_PROFILE, preferences.risk_profile)
     table.add_row(LABEL_TRADE_STYLE, preferences.trade_style)
@@ -171,9 +173,13 @@ def portfolio_renderable(db: TradingDatabase) -> Group:
     summary.add_column(LABEL_METRIC)
     summary.add_column(LABEL_VALUE)
     summary.add_row(LABEL_CASH + currency_suffix, f"{snapshot.cash:.2f}")
-    summary.add_row(LABEL_MARKET_VALUE + currency_suffix, f"{snapshot.market_value:.2f}")
+    summary.add_row(
+        LABEL_MARKET_VALUE + currency_suffix, f"{snapshot.market_value:.2f}"
+    )
     summary.add_row(LABEL_EQUITY + currency_suffix, f"{snapshot.equity:.2f}")
-    summary.add_row(LABEL_REALIZED_PNL + currency_suffix, f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(
+        LABEL_REALIZED_PNL + currency_suffix, f"{snapshot.realized_pnl:.2f}"
+    )
     summary.add_row(
         LABEL_UNREALIZED_PNL + paper_mark_suffix,
         f"{snapshot.unrealized_pnl:.2f}",

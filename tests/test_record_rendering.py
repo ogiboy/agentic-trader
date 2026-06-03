@@ -151,10 +151,13 @@ def test_record_rendering_prints_trade_context(
         record,
         canonical_analysis_lines=lambda _snapshot: ["canonical context"],
     )
-    assert record_rendering.render_unavailable_trade_context(
-        {"available": True, "record": record.model_dump(mode="json")},
-        record,
-    ) is False
+    assert (
+        record_rendering.render_unavailable_trade_context(
+            {"available": True, "record": record.model_dump(mode="json")},
+            record,
+        )
+        is False
+    )
     output = console.export_text()
 
     assert "trade-1" in output

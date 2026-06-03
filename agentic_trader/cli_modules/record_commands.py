@@ -1,4 +1,3 @@
-# pyright: reportUnusedFunction=false
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -24,12 +23,6 @@ from agentic_trader.cli_modules.memory_commands import (
     RetrievalInspectionPayload,
     register_memory_commands,
 )
-from agentic_trader.cli_modules.run_reports import (
-    render_run_markdown,
-    render_run_replay,
-    render_run_review,
-    render_run_trace,
-)
 from agentic_trader.cli_modules.record_rendering import (
     render_preferences,
     render_risk_report,
@@ -37,6 +30,12 @@ from agentic_trader.cli_modules.record_rendering import (
     render_trade_journal,
     render_unavailable_run_record,
     render_unavailable_trade_context,
+)
+from agentic_trader.cli_modules.run_reports import (
+    render_run_markdown,
+    render_run_replay,
+    render_run_review,
+    render_run_trace,
 )
 from agentic_trader.config import Settings
 from agentic_trader.schemas import (
@@ -156,7 +155,9 @@ def _register_preferences_command(app: typer.Typer, deps: RecordCommandDeps) -> 
 def _register_journal_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
     @app.command("journal")
     def journal(
-        limit: int = typer.Option(20, min=1, max=200, help=text.HELP_TRADE_JOURNAL_LIMIT),
+        limit: int = typer.Option(
+            20, min=1, max=200, help=text.HELP_TRADE_JOURNAL_LIMIT
+        ),
         json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
@@ -283,7 +284,9 @@ def _register_trade_context_command(app: typer.Typer, deps: RecordCommandDeps) -
         if render_unavailable_trade_context(payload, record):
             raise typer.Exit(code=0)
         assert record is not None
-        render_trade_context(record, canonical_analysis_lines=deps.canonical_analysis_lines)
+        render_trade_context(
+            record, canonical_analysis_lines=deps.canonical_analysis_lines
+        )
 
 
 def _trade_context_record_from_payload(
@@ -367,11 +370,15 @@ def _register_backtest_command(app: typer.Typer, deps: RecordCommandDeps) -> Non
         symbol: str = typer.Option(..., help=text.HELP_SYMBOL),
         interval: str = typer.Option("1d", help=text.HELP_INTERVAL),
         lookback: str = typer.Option("2y", help=text.HELP_LOOKBACK),
-        warmup_bars: int = typer.Option(120, min=60, help=text.HELP_BACKTEST_WARMUP_BARS),
+        warmup_bars: int = typer.Option(
+            120, min=60, help=text.HELP_BACKTEST_WARMUP_BARS
+        ),
         compare_baseline: bool = typer.Option(
             False, help=text.HELP_BACKTEST_COMPARE_BASELINE
         ),
-        compare_memory: bool = typer.Option(False, help=text.HELP_BACKTEST_COMPARE_MEMORY),
+        compare_memory: bool = typer.Option(
+            False, help=text.HELP_BACKTEST_COMPARE_MEMORY
+        ),
         output: str | None = typer.Option(None, help=text.HELP_BACKTEST_OUTPUT),
     ) -> None:
         settings = deps.get_settings()

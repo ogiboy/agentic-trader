@@ -1,4 +1,3 @@
-# pyright: reportUnusedFunction=false
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
@@ -14,8 +13,11 @@ from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
 from agentic_trader.json_utils import object_list, object_mapping, object_mapping_list
 from agentic_trader.runtime_status import RuntimeStatusView
-from agentic_trader.schemas import PortfolioSnapshot, PositionSnapshot
-from agentic_trader.schemas import ServiceStateSnapshot
+from agentic_trader.schemas import (
+    PortfolioSnapshot,
+    PositionSnapshot,
+    ServiceStateSnapshot,
+)
 
 
 @dataclass(frozen=True)
@@ -70,9 +72,7 @@ def _register_portfolio_command(app: typer.Typer, deps: StatusCommandDeps) -> No
         if not available:
             console.print(
                 Panel(
-                    text.MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE.format(
-                        error=error
-                    ),
+                    text.MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE.format(error=error),
                     title=text.LABEL_OBSERVER_MODE,
                     border_style="yellow",
                 )
@@ -283,7 +283,9 @@ def _render_provider_diagnostics(payload: dict[str, object]) -> None:
     )
     summary.add_row(text.LABEL_MARKET_ROLE, str(market_data.get("selected_role", "-")))
     summary.add_row(text.LABEL_NEWS_MODE, str(news.get("mode", "-")))
-    summary.add_row(text.LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-")))
+    summary.add_row(
+        text.LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-"))
+    )
     summary.add_row(text.LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
     summary.add_row(
         text.LABEL_ALPACA_CREDENTIALS_CONFIGURED,

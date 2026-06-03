@@ -1,4 +1,3 @@
-# pyright: reportUnusedFunction=false
 from __future__ import annotations
 
 from collections.abc import Callable, Sized
@@ -365,7 +364,9 @@ def _register_market_cache_commands(app: typer.Typer, deps: MarketCommandDeps) -
         lookback: str = typer.Option("180d", help=text.HELP_LOOKBACK),
     ) -> None:
         settings = deps.get_settings()
-        refresh_settings = settings.model_copy(update={"market_data_mode": "refresh_cache"})
+        refresh_settings = settings.model_copy(
+            update={"market_data_mode": "refresh_cache"}
+        )
         frame = deps.fetch_ohlcv(
             symbol, interval=interval, lookback=lookback, settings=refresh_settings
         )

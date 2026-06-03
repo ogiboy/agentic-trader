@@ -9,9 +9,9 @@ from types import ModuleType
 def _load_bootstrap_changelog() -> ModuleType:
     """
     Load the repository's scripts/release/bootstrap_changelog.py as a module.
-    
+
     Locates scripts/release/bootstrap_changelog.py relative to this file, imports and executes it, registers it in sys.modules under the module name, and returns the loaded module object.
-    
+
     Returns:
         module (ModuleType): The imported module object for bootstrap_changelog.
     """
@@ -33,7 +33,7 @@ def _load_bootstrap_changelog() -> ModuleType:
 def _load_fill_stable_changelog() -> ModuleType:
     """
     Load and return the `fill_stable_changelog` module from the repository's scripts/release directory.
-    
+
     Returns:
         ModuleType: The imported module object for `fill_stable_changelog`.
     """

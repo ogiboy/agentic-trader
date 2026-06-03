@@ -92,7 +92,9 @@ def render_provider_diagnostics(settings: Settings) -> None:
         summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
         summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
     if market:
-        summary.add_row(LABEL_MARKET_PROVIDER, str(market.get("selected_provider", "-")))
+        summary.add_row(
+            LABEL_MARKET_PROVIDER, str(market.get("selected_provider", "-"))
+        )
         summary.add_row(LABEL_MARKET_ROLE, str(market.get("selected_role", "-")))
     if news:
         summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
@@ -103,9 +105,11 @@ def render_provider_diagnostics(settings: Settings) -> None:
         summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
         summary.add_row(
             LABEL_ALPACA_CREDENTIALS_CONFIGURED,
-            text.status_configured
-            if alpaca.get("credentials_configured")
-            else text.status_missing,
+            (
+                text.status_configured
+                if alpaca.get("credentials_configured")
+                else text.status_missing
+            ),
         )
     console.print(summary)
 

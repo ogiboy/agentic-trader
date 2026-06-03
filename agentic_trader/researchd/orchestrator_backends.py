@@ -23,13 +23,13 @@ from agentic_trader.researchd.orchestrator_contract import (
 from agentic_trader.researchd.orchestrator_contract import (
     sidecar_process_env as _sidecar_process_env,
 )
+from agentic_trader.researchd.orchestrator_noop_backend import NoopResearchBackend
 from agentic_trader.researchd.orchestrator_types import (
     ContractRunner,
     ResearchPipelineResult,
     research_world_state_summary,
     summarize_provider_health,
 )
-from agentic_trader.researchd.orchestrator_noop_backend import NoopResearchBackend
 from agentic_trader.researchd.providers import (
     ResearchProviderOutput,
     provider_health_from_output,
@@ -361,4 +361,3 @@ class CrewAiResearchBackend:
             dossiers=items.dossiers,
             memory_update=memory_update,
         )
-

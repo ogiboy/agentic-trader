@@ -70,7 +70,9 @@ def openai_compatible_health_message(
             "OpenAI-compatible endpoint is reachable and the configured model "
             "can generate."
         )
-    return "OpenAI-compatible endpoint is reachable and the configured model is available."
+    return (
+        "OpenAI-compatible endpoint is reachable and the configured model is available."
+    )
 
 
 def endpoint_rejected_health(
@@ -82,7 +84,9 @@ def endpoint_rejected_health(
     response_text: str,
     include_generation: bool,
 ) -> LLMHealthStatus:
-    message = f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip()
+    message = (
+        f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip()
+    )
     return LLMHealthStatus(
         provider=provider_name,
         base_url=base_url,

@@ -417,7 +417,7 @@ def _provider_readiness_check(
             "llm_provider_ready",
             False,
             "Provider/model readiness was not checked; rerun with --provider-check.",
-        )
+        ),
     )
 
 

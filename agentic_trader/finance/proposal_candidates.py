@@ -34,6 +34,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 
+
 @dataclass(frozen=True, slots=True)
 class ProposalCandidateDraft:
     idea: IdeaCandidate
@@ -290,4 +291,3 @@ def _default_risk_notes(warnings: tuple[str, ...]) -> str:
     if not warnings:
         return "no scanner warnings"
     return "scanner_warnings=" + ",".join(warnings)
-

@@ -22,17 +22,23 @@ from agentic_trader.providers.local import (
     LocalFundamentalProvider,
     LocalMacroProvider,
 )
+from agentic_trader.providers.provider_collection import (
+    collect_disclosures as _collect_disclosures_impl,
+)
+from agentic_trader.providers.provider_collection import (
+    collect_provider_news as _collect_provider_news_impl,
+)
+from agentic_trader.providers.provider_collection import (
+    first_fundamental_snapshot as _first_fundamental_snapshot_impl,
+)
+from agentic_trader.providers.provider_collection import (
+    first_macro_snapshot as _first_macro_snapshot_impl,
+)
 from agentic_trader.providers.public_sources import (
     FinnhubFundamentalProvider,
     FmpFundamentalProvider,
     KapDisclosureProvider,
     SecEdgarFundamentalProvider,
-)
-from agentic_trader.providers.provider_collection import (
-    collect_disclosures as _collect_disclosures_impl,
-    collect_provider_news as _collect_provider_news_impl,
-    first_fundamental_snapshot as _first_fundamental_snapshot_impl,
-    first_macro_snapshot as _first_macro_snapshot_impl,
 )
 from agentic_trader.providers.yahoo import YahooMarketDataProvider, YahooNewsProvider
 from agentic_trader.schemas import (
@@ -342,12 +348,10 @@ def _event_bundle(
             symbol_identity,
             limit=settings.news_headline_limit,
         )
-    disclosures, disclosure_errors, empty_disclosure_attributions = (
-        collect_disclosures(
-            provider_set.disclosures,
-            symbol_identity,
-            limit=5,
-        )
+    disclosures, disclosure_errors, empty_disclosure_attributions = collect_disclosures(
+        provider_set.disclosures,
+        symbol_identity,
+        limit=5,
     )
     return _EventBundle(
         news_events=news_events,

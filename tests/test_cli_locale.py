@@ -16,7 +16,6 @@ from agentic_trader.cli import (
 )
 from agentic_trader.ui_text import SUPPORTED_UI_LOCALES
 
-
 # ---------------------------------------------------------------------------
 # parse_ui_locale
 # ---------------------------------------------------------------------------
@@ -178,7 +177,9 @@ def test_upsert_env_local_value_updates_existing_key(
     assert "tr" in content
     # Should not have duplicate entries with the old value appearing as a key
     lines_with_key = [
-        line for line in content.splitlines() if line.startswith("AGENTIC_TRADER_UI_LOCALE=")
+        line
+        for line in content.splitlines()
+        if line.startswith("AGENTIC_TRADER_UI_LOCALE=")
     ]
     assert len(lines_with_key) == 1
     assert lines_with_key[0] == "AGENTIC_TRADER_UI_LOCALE=tr"

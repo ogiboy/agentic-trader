@@ -28,7 +28,7 @@ from tests.typing_helpers import approx
 def _frame() -> pd.DataFrame:
     """
     Create a deterministic 100-row OHLCV DataFrame for tests.
-    
+
     Returns:
         pd.DataFrame: Daily-indexed (starting 2024-01-01) DataFrame with 100 rows and columns:
             - `close`: starts at 100.0 and increases by 0.5 per row

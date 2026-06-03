@@ -25,8 +25,8 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
     MESSAGE_WAITING_FOR_LAST_OUTCOME,
     TITLE_RUNTIME_MODE,
-    UITextCatalog,
     UI_LIST_SEPARATOR,
+    UITextCatalog,
     get_ui_text,
 )
 
@@ -49,15 +49,19 @@ def runtime_cycle_lines(
         ),
         label_line(
             LABEL_WATCHED_SYMBOLS,
-            UI_LIST_SEPARATOR.join(state.symbols)
-            if state is not None and state.symbols
-            else "-",
+            (
+                UI_LIST_SEPARATOR.join(state.symbols)
+                if state is not None and state.symbols
+                else "-"
+            ),
         ),
         label_line(
             LABEL_CURRENT_SYMBOL,
-            view.state.current_symbol
-            if view.state is not None and view.state.current_symbol
-            else "-",
+            (
+                view.state.current_symbol
+                if view.state is not None and view.state.current_symbol
+                else "-"
+            ),
         ),
         label_line(
             LABEL_CYCLE, view.state.cycle_count if view.state is not None else "-"
@@ -71,7 +75,11 @@ def runtime_cycle_lines(
         ),
         label_line(
             LABEL_CURRENT_NOTE,
-            view.state.message if view.state is not None and view.state.message else "-",
+            (
+                view.state.message
+                if view.state is not None and view.state.message
+                else "-"
+            ),
         ),
     ]
 
@@ -101,13 +109,19 @@ def broker_gate_lines(
         label_line(LABEL_BROKER_STATE, broker.get("state", "-")),
         label_line(
             LABEL_KILL_SWITCH,
-            text.status_active if broker.get("kill_switch_active") else text.status_inactive,
+            (
+                text.status_active
+                if broker.get("kill_switch_active")
+                else text.status_inactive
+            ),
         ),
         label_line(
             LABEL_V1_PAPER_GATE,
-            text.status_allowed
-            if paper_operations.get("allowed")
-            else text.status_blocked,
+            (
+                text.status_allowed
+                if paper_operations.get("allowed")
+                else text.status_blocked
+            ),
         ),
     ]
 

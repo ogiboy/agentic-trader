@@ -179,7 +179,9 @@ def render_trade_context(
     *,
     canonical_analysis_lines: Callable[[CanonicalAnalysisSnapshot | None], list[str]],
 ) -> None:
-    summary = Table(title=text.TITLE_TRADE_CONTEXT_DETAIL.format(trade_id=record.trade_id))
+    summary = Table(
+        title=text.TITLE_TRADE_CONTEXT_DETAIL.format(trade_id=record.trade_id)
+    )
     summary.add_column(text.LABEL_FIELD)
     summary.add_column(text.LABEL_VALUE)
     summary.add_row(text.LABEL_CREATED, record.created_at)
@@ -188,8 +190,12 @@ def render_trade_context(
     summary.add_row(text.LABEL_CONSENSUS, record.consensus.alignment_level)
     summary.add_row(text.LABEL_MANAGER_RATIONALE, record.manager_rationale)
     summary.add_row(text.LABEL_EXECUTION_RATIONALE, record.execution_rationale)
-    summary.add_row(text.LABEL_EXECUTION_BACKEND, value_or_dash(record.execution_backend))
-    summary.add_row(text.LABEL_EXECUTION_ADAPTER, value_or_dash(record.execution_adapter))
+    summary.add_row(
+        text.LABEL_EXECUTION_BACKEND, value_or_dash(record.execution_backend)
+    )
+    summary.add_row(
+        text.LABEL_EXECUTION_ADAPTER, value_or_dash(record.execution_adapter)
+    )
     summary.add_row(
         text.LABEL_EXECUTION_OUTCOME, value_or_dash(record.execution_outcome_status)
     )

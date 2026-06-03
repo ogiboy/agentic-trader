@@ -15,8 +15,8 @@ from agentic_trader.cli_modules.proposal_actions import (
 )
 from agentic_trader.cli_modules.proposal_desk_state import (
     refresh_trade_proposal_order_provider,
-    settings as _settings,
 )
+from agentic_trader.cli_modules.proposal_desk_state import settings as _settings
 from agentic_trader.cli_modules.proposal_records import (
     create_trade_proposal_record,
     trade_proposal_draft_from_options,

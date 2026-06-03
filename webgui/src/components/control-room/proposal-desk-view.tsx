@@ -174,21 +174,15 @@ export function ProposalDeskView({
             [copy.proposals.fields.state, asString(broker.state)],
             [
               copy.proposals.fields.externalPaper,
-              broker.external_paper
-                ? copy.common.yes
-                : copy.common.no,
+              broker.external_paper ? copy.common.yes : copy.common.no,
             ],
             [
               copy.proposals.fields.liveRequested,
-              broker.live_requested
-                ? copy.common.yes
-                : copy.common.no,
+              broker.live_requested ? copy.common.yes : copy.common.no,
             ],
             [
               copy.proposals.fields.killSwitch,
-              broker.kill_switch_active
-                ? copy.common.on
-                : copy.common.off,
+              broker.kill_switch_active ? copy.common.on : copy.common.off,
             ],
             [copy.proposals.fields.message, asString(broker.message)],
           ]}

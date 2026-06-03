@@ -24,9 +24,7 @@ const icons = {
  * @param focus - The focus data to render. Must include `title`, `description`, and `items`, where each item provides an `icon` key (mapped to a local icon) and `text`.
  * @returns A Card element containing the focus title, description, and a vertical list of items with their icons.
  */
-export function CurrentFocusPanel({
-  focus,
-}: Readonly<CurrentFocusPanelProps>) {
+export function CurrentFocusPanel({ focus }: Readonly<CurrentFocusPanelProps>) {
   return (
     <Card className='docs-home-panel sticky top-6'>
       <CardHeader>

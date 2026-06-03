@@ -196,9 +196,7 @@ def persist_trade_context(
     execution_intent: ExecutionIntent | None = None,
     execution_outcome: ExecutionOutcome | None = None,
 ) -> None:
-    trace_summaries = _trade_contexts.summarize_trace_contexts(
-        artifacts.agent_traces
-    )
+    trace_summaries = _trade_contexts.summarize_trace_contexts(artifacts.agent_traces)
     record = _trade_contexts.trade_context_record(
         trade_id=trade_id,
         run_id=run_id,

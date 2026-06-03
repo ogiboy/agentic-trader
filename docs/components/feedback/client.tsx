@@ -1,7 +1,7 @@
 'use client';
 
-import { getFeedbackCopy } from '@/components/feedback/copy';
 import type { FeedbackCopy } from '@/components/feedback/copy';
+import { getFeedbackCopy } from '@/components/feedback/copy';
 import { FeedbackResult } from '@/components/feedback/feedback-result';
 import {
   parsePageFeedback,

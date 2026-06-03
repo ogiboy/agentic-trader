@@ -223,7 +223,7 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
 def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
     """
     Exercise TUI table rendering and main-menu action dispatch for terminal UI helpers.
-    
+
     Renders runtime, system, memory explorer, and menu tables to a recorded Console and asserts presence and absence of expected output fragments. Also verifies that run_main_menu_action invokes the correct action callbacks and that it signals whether the menu loop should continue.
     """
     settings = Settings(

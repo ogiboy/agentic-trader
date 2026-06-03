@@ -119,9 +119,7 @@ def risk_exposure_projection(
     return RiskExposureProjection(
         projected_symbol_exposure=projected_symbol_exposure,
         projected_gross_exposure=(
-            current_gross_exposure
-            - current_symbol_exposure
-            + projected_symbol_exposure
+            current_gross_exposure - current_symbol_exposure + projected_symbol_exposure
         ),
         max_position_value=equity * max_position_pct,
         max_gross_value=equity * max_gross_exposure_pct,

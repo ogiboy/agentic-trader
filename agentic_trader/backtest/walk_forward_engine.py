@@ -337,7 +337,9 @@ def _build_backtest_report(
     )
 
 
-def _validated_backtest_history(frame: pd.DataFrame, *, warmup_bars: int) -> pd.DataFrame:
+def _validated_backtest_history(
+    frame: pd.DataFrame, *, warmup_bars: int
+) -> pd.DataFrame:
     history = frame.copy()
     if len(history) <= warmup_bars:
         raise ValueError("Not enough bars for walk-forward backtest")

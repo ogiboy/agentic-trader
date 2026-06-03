@@ -45,7 +45,9 @@ def journal_payload(
             db.close()
         available = True
         error = None
-    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         entries = []
         available = False
         error = str(exc)
@@ -67,7 +69,9 @@ def recent_runs_payload(
             db.close()
         available = True
         error = None
-    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         runs = []
         available = False
         error = str(exc)

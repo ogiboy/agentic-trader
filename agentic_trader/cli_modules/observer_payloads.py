@@ -25,8 +25,9 @@ from agentic_trader.storage.db import TradingDatabase
 
 
 class OpenDatabase(Protocol):
-    def __call__(self, settings: Settings, *, read_only: bool = False) -> TradingDatabase:
-        ...
+    def __call__(
+        self, settings: Settings, *, read_only: bool = False
+    ) -> TradingDatabase: ...
 
 
 RunRecordPayload = Callable[..., dict[str, object]]
@@ -131,8 +132,12 @@ def service_supervisor_payload(
 ) -> dict[str, object]:
     state = read_service_state(settings)
     view = build_runtime_status_view(state)
-    stdout_path = Path(state.stdout_log_path) if state and state.stdout_log_path else None
-    stderr_path = Path(state.stderr_log_path) if state and state.stderr_log_path else None
+    stdout_path = (
+        Path(state.stdout_log_path) if state and state.stdout_log_path else None
+    )
+    stderr_path = (
+        Path(state.stderr_log_path) if state and state.stderr_log_path else None
+    )
     return {
         "runtime_state": view.runtime_state,
         "live_process": view.live_process,
@@ -397,7 +402,9 @@ def run_replay_payload(
         }
 
     record = RunRecord.model_validate(record_json)
-    stages = [_replay_stage_from_trace(trace) for trace in record.artifacts.agent_traces]
+    stages = [
+        _replay_stage_from_trace(trace) for trace in record.artifacts.agent_traces
+    ]
     replay = RunReplay(
         run_id=record.run_id,
         created_at=record.created_at,

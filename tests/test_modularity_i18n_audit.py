@@ -29,7 +29,7 @@ def test_audit_reports_docs_locale_parity(tmp_path: Path) -> None:
 def test_audit_reports_repeated_helpers_and_copy_candidates(tmp_path: Path) -> None:
     """
     Verifies build_report detects repeated helper functions across modules and identifies copy candidates.
-    
+
     Asserts that the repeated helpers include "_object_mapping" and that there is at least one copy candidate whose excerpt is "table.add_column('Runtime Status')".
     """
     package = tmp_path / "agentic_trader"

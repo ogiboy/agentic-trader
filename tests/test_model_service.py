@@ -5,8 +5,7 @@ from typing import Any
 import pytest
 
 from agentic_trader.config import Settings
-from agentic_trader.system import model_service
-from agentic_trader.system import model_service_probe
+from agentic_trader.system import model_service, model_service_probe
 from agentic_trader.system.model_service import same_loopback_api_root
 from tests.typing_helpers import (
     constant,

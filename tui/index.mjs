@@ -1,16 +1,16 @@
-import { Box, Text, useApp, useInput } from 'ink';
-import { pathToFileURL } from 'node:url';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { normalizeChatHistory } from './chat-history.mjs';
-import { cliExecutable, once, runJsonCommand } from './cli-runtime.mjs';
+import { Box, Text, useApp, useInput } from "ink";
+import { pathToFileURL } from "node:url";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { normalizeChatHistory } from "./chat-history.mjs";
+import { cliExecutable, once, runJsonCommand } from "./cli-runtime.mjs";
 import {
-  dashboardPages as pages,
   dashboardStatusLine,
   dashboardTitle,
-} from './copy.mjs';
-import { handleDashboardInput } from './input.mjs';
-import { getPageView } from './pages.mjs';
-import { loadDashboard, performRuntimeAction } from './runtime-actions.mjs';
+  dashboardPages as pages,
+} from "./copy.mjs";
+import { handleDashboardInput } from "./input.mjs";
+import { getPageView } from "./pages.mjs";
+import { loadDashboard, performRuntimeAction } from "./runtime-actions.mjs";
 
 const e = React.createElement;
 
@@ -55,27 +55,19 @@ function DashboardView({
   if (error) {
     return e(
       Box,
-      { flexDirection: 'column' },
-      e(
-        Text,
-        { color: 'red', bold: true },
-        dashboardTitle,
-      ),
-      e(Text, { color: 'red' }, `Error: ${error}`),
-      e(Text, { color: 'gray' }, `CLI executable: ${cliExecutable}`),
+      { flexDirection: "column" },
+      e(Text, { color: "red", bold: true }, dashboardTitle),
+      e(Text, { color: "red" }, `Error: ${error}`),
+      e(Text, { color: "gray" }, `CLI executable: ${cliExecutable}`),
     );
   }
 
   if (!data) {
     return e(
       Box,
-      { flexDirection: 'column' },
-      e(
-        Text,
-        { color: 'green', bold: true },
-        dashboardTitle,
-      ),
-      e(Text, { color: 'gray' }, loadingText),
+      { flexDirection: "column" },
+      e(Text, { color: "green", bold: true }, dashboardTitle),
+      e(Text, { color: "gray" }, loadingText),
     );
   }
 
@@ -107,31 +99,27 @@ function DashboardView({
 
   return e(
     Box,
-    { flexDirection: 'column', width: '100%' },
-    e(
-      Text,
-      { color: 'green', bold: true },
-      dashboardTitle,
-    ),
-    e(Text, { color: 'gray' }, dashboardStatusLine({ busy, page })),
+    { flexDirection: "column", width: "100%" },
+    e(Text, { color: "green", bold: true }, dashboardTitle),
+    e(Text, { color: "gray" }, dashboardStatusLine({ busy, page })),
     actionMessage
       ? e(
           Text,
-          { color: actionMessage.kind === 'error' ? 'red' : 'yellow' },
+          { color: actionMessage.kind === "error" ? "red" : "yellow" },
           actionMessage.text,
         )
       : null,
     e(
       Box,
       {
-        flexDirection: 'column',
-        width: '100%',
+        flexDirection: "column",
+        width: "100%",
         height: bodyHeight,
-        overflowY: 'hidden',
+        overflowY: "hidden",
       },
       view,
     ),
-    e(Text, { color: 'gray' }, `Last refresh: ${data.loadedAt}`),
+    e(Text, { color: "gray" }, `Last refresh: ${data.loadedAt}`),
   );
 }
 
@@ -181,16 +169,16 @@ function useDashboardState({ interactive }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [refreshCount, setRefreshCount] = useState(0);
-  const [page, setPage] = useState('overview');
+  const [page, setPage] = useState("overview");
   const [busy, setBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
-  const [chatPersona, setChatPersona] = useState('operator_liaison');
+  const [chatPersona, setChatPersona] = useState("operator_liaison");
   const [chatHistory, setChatHistory] = useState([]);
-  const [chatDraft, setChatDraft] = useState('');
+  const [chatDraft, setChatDraft] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
-  const [instructionDraft, setInstructionDraft] = useState('');
+  const [instructionDraft, setInstructionDraft] = useState("");
   const [instructionBusy, setInstructionBusy] = useState(false);
-  const [instructionMode, setInstructionMode] = useState('preview');
+  const [instructionMode, setInstructionMode] = useState("preview");
   const [instructionResult, setInstructionResult] = useState(null);
   const loadingText = useMemo(() => `Connecting to ${cliExecutable}...`, []);
 
@@ -248,7 +236,7 @@ function useDashboardState({ interactive }) {
         setError(null);
       } catch (err) {
         setActionMessage({
-          kind: 'error',
+          kind: "error",
           text: err instanceof Error ? err.message : String(err),
         });
       } finally {
@@ -265,18 +253,18 @@ function useDashboardState({ interactive }) {
     }
     setInstructionBusy(true);
     try {
-      const args = ['instruct', '--json', '--message', message];
-      if (instructionMode === 'apply') {
-        args.push('--apply');
+      const args = ["instruct", "--json", "--message", message];
+      if (instructionMode === "apply") {
+        args.push("--apply");
       }
       const payload = await runJsonCommand(args);
       setInstructionResult(payload);
-      setInstructionDraft('');
+      setInstructionDraft("");
       setActionMessage({
-        kind: 'info',
+        kind: "info",
         text: payload.applied
-          ? 'Operator instruction applied to preferences.'
-          : 'Operator instruction parsed.',
+          ? "Operator instruction applied to preferences."
+          : "Operator instruction parsed.",
       });
       const next = await loadDashboard();
       setData(next);
@@ -284,7 +272,7 @@ function useDashboardState({ interactive }) {
     } catch (err) {
       setInstructionResult({
         instruction: {
-          summary: 'Instruction failed.',
+          summary: "Instruction failed.",
           should_update_preferences: false,
           requires_confirmation: false,
           rationale: err instanceof Error ? err.message : String(err),
@@ -294,7 +282,7 @@ function useDashboardState({ interactive }) {
         updated_preferences: null,
       });
       setActionMessage({
-        kind: 'error',
+        kind: "error",
         text: err instanceof Error ? err.message : String(err),
       });
     } finally {
@@ -392,11 +380,11 @@ function InteractiveDashboardApp() {
     setChatBusy(true);
     try {
       const payload = await runJsonCommand([
-        'chat',
-        '--json',
-        '--persona',
+        "chat",
+        "--json",
+        "--persona",
         chatPersona,
-        '--message',
+        "--message",
         message,
       ]);
       setChatHistory((current) => [
@@ -408,7 +396,7 @@ function InteractiveDashboardApp() {
         },
       ]);
       refreshNow();
-      setChatDraft('');
+      setChatDraft("");
     } catch (err) {
       setChatHistory((current) => [
         ...current,
@@ -418,7 +406,7 @@ function InteractiveDashboardApp() {
           response: `Error: ${err instanceof Error ? err.message : String(err)}`,
         },
       ]);
-      setChatDraft('');
+      setChatDraft("");
     } finally {
       setChatBusy(false);
     }
@@ -516,7 +504,7 @@ const isDirectRun =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isDirectRun) {
-  await import('ink').then(({ render }) => {
+  await import("ink").then(({ render }) => {
     render(once ? e(StaticDashboardApp) : e(InteractiveDashboardApp));
   });
 }
@@ -526,7 +514,7 @@ export {
   getPageLabel,
   rotateInstructionMode,
   rotatePersona,
-} from './copy.mjs';
+} from "./copy.mjs";
 export {
   accountCurrency,
   defaultRuntimeInterval,
@@ -534,13 +522,13 @@ export {
   defaultSingleSymbol,
   defaultSymbolsFromPreferences,
   getSupervisorLogLines,
-} from './dashboard-defaults.mjs';
+} from "./dashboard-defaults.mjs";
 export {
   handleChatInput,
   handleDashboardInput,
   handleGlobalInput,
   handleSettingsInput,
-} from './input.mjs';
+} from "./input.mjs";
 export {
   failedCheckNames,
   formatMarketSession,
@@ -566,5 +554,5 @@ export {
   renderLinesFallback,
   renderUnavailableMessage,
   sourceHealthSummaryLine,
-} from './line-formatters.mjs';
+} from "./line-formatters.mjs";
 export { normalizeChatHistory };

@@ -89,7 +89,9 @@ def contract_memory_update(payload: dict[str, object]) -> dict[str, object]:
     memory_update.setdefault("status", "not_written")
     memory_update.setdefault("raw_web_text_injected", False)
     memory_update.setdefault("broker_access", False)
-    memory_update["contract_version"] = str(payload.get("contract_version") or "unknown")
+    memory_update["contract_version"] = str(
+        payload.get("contract_version") or "unknown"
+    )
     return memory_update
 
 

@@ -1,4 +1,3 @@
-# pyright: reportUnusedFunction=false
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -18,6 +17,8 @@ from agentic_trader.cli_modules.dashboard_snapshot import (
 )
 from agentic_trader.cli_modules.evidence_bundle import (
     EvidenceBundleCollectors,
+)
+from agentic_trader.cli_modules.evidence_bundle import (
     build_evidence_bundle as _build_evidence_bundle,
 )
 from agentic_trader.config import Settings

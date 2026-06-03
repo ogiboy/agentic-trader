@@ -108,9 +108,7 @@ def add_provider_checks(
     checks(
         "model_available",
         health.model_available,
-        copy.message_runtime_mode_configured_model.format(
-            model_name=health.model_name
-        ),
+        copy.message_runtime_mode_configured_model.format(model_name=health.model_name),
     )
     checks(
         "model_generation_ready",

@@ -1,11 +1,8 @@
-import { Box } from 'ink';
-import React from 'react';
-import { accountCurrency } from '../dashboard-defaults.mjs';
-import {
-  getJournalLines,
-  renderLinesFallback,
-} from '../line-formatters.mjs';
-import { panel } from './panel.mjs';
+import { Box } from "ink";
+import React from "react";
+import { accountCurrency } from "../dashboard-defaults.mjs";
+import { getJournalLines, renderLinesFallback } from "../line-formatters.mjs";
+import { panel } from "./panel.mjs";
 
 const e = React.createElement;
 
@@ -31,10 +28,10 @@ function PortfolioPage({ data }) {
   const accounting = data.financeOps?.accounting || portfolio.accounting || {};
 
   const portfolioLines = renderLinesFallback(
-    'PORTFOLIO',
+    "PORTFOLIO",
     portfolio.available,
     portfolio.error,
-    'Portfolio view is temporarily unavailable.',
+    "Portfolio view is temporarily unavailable.",
   ) || [
     `Cash (${currency}): ${snapshot.cash.toFixed(2)}`,
     `Market Value (${currency}): ${snapshot.market_value.toFixed(2)}`,
@@ -42,51 +39,51 @@ function PortfolioPage({ data }) {
     `Realized PnL (${currency}): ${snapshot.realized_pnl.toFixed(2)}`,
     `Unrealized PnL (${currency}, paper mark): ${snapshot.unrealized_pnl.toFixed(2)}`,
     `Open Positions: ${positions.length}`,
-    `Marked At: ${accounting.mark_created_at || 'mark time unavailable'}`,
-    `Mark Source: ${accounting.mark_source || '-'}`,
-    `Fees: ${accounting.cost_model?.fees || '-'}`,
+    `Marked At: ${accounting.mark_created_at || "mark time unavailable"}`,
+    `Mark Source: ${accounting.mark_source || "-"}`,
+    `Fees: ${accounting.cost_model?.fees || "-"}`,
     `Slippage: ${
       accounting.cost_model?.slippage_bps == null
-        ? '-'
+        ? "-"
         : `${accounting.cost_model.slippage_bps} bps`
     }`,
-    `Rejection Evidence: ${accounting.rejection_evidence || '-'}`,
+    `Rejection Evidence: ${accounting.rejection_evidence || "-"}`,
   ];
 
   const riskLines =
     riskReport.available === false || !riskReport.report
       ? [
-          'Risk report is temporarily unavailable.',
-          riskReport.error || 'The runtime writer currently owns the database.',
+          "Risk report is temporarily unavailable.",
+          riskReport.error || "The runtime writer currently owns the database.",
         ]
       : [
           `Equity (${currency}): ${riskReport.report.equity.toFixed(2)}`,
           `Gross Exposure: ${(riskReport.report.gross_exposure_pct * 100).toFixed(2)}%`,
           `Largest Position: ${(riskReport.report.largest_position_pct * 100).toFixed(2)}%`,
           `Drawdown: ${(riskReport.report.drawdown_from_peak_pct * 100).toFixed(2)}%`,
-          `Generated At: ${riskReport.report.generated_at || '-'}`,
+          `Generated At: ${riskReport.report.generated_at || "-"}`,
           `Warnings: ${riskReport.report.warnings.length}`,
         ];
 
   const journalLines =
     journal.available === false
       ? renderLinesFallback(
-          'TRADE JOURNAL',
+          "TRADE JOURNAL",
           journal.available,
           journal.error,
-          'Trade journal is temporarily unavailable.',
+          "Trade journal is temporarily unavailable.",
         ) || getJournalLines(journal)
       : getJournalLines(journal);
 
   const preferenceLines = renderLinesFallback(
-    'PREFERENCES',
+    "PREFERENCES",
     preferences.available,
     preferences.error,
-    'Preferences are temporarily unavailable.',
+    "Preferences are temporarily unavailable.",
   ) || [
-    `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
-    `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
-    `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
+    `Regions: ${(preferences.regions || []).join(", ") || "-"}`,
+    `Exchanges: ${(preferences.exchanges || []).join(", ") || "-"}`,
+    `Currencies: ${(preferences.currencies || []).join(", ") || "-"}`,
     `Risk: ${preferences.risk_profile}`,
     `Style: ${preferences.trade_style}`,
     `Behavior: ${preferences.behavior_preset}`,
@@ -98,33 +95,33 @@ function PortfolioPage({ data }) {
 
   return e(
     Box,
-    { flexDirection: 'column', width: '100%' },
+    { flexDirection: "column", width: "100%" },
     e(
       Box,
-      { width: '100%' },
+      { width: "100%" },
       e(
         Box,
-        { width: '50%', paddingRight: 1 },
-        panel('PORTFOLIO', portfolioLines, 'yellow'),
+        { width: "50%", paddingRight: 1 },
+        panel("PORTFOLIO", portfolioLines, "yellow"),
       ),
       e(
         Box,
-        { width: '50%', paddingLeft: 1 },
-        panel('RISK REPORT', riskLines, 'red'),
+        { width: "50%", paddingLeft: 1 },
+        panel("RISK REPORT", riskLines, "red"),
       ),
     ),
     e(
       Box,
-      { width: '100%', marginTop: 1 },
+      { width: "100%", marginTop: 1 },
       e(
         Box,
-        { width: '50%', paddingRight: 1 },
-        panel('TRADE JOURNAL', journalLines.slice(0, 8), 'cyan'),
+        { width: "50%", paddingRight: 1 },
+        panel("TRADE JOURNAL", journalLines.slice(0, 8), "cyan"),
       ),
       e(
         Box,
-        { width: '50%', paddingLeft: 1 },
-        panel('PREFERENCES', preferenceLines, 'blue'),
+        { width: "50%", paddingLeft: 1 },
+        panel("PREFERENCES", preferenceLines, "blue"),
       ),
     ),
   );

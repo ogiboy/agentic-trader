@@ -133,12 +133,8 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.label_market_price == ui_text.LABEL_MARKET_PRICE
     assert catalog.label_quantity == ui_text.LABEL_QUANTITY
     assert catalog.message_no_open_positions == ui_text.MESSAGE_NO_OPEN_POSITIONS
-    assert catalog.message_no_stdout_log_lines == (
-        ui_text.MESSAGE_NO_STDOUT_LOG_LINES
-    )
-    assert catalog.message_no_stderr_log_lines == (
-        ui_text.MESSAGE_NO_STDERR_LOG_LINES
-    )
+    assert catalog.message_no_stdout_log_lines == (ui_text.MESSAGE_NO_STDOUT_LOG_LINES)
+    assert catalog.message_no_stderr_log_lines == (ui_text.MESSAGE_NO_STDERR_LOG_LINES)
     assert catalog.title_broker_status == ui_text.TITLE_BROKER_STATUS
     assert catalog.title_provider_diagnostics == ui_text.TITLE_PROVIDER_DIAGNOSTICS
     assert catalog.title_provider_source_ladder == (
@@ -203,9 +199,7 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.title_hardware_profile == ui_text.TITLE_HARDWARE_PROFILE
     assert catalog.title_qa_evidence_bundle == ui_text.TITLE_QA_EVIDENCE_BUNDLE
     assert catalog.label_cpu_count == ui_text.LABEL_CPU_COUNT
-    assert catalog.label_safe_parallel_agents == (
-        ui_text.LABEL_SAFE_PARALLEL_AGENTS
-    )
+    assert catalog.label_safe_parallel_agents == (ui_text.LABEL_SAFE_PARALLEL_AGENTS)
     assert catalog.message_evidence_bundle_written == (
         ui_text.MESSAGE_EVIDENCE_BUNDLE_WRITTEN
     )
@@ -222,9 +216,7 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.message_market_snapshot_cached == (
         ui_text.MESSAGE_MARKET_SNAPSHOT_CACHED
     )
-    assert catalog.title_market_snapshot_cache == (
-        ui_text.TITLE_MARKET_SNAPSHOT_CACHE
-    )
+    assert catalog.title_market_snapshot_cache == (ui_text.TITLE_MARKET_SNAPSHOT_CACHE)
     assert catalog.title_investment_preferences == (
         ui_text.TITLE_INVESTMENT_PREFERENCES
     )

@@ -1,47 +1,47 @@
-export const dashboardTitle = 'AGENTIC TRADER // INK CONTROL ROOM';
+export const dashboardTitle = "AGENTIC TRADER // INK CONTROL ROOM";
 
 export const dashboardPages = Object.freeze([
-  'overview',
-  'runtime',
-  'portfolio',
-  'review',
-  'memory',
-  'chat',
-  'settings',
+  "overview",
+  "runtime",
+  "portfolio",
+  "review",
+  "memory",
+  "chat",
+  "settings",
 ]);
 
 export const pageLabels = Object.freeze({
-  overview: 'Overview',
-  runtime: 'Runtime',
-  portfolio: 'Portfolio',
-  review: 'Review',
-  memory: 'Decision Evidence',
-  chat: 'Chat',
-  settings: 'Settings',
+  overview: "Overview",
+  runtime: "Runtime",
+  portfolio: "Portfolio",
+  review: "Review",
+  memory: "Decision Evidence",
+  chat: "Chat",
+  settings: "Settings",
 });
 
 export const chatPersonas = Object.freeze([
-  'operator_liaison',
-  'regime_analyst',
-  'strategy_selector',
-  'risk_steward',
-  'portfolio_manager',
+  "operator_liaison",
+  "regime_analyst",
+  "strategy_selector",
+  "risk_steward",
+  "portfolio_manager",
 ]);
 
 export const personaLabels = Object.freeze({
-  operator_liaison: 'Operator Assistant',
-  regime_analyst: 'Market Regime Analyst',
-  strategy_selector: 'Strategy Selector',
-  risk_steward: 'Risk Steward',
-  portfolio_manager: 'Portfolio Manager',
+  operator_liaison: "Operator Assistant",
+  regime_analyst: "Market Regime Analyst",
+  strategy_selector: "Strategy Selector",
+  risk_steward: "Risk Steward",
+  portfolio_manager: "Portfolio Manager",
 });
 
-export const instructionModes = Object.freeze(['preview', 'apply']);
+export const instructionModes = Object.freeze(["preview", "apply"]);
 
 export const globalShortcutHelp =
-  'r refresh  o one-shot  s start  x stop  R restart  q quit';
+  "r refresh  o one-shot  s start  x stop  R restart  q quit";
 
-export const cliExecutionUnavailable = 'No CLI command could be executed.';
+export const cliExecutionUnavailable = "No CLI command could be executed.";
 
 /**
  * Format a persona key into its human-readable label.
@@ -49,7 +49,7 @@ export const cliExecutionUnavailable = 'No CLI command could be executed.';
  * @returns {string} `personaLabels[value]` if present; otherwise `value` if truthy; otherwise `'-'`.
  */
 export function formatPersona(value) {
-  return personaLabels[value] || value || '-';
+  return personaLabels[value] || value || "-";
 }
 
 /**
@@ -58,7 +58,7 @@ export function formatPersona(value) {
  * @returns {string} The display label for the page, or `'Unknown'` if the key is not recognized.
  */
 export function getPageLabel(page) {
-  return pageLabels[page] || 'Unknown';
+  return pageLabels[page] || "Unknown";
 }
 
 /**
@@ -84,9 +84,7 @@ export function getPageForShortcut(input) {
  * @returns {string} A string of pairs in the form `"index pageKey"` for each dashboard page, with pairs separated by two spaces (e.g. `"1 overview  2 runtime"`).
  */
 export function getPageShortcutHelp() {
-  return dashboardPages
-    .map((page, index) => `${index + 1} ${page}`)
-    .join('  ');
+  return dashboardPages.map((page, index) => `${index + 1} ${page}`).join("  ");
 }
 
 /**
@@ -134,7 +132,7 @@ export function rotateInstructionMode(current, offset) {
 export function dashboardStatusLine({ busy = false, page }) {
   const pageIndex = dashboardPages.indexOf(page) + 1;
   const pageLabel = getPageLabel(page);
-  const workingSuffix = busy ? '  |  working...' : '';
+  const workingSuffix = busy ? "  |  working..." : "";
 
   return `page ${pageIndex}/${dashboardPages.length}: ${pageLabel}  |  ${getPageShortcutHelp()}  |  ${globalShortcutHelp}${workingSuffix}`;
 }

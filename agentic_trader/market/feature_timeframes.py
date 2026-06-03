@@ -37,7 +37,9 @@ def higher_timeframe_frame(
     return resampled, higher_timeframe
 
 
-def mtf_alignment(base_last: pd.Series, higher_last: pd.Series) -> tuple[MTFAlignment, float]:
+def mtf_alignment(
+    base_last: pd.Series, higher_last: pd.Series
+) -> tuple[MTFAlignment, float]:
     base_bullish = bool(base_last["close"] > base_last["ema_20"] > base_last["ema_50"])
     base_bearish = bool(base_last["close"] < base_last["ema_20"] < base_last["ema_50"])
     higher_bullish = bool(

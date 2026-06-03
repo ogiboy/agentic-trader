@@ -33,8 +33,10 @@ def projected_gross_exposure(
     projection: FillProjection,
     entry_price: float,
 ) -> float:
-    return current_gross_exposure - current_market_value + abs(
-        projection.new_quantity * entry_price
+    return (
+        current_gross_exposure
+        - current_market_value
+        + abs(projection.new_quantity * entry_price)
     )
 
 

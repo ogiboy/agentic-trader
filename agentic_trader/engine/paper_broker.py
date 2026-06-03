@@ -1,12 +1,6 @@
 from uuid import uuid4
 
 from agentic_trader.config import Settings
-from agentic_trader.execution.intent import (
-    ExecutionIntent,
-    ExecutionOutcome,
-    build_execution_intent,
-)
-from agentic_trader.execution.symbols import is_v1_us_equity_symbol
 from agentic_trader.engine.paper_broker_execution import (
     apply_projected_fill,
     close_paper_position,
@@ -26,6 +20,12 @@ from agentic_trader.engine.paper_broker_intent import (
     quantity_from_intent,
 )
 from agentic_trader.engine.paper_broker_records import order_record_from_decision
+from agentic_trader.execution.intent import (
+    ExecutionIntent,
+    ExecutionOutcome,
+    build_execution_intent,
+)
+from agentic_trader.execution.symbols import is_v1_us_equity_symbol
 from agentic_trader.schemas import ExecutionDecision, PositionExitDecision, StrategyPlan
 from agentic_trader.storage.db import TradingDatabase
 

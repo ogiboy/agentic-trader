@@ -2,7 +2,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from agentic_trader.config import Settings
-from agentic_trader.schemas import BacktestTrade, MarketSnapshot, RunArtifacts, TradeSide
+from agentic_trader.schemas import (
+    BacktestTrade,
+    MarketSnapshot,
+    RunArtifacts,
+    TradeSide,
+)
 
 
 @dataclass

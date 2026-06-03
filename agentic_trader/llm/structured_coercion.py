@@ -108,12 +108,8 @@ SANITIZE_RULES: dict[str, Callable[[Any], float | int]] = {
         max(float(value) if value is not None else 0.01, 0.01), 1.0
     ),
     "max_holding_bars": lambda value: max(int(value) if value is not None else 1, 1),
-    "stop_loss": lambda value: max(
-        float(value) if value is not None else 1e-6, 1e-6
-    ),
-    "take_profit": lambda value: max(
-        float(value) if value is not None else 1e-6, 1e-6
-    ),
+    "stop_loss": lambda value: max(float(value) if value is not None else 1e-6, 1e-6),
+    "take_profit": lambda value: max(float(value) if value is not None else 1e-6, 1e-6),
     "risk_reward_ratio": lambda value: max(
         float(value) if value is not None else 1e-6, 1e-6
     ),

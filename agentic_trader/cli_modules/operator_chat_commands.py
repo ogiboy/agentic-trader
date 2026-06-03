@@ -1,4 +1,3 @@
-# pyright: reportUnusedFunction=false
 from __future__ import annotations
 
 import json
@@ -66,9 +65,7 @@ def register_operator_chat_commands(
 def _register_chat_command(app: typer.Typer, deps: OperatorChatCommandDeps) -> None:
     @app.command()
     def chat(
-        persona: ChatPersona = typer.Option(
-            "operator_liaison", help=HELP_CHAT_PERSONA
-        ),
+        persona: ChatPersona = typer.Option("operator_liaison", help=HELP_CHAT_PERSONA),
         message: str | None = typer.Option(None, help=HELP_CHAT_MESSAGE),
         json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
     ) -> None:

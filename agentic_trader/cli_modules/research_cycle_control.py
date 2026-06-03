@@ -24,8 +24,7 @@ from agentic_trader.ui_text import (
 
 
 class GetResearchControl(Protocol):
-    def __call__(self, settings: Settings) -> ResearchCycleOperatorControl:
-        ...
+    def __call__(self, settings: Settings) -> ResearchCycleOperatorControl: ...
 
 
 class SetResearchControl(Protocol):
@@ -35,8 +34,7 @@ class SetResearchControl(Protocol):
         *,
         action: ResearchCycleControlAction,
         reason: str | None = None,
-    ) -> ResearchCycleOperatorControl:
-        ...
+    ) -> ResearchCycleOperatorControl: ...
 
 
 def run_research_cycle_control_command(

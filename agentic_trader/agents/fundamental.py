@@ -1,20 +1,32 @@
 from agentic_trader.agents.context import render_agent_context
 from agentic_trader.agents.fundamental_fallback import (
     FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON,
-    PROVIDER_GAP_FLAGS as PROVIDER_GAP_FLAGS,
-    FxRisk as FxRisk,
-    business_quality as _business_quality,
-    dedupe as _dedupe,
-    fallback_fundamental as _fallback_fundamental,
-    forward_outlook as _forward_outlook,
-    fx_risk as _fx_risk,
-    growth_quality as _growth_quality,
-    has_structured_fundamental_evidence as _has_structured_fundamental_evidence,
-    macro_fit as _macro_fit,
-    metric_evidence as _metric_evidence,
-    overall_bias as _overall_bias,
-    score_quality as _score_quality,
 )
+from agentic_trader.agents.fundamental_fallback import (
+    PROVIDER_GAP_FLAGS as PROVIDER_GAP_FLAGS,
+)
+from agentic_trader.agents.fundamental_fallback import FxRisk as FxRisk
+from agentic_trader.agents.fundamental_fallback import (
+    business_quality as _business_quality,
+)
+from agentic_trader.agents.fundamental_fallback import dedupe as _dedupe
+from agentic_trader.agents.fundamental_fallback import (
+    fallback_fundamental as _fallback_fundamental,
+)
+from agentic_trader.agents.fundamental_fallback import (
+    forward_outlook as _forward_outlook,
+)
+from agentic_trader.agents.fundamental_fallback import fx_risk as _fx_risk
+from agentic_trader.agents.fundamental_fallback import growth_quality as _growth_quality
+from agentic_trader.agents.fundamental_fallback import (
+    has_structured_fundamental_evidence as _has_structured_fundamental_evidence,
+)
+from agentic_trader.agents.fundamental_fallback import macro_fit as _macro_fit
+from agentic_trader.agents.fundamental_fallback import (
+    metric_evidence as _metric_evidence,
+)
+from agentic_trader.agents.fundamental_fallback import overall_bias as _overall_bias
+from agentic_trader.agents.fundamental_fallback import score_quality as _score_quality
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import AgentContext, FundamentalAssessment, MarketSnapshot
 

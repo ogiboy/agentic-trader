@@ -22,27 +22,23 @@ from agentic_trader.time_utils import utc_now_iso
 
 
 class BrokerAdapterFactory(Protocol):
-    def __call__(self, *, db: TradingDatabase, settings: Settings) -> BrokerAdapter:
-        ...
+    def __call__(self, *, db: TradingDatabase, settings: Settings) -> BrokerAdapter: ...
 
 
 class BrokerAdapter(Protocol):
-    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
-        ...
+    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome: ...
 
 
 class OrderOutcomeReaderFactory(Protocol):
     def __call__(
         self, *, db: TradingDatabase, settings: Settings
-    ) -> OrderOutcomeReader:
-        ...
+    ) -> OrderOutcomeReader: ...
 
 
 class OrderOutcomeReader(Protocol):
     def get_order_outcome(
         self, *, order_id: str, intent: ExecutionIntent
-    ) -> ExecutionOutcome:
-        ...
+    ) -> ExecutionOutcome: ...
 
 
 def approve_trade_proposal(

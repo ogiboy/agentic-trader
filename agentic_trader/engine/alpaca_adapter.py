@@ -14,10 +14,6 @@ from agentic_trader.engine.alpaca_mapping import (
     portfolio_snapshot_from_alpaca_account,
     position_snapshot_from_alpaca_position,
 )
-from agentic_trader.engine.broker_utils import (
-    alpaca_credentials_ready,
-    alpaca_uses_paper_endpoint,
-)
 from agentic_trader.engine.alpaca_risk import (
     RiskExposureProjection,
     basic_preflight_outcome,
@@ -26,6 +22,10 @@ from agentic_trader.engine.alpaca_risk import (
     limit_order_preflight_outcome,
     position_limit_outcome,
     risk_exposure_projection,
+)
+from agentic_trader.engine.broker_utils import (
+    alpaca_credentials_ready,
+    alpaca_uses_paper_endpoint,
 )
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.execution.intent import (
@@ -44,6 +44,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import TradingDatabase
+
 
 @dataclass(slots=True)
 class AlpacaPaperBrokerAdapter:

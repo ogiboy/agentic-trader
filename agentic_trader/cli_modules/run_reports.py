@@ -102,7 +102,11 @@ def _run_review_analysis(record: RunRecord) -> Table:
     analysis.add_column(LABEL_STAGE)
     analysis.add_column(LABEL_DECISION)
     analysis.add_column(LABEL_NOTES)
-    analysis.add_row(STAGE_COORDINATOR, artifacts.coordinator.market_focus, artifacts.coordinator.summary)
+    analysis.add_row(
+        STAGE_COORDINATOR,
+        artifacts.coordinator.market_focus,
+        artifacts.coordinator.summary,
+    )
     analysis.add_row(
         STAGE_FUNDAMENTAL,
         artifacts.fundamental.overall_bias,
@@ -127,7 +131,9 @@ def _run_review_analysis(record: RunRecord) -> Table:
         artifacts.consensus.alignment_level,
         artifacts.consensus.summary or "-",
     )
-    analysis.add_row(STAGE_MANAGER, artifacts.manager.action_bias, artifacts.manager.rationale)
+    analysis.add_row(
+        STAGE_MANAGER, artifacts.manager.action_bias, artifacts.manager.rationale
+    )
     analysis.add_row(
         STAGE_EXECUTION,
         artifacts.execution.side,

@@ -9,9 +9,7 @@ from agentic_trader.schemas import TradeProposalRecord, TradeProposalStatus
 from agentic_trader.storage.db import TradingDatabase
 
 
-def load_mutable_proposal(
-    db: TradingDatabase, proposal_id: str
-) -> TradeProposalRecord:
+def load_mutable_proposal(db: TradingDatabase, proposal_id: str) -> TradeProposalRecord:
     proposal = db.get_trade_proposal(proposal_id)
     if proposal is None:
         raise ValueError(f"Trade proposal not found: {proposal_id}")

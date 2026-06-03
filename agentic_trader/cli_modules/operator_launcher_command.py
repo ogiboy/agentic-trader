@@ -15,7 +15,6 @@ from agentic_trader.ui_text import (
     TITLE_WEB_GUI_START_FAILED,
 )
 
-
 SettingsProvider = Callable[[], Settings]
 LauncherStatusProvider = Callable[[Settings], Any]
 StartWebGui = Callable[[Settings], Any]

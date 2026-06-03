@@ -2,7 +2,10 @@ from rich.console import Console
 from rich.table import Table
 
 from agentic_trader.config import Settings
-from agentic_trader.diagnostics import provider_diagnostics_payload, v1_readiness_payload
+from agentic_trader.diagnostics import (
+    provider_diagnostics_payload,
+    v1_readiness_payload,
+)
 from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.json_utils import object_list, object_mapping
 from agentic_trader.llm.client import LocalLLM
@@ -61,9 +64,11 @@ def render_status(settings: Settings, db: TradingDatabase | None) -> None:
     status.add_row(LABEL_DATABASE, str(settings.database_path))
     status.add_row(
         TITLE_RUNTIME_MODE,
-        runtime_state.runtime_mode
-        if runtime_state is not None
-        else settings.runtime_mode,
+        (
+            runtime_state.runtime_mode
+            if runtime_state is not None
+            else settings.runtime_mode
+        ),
     )
     status.add_row(LABEL_MODEL, settings.model_name)
     status.add_row(LABEL_BASE_URL, settings.base_url)

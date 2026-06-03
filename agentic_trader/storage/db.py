@@ -25,15 +25,16 @@ from agentic_trader.schemas import (
     TradeProposalRecord,
     TradeProposalStatus,
 )
-from agentic_trader.storage import portfolio as portfolio_store
-from agentic_trader.storage import proposals as proposal_store
 from agentic_trader.storage import memory_vectors as memory_vector_store
 from agentic_trader.storage import operator_chat as operator_chat_store
 from agentic_trader.storage import order_records as order_store
+from agentic_trader.storage import portfolio as portfolio_store
 from agentic_trader.storage import preferences as preference_store
+from agentic_trader.storage import proposals as proposal_store
 from agentic_trader.storage import run_records as run_store
 from agentic_trader.storage import services as service_store
 from agentic_trader.storage import trade_journal as trade_store
+from agentic_trader.storage.order_records import OrderRow
 from agentic_trader.storage.schema import (
     create_core_tables,
     create_execution_tables,
@@ -46,7 +47,6 @@ from agentic_trader.storage.schema import (
     migrate_trade_proposal_columns,
     table_exists,
 )
-from agentic_trader.storage.order_records import OrderRow
 from agentic_trader.storage.services import ServiceStateUpdate
 
 

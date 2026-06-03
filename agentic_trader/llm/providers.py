@@ -5,28 +5,50 @@ from typing import Any, Protocol, cast
 import httpx
 
 from agentic_trader.config import Settings
-from agentic_trader.llm.openai_compat import (
-    openai_compatible_content as _openai_compatible_content,
-    openai_compatible_error_from_response as _openai_compatible_error_from_response,
-    openai_compatible_model_ids as _openai_compatible_model_ids,
-    openai_compatible_response_format as _openai_compatible_response_format,
-    short_redacted_error as _short_redacted_error,
-)
 from agentic_trader.llm.ollama_provider_health import (
     ollama_error_from_response as _ollama_error_from_response,
+)
+from agentic_trader.llm.ollama_provider_health import (
     ollama_generation_probe as _ollama_generation_probe,
+)
+from agentic_trader.llm.ollama_provider_health import (
     ollama_health_message as _ollama_health_message,
+)
+from agentic_trader.llm.ollama_provider_health import (
     ollama_model_names as _ollama_model_names,
+)
+from agentic_trader.llm.openai_compat import (
+    openai_compatible_content as _openai_compatible_content,
+)
+from agentic_trader.llm.openai_compat import (
+    openai_compatible_error_from_response as _openai_compatible_error_from_response,
+)
+from agentic_trader.llm.openai_compat import (
+    openai_compatible_model_ids as _openai_compatible_model_ids,
+)
+from agentic_trader.llm.openai_compat import (
+    openai_compatible_response_format as _openai_compatible_response_format,
+)
+from agentic_trader.llm.openai_compat import (
+    short_redacted_error as _short_redacted_error,
 )
 from agentic_trader.llm.openai_provider_health import (
     endpoint_rejected_health as _endpoint_rejected_health,
+)
+from agentic_trader.llm.openai_provider_health import (
     openai_compatible_generation_probe as _openai_compatible_generation_probe,
+)
+from agentic_trader.llm.openai_provider_health import (
     openai_compatible_health_message as _openai_compatible_health_message,
+)
+from agentic_trader.llm.openai_provider_health import (
     reachable_health as _reachable_health,
+)
+from agentic_trader.llm.openai_provider_health import (
     unreachable_health as _unreachable_health,
 )
+from agentic_trader.llm.provider_payloads import json_object as _json_object
 from agentic_trader.llm.provider_payloads import (
-    json_object as _json_object,
     json_object_or_none as _json_object_or_none,
 )
 from agentic_trader.schemas import LLMHealthStatus

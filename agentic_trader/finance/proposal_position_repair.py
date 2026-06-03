@@ -64,8 +64,7 @@ def repair_missing_position_plans(
                 max_holding_bars=max_holding_bars,
                 holding_bars=0,
                 invalidation_logic=(
-                    candidate.invalidation_condition
-                    or REPAIRED_RISK_PLAN_INVALIDATION
+                    candidate.invalidation_condition or REPAIRED_RISK_PLAN_INVALIDATION
                 ),
             )
     return repairs

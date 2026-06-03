@@ -93,9 +93,11 @@ def test_strategy_profile_payload_is_json_safe() -> None:
     # asdict() converts tuples to tuples which are JSON-serializable via list
     dumped = json.dumps(
         {
-            key: list(cast(tuple[object, ...], value))
-            if isinstance(value, tuple)
-            else value
+            key: (
+                list(cast(tuple[object, ...], value))
+                if isinstance(value, tuple)
+                else value
+            )
             for key, value in payload.items()
         }
     )
