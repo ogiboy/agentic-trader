@@ -1944,7 +1944,7 @@ wheels = [
 
 [[package]]
 name = "research-flow"
-version = "0.12.12"
+version = "0.12.13"
 source = { editable = "." }
 dependencies = [
     { name = "crewai", extra = ["tools"] },
