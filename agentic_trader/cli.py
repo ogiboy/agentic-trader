@@ -7,7 +7,6 @@ from pathlib import Path
 import typer
 from dotenv import set_key
 from pandas import DataFrame
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -159,8 +158,12 @@ from agentic_trader.cli_modules.run_reports import (
 from agentic_trader.cli_modules.run_reports import (
     manager_resolution_notes as _manager_resolution_notes,
 )
+from agentic_trader.cli_modules.runtime_mode_commands import (
+    RuntimeModeCommandDeps,
+    register_runtime_mode_commands,
+)
 from agentic_trader.cli_modules.runtime_modes import (
-    runtime_mode_transition_plan as _runtime_mode_transition_plan_impl,
+    runtime_mode_transition_plan as _runtime_mode_transition_plan,
 )
 from agentic_trader.cli_modules.service_control import run_stop_service_command
 from agentic_trader.cli_modules.service_rendering import (
@@ -239,8 +242,6 @@ from agentic_trader.schemas import (
     InvestmentPreferences,
     OperatorInstruction,
     PreferenceUpdate,
-    RuntimeMode,
-    RuntimeModeTransitionPlan,
     TradeProposalRecord,
 )
 from agentic_trader.storage.db import TradingDatabase
@@ -276,25 +277,12 @@ from agentic_trader.ui_text import (
     HELP_LOCALE_OVERRIDE,
     HELP_MONITOR_REFRESH_SECONDS,
     HELP_RESTART_SERVICE_GRACE_SECONDS,
-    HELP_RUNTIME_MODE_PROVIDER_CHECK,
-    HELP_RUNTIME_MODE_TARGET,
     HELP_STOP_SERVICE_FORCE,
-    LABEL_ALLOWED,
-    LABEL_BLOCKING,
-    LABEL_CHECK,
-    LABEL_CURRENT,
-    LABEL_DETAILS,
     LABEL_LATEST_ORDER,
-    LABEL_NO,
-    LABEL_PASSED,
-    LABEL_TARGET,
-    LABEL_YES,
     MESSAGE_BACKGROUND_SERVICE_RESTARTED,
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
     MESSAGE_NO_ORDERS_RECORDED,
     TITLE_RESTART_BLOCKED,
-    TITLE_RUNTIME_MODE,
-    TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_RESTARTED,
     UI_LOCALE_ENV,
 )
@@ -462,6 +450,14 @@ register_locale_command(
     env_file_provider=lambda: ENV_LOCAL_FILE,
     emit_json=_emit_json,
 )
+register_runtime_mode_commands(
+    app,
+    RuntimeModeCommandDeps(
+        get_settings=lambda: get_settings(),
+        emit_json=_emit_json,
+        transition_plan=_runtime_mode_transition_plan,
+    ),
+)
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
 
 
@@ -548,51 +544,6 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
 
 def _render_position_plan_repair(payload: dict[str, object]) -> None:
     _render_position_plan_repair_impl(payload)
-
-
-def _runtime_mode_transition_plan(
-    settings: Settings, *, target_mode: RuntimeMode, check_provider: bool
-) -> RuntimeModeTransitionPlan:
-    return _runtime_mode_transition_plan_impl(
-        settings,
-        target_mode=target_mode,
-        check_provider=check_provider,
-    )
-
-
-def _render_runtime_mode_transition_plan(plan: RuntimeModeTransitionPlan) -> None:
-    """
-    Render a runtime-mode transition checklist and summary for operator review.
-
-    Prints a table of transition checks (name, pass status, blocking flag, and details) and a summary panel showing current mode, target mode, whether the transition is allowed, and the plan's human-readable summary.
-
-    Parameters:
-        plan (RuntimeModeTransitionPlan): Transition plan containing current and target modes, an ordered sequence of checks (each with name, passed, blocking, details), an overall `allowed` flag, and a short `summary` suitable for operator display.
-    """
-    table = Table(title=TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST)
-    table.add_column(LABEL_CHECK)
-    table.add_column(LABEL_PASSED)
-    table.add_column(LABEL_BLOCKING)
-    table.add_column(LABEL_DETAILS)
-    for check in plan.checks:
-        table.add_row(
-            check.name,
-            LABEL_YES if check.passed else LABEL_NO,
-            LABEL_YES if check.blocking else LABEL_NO,
-            check.details,
-        )
-    console.print(
-        Panel(
-            (
-                f"{LABEL_CURRENT}: {plan.current_mode}\n"
-                f"{LABEL_TARGET}: {plan.target_mode}\n"
-                f"{LABEL_ALLOWED}: {plan.allowed}\n\n{plan.summary}"
-            ),
-            title=TITLE_RUNTIME_MODE,
-            border_style="green" if plan.allowed else "yellow",
-        )
-    )
-    console.print(table)
 
 
 def _runtime_status_payload(
@@ -813,29 +764,6 @@ def _operator_launcher() -> None:
         render_webgui_status=_render_webgui_service_status,
         render_health_panel=_render_health_panel,
     )
-
-
-@app.command("runtime-mode-checklist")
-def runtime_mode_checklist(
-    target_mode: RuntimeMode = typer.Argument(..., help=HELP_RUNTIME_MODE_TARGET),
-    check_provider: bool = typer.Option(
-        True,
-        "--provider-check/--skip-provider-check",
-        help=HELP_RUNTIME_MODE_PROVIDER_CHECK,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show the approved checklist for a Training/Operation mode transition."""
-    settings = get_settings()
-    plan = _runtime_mode_transition_plan(
-        settings,
-        target_mode=target_mode,
-        check_provider=check_provider,
-    )
-    if json_output:
-        _emit_json(plan.model_dump(mode="json"))
-        return
-    _render_runtime_mode_transition_plan(plan)
 
 
 def build_dashboard_snapshot_payload(

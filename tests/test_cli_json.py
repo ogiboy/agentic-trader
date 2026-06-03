@@ -629,6 +629,29 @@ def test_runtime_mode_checklist_allows_training_without_provider_check(
     }
 
 
+def test_runtime_mode_checklist_uses_locale_for_operator_details(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        runtime_mode="operation",
+        ui_locale="tr",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(app, ["runtime-mode-checklist", "training", "--json"])
+
+    assert result.exit_code == 0
+    payload = json_object(result.stdout)
+    diagnostic_check = next(
+        check for check in payload["checks"] if check["name"] == "diagnostic_scope"
+    )
+    assert "Training mode yalnizca" in diagnostic_check["details"]
+    assert payload["summary"].startswith("Runtime mode gecisi")
+
+
 def test_rich_menu_eof_exits_cleanly(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -104,6 +104,15 @@ EN_MESSAGES_COPY: dict[str, str] = {
     "message_observer_mode_temporarily_unavailable": "{feature} is temporarily unavailable while the runtime writer owns "
     "the database.",
     "message_runtime_gate_open": "Ollama reachable at {base_url} and model {model_name} is available.",
+    "message_runtime_mode_configured_backend": "Configured backend: {backend}",
+    "message_runtime_mode_configured_model": "Configured model: {model_name}",
+    "message_runtime_mode_kill_switch_clear_required": "Execution kill switch must be clear for production-like paper operation.",
+    "message_runtime_mode_live_execution_disabled_required": "Live execution must remain disabled until a real adapter and approvals exist.",
+    "message_runtime_mode_provider_check_skipped": "Provider check skipped; run doctor before Operation mode.",
+    "message_runtime_mode_strict_llm_required": "Operation mode requires AGENTIC_TRADER_STRICT_LLM=true.",
+    "message_runtime_mode_training_diagnostic_scope": "Training mode is limited to replay, walk-forward, ablation, and diagnostic evaluation flows.",
+    "message_runtime_mode_training_no_hidden_trades": "`run`, `launch`, and service orchestration remain strict and do not silently trade with fallback outputs.",
+    "message_runtime_mode_training_operator_confirmation_required": "Mode changes must be applied through explicit configuration, not chat side effects.",
     "message_portfolio_temporarily_unavailable": "Portfolio view is temporarily unavailable while the runtime writer owns "
     "the database.\n\n{error}",
     "message_preferences_temporarily_unavailable": "Preferences are temporarily unavailable while the runtime writer owns "

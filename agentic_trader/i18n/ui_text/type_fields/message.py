@@ -89,6 +89,15 @@ class MessageTextFields:
     message_observer_api_nonlocal_blocked: str
     message_observer_mode_temporarily_unavailable: str
     message_runtime_gate_open: str
+    message_runtime_mode_configured_backend: str
+    message_runtime_mode_configured_model: str
+    message_runtime_mode_kill_switch_clear_required: str
+    message_runtime_mode_live_execution_disabled_required: str
+    message_runtime_mode_provider_check_skipped: str
+    message_runtime_mode_strict_llm_required: str
+    message_runtime_mode_training_diagnostic_scope: str
+    message_runtime_mode_training_no_hidden_trades: str
+    message_runtime_mode_training_operator_confirmation_required: str
     message_portfolio_temporarily_unavailable: str
     message_preferences_temporarily_unavailable: str
     message_trade_proposals_temporarily_unavailable: str
