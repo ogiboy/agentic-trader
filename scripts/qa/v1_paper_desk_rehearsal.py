@@ -9,12 +9,25 @@ import os
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
+
+
+@dataclass
+class RehearsalContext:
+    args: argparse.Namespace
+    artifact_dir: Path
+    symbols: list[str]
+    proposal_symbol: str
+    stop_loss: float
+    take_profit: float
+    env: dict[str, str]
+    steps: list[dict[str, object]]
 
 
 def _json_default(value: object) -> str:
@@ -269,35 +282,7 @@ def _build_markdown_report(summary: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
-    """
-    Orchestrates a V1 paper desk rehearsal by running a sequence of agentic_trader CLI steps, recording per-step evidence and producing summary artifacts in an isolated artifact directory.
-
-    Runs provider diagnostics, readiness checks, finance/research/memory steps, creates/promotes/approves a proposal candidate, conditionally attempts a refresh, collects post-action artifacts and an evidence bundle, and writes both a JSON summary and a Markdown report to the artifact directory.
-
-    Parameters:
-        args (argparse.Namespace): Configuration for the rehearsal run (as returned by parse_args).
-            Relevant fields used include: symbols, proposal_symbol, reference_price, side,
-            quantity, cycles, interval, lookback, thesis, invalidation_condition,
-            execution_backend, artifact_root, and label.
-
-    Returns:
-        summary (dict[str, object]): A dictionary summarizing the rehearsal with keys:
-            - created_at (str): ISO 8601 UTC timestamp when the summary was built.
-            - artifact_dir (str): Path to the artifact directory containing written files.
-            - execution_backend (str): The execution backend used for the run.
-            - symbols (str): Comma-joined symbol list used for the run.
-            - candidate_id (object): Created candidate identifier, or None if missing.
-            - proposal_id (object): Created proposal identifier, or None if missing.
-            - approval_status (object): Proposal approval status, or None.
-            - outcome_status (object): Outcome status from the approval step, or None.
-            - refresh_check (str): Indicator of which refresh branch was executed.
-            - refresh_ok (object): `ok` value from the refresh step payload.
-            - evidence_bundle (object): Parsed JSON stdout from the evidence-bundle step, if present.
-            - readiness_allowed (bool): Whether readiness allowed paper operations.
-            - steps (list[dict]): List of per-step payloads recorded for each executed CLI step.
-            - passed (bool): True when readiness_allowed is true and all recorded steps have truthy `ok`.
-    """
+def _prepare_rehearsal_context(args: argparse.Namespace) -> RehearsalContext:
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     label = args.label or f"v1-paper-desk-{timestamp}"
     artifact_dir = (args.artifact_root / label).resolve()
@@ -305,53 +290,55 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     symbols = _symbol_list(args.symbols)
     proposal_symbol = (args.proposal_symbol or symbols[0]).upper()
     stop_loss, take_profit = _proposal_risk_defaults(args.reference_price)
-    env = _env_for_run(args, artifact_dir)
+    return RehearsalContext(
+        args=args,
+        artifact_dir=artifact_dir,
+        symbols=symbols,
+        proposal_symbol=proposal_symbol,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        env=_env_for_run(args, artifact_dir),
+        steps=[],
+    )
 
-    steps: list[dict[str, object]] = []
 
-    def step(
-        name: str,
-        command_args: list[str],
-        *,
-        expect_success: bool = True,
-        timeout: int = 120,
-    ) -> dict[str, object]:
-        """
-        Run a single agentic_trader CLI step, persist its per-step payload to the rehearsal steps list, and return that payload.
+def _record_step(
+    context: RehearsalContext,
+    name: str,
+    command_args: list[str],
+    *,
+    expect_success: bool = True,
+    timeout: int = 120,
+) -> dict[str, object]:
+    result = _run_step(
+        name=name,
+        args=command_args,
+        env=context.env,
+        artifact_dir=context.artifact_dir,
+        expect_success=expect_success,
+        timeout=timeout,
+    )
+    context.steps.append(result)
+    return result
 
-        Parameters:
-            name (str): Human-readable label for the step; used as the per-step artifact filename (name.json).
-            command_args (list[str]): CLI arguments passed to the agentic_trader command (excluding the python -m prefix).
-            expect_success (bool): Whether an exit code of 0 is considered a successful outcome for this step.
-            timeout (int): Maximum seconds to wait for the CLI command to complete.
 
-        Returns:
-            dict[str, object]: The per-step payload recorded for this step (also appended to the enclosing `steps` list and persisted to disk). The payload includes keys such as `name`, `command`, `exit_code`, `duration_ms`, `expected_success`, `ok`, `stdout_json`, `stdout`, and `stderr`.
-        """
-        result = _run_step(
-            name=name,
-            args=command_args,
-            env=env,
-            artifact_dir=artifact_dir,
-            expect_success=expect_success,
-            timeout=timeout,
-        )
-        steps.append(result)
-        return result
-
-    step("provider-diagnostics", ["provider-diagnostics", "--json"])
-    readiness = step(
+def _run_preproposal_steps(context: RehearsalContext) -> dict[str, object]:
+    args = context.args
+    _record_step(context, "provider-diagnostics", ["provider-diagnostics", "--json"])
+    readiness = _record_step(
+        context,
         "v1-readiness",
         ["v1-readiness", "--provider-check", "--json"],
         timeout=180,
     )
-    step("finance-ops-before", ["finance-ops", "--json"])
-    step(
+    _record_step(context, "finance-ops-before", ["finance-ops", "--json"])
+    _record_step(
+        context,
         "research-cycle-run",
         [
             "research-cycle-run",
             "--symbols",
-            ",".join(symbols),
+            ",".join(context.symbols),
             "--cycles",
             str(args.cycles),
             "--no-sleep",
@@ -359,12 +346,13 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         ],
         timeout=180,
     )
-    step(
+    _record_step(
+        context,
         "memory-explorer",
         [
             "memory-explorer",
             "--symbol",
-            proposal_symbol,
+            context.proposal_symbol,
             "--interval",
             args.interval,
             "--lookback",
@@ -373,12 +361,18 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         ],
         timeout=120,
     )
-    candidate_created = step(
+    return readiness
+
+
+def _create_rehearsal_candidate(context: RehearsalContext) -> object:
+    args = context.args
+    candidate_created = _record_step(
+        context,
         "proposal-candidate-create",
         [
             "proposal-candidate-create",
             "--symbol",
-            proposal_symbol,
+            context.proposal_symbol,
             "--preset",
             "momentum" if args.side == "buy" else "gap-down",
             "--price",
@@ -402,9 +396,9 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
             "--thesis",
             args.thesis,
             "--stop-loss",
-            str(stop_loss),
+            str(context.stop_loss),
             "--take-profit",
-            str(take_profit),
+            str(context.take_profit),
             "--invalidation-condition",
             args.invalidation_condition,
             "--source",
@@ -424,7 +418,14 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     candidate_id = candidate.get("candidate_id") if candidate is not None else None
     if not candidate_id:
         raise RuntimeError("proposal-candidate-create did not return a candidate_id")
-    promoted = step(
+    return candidate_id
+
+
+def _promote_rehearsal_candidate(
+    context: RehearsalContext, candidate_id: object
+) -> object:
+    promoted = _record_step(
+        context,
         "proposal-candidate-promote",
         [
             "proposal-candidate-promote",
@@ -441,7 +442,14 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     proposal_id = proposal.get("proposal_id") if proposal is not None else None
     if not proposal_id:
         raise RuntimeError("proposal-candidate-promote did not return a proposal_id")
-    approved = step(
+    return proposal_id
+
+
+def _approve_and_refresh_proposal(
+    context: RehearsalContext, proposal_id: object
+) -> tuple[dict[str, object] | None, str | None, str, dict[str, object]]:
+    approved = _record_step(
+        context,
         "proposal-approve",
         [
             "proposal-approve",
@@ -463,8 +471,18 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     outcome_status = (
         outcome_status_value if isinstance(outcome_status_value, str) else None
     )
+    refresh, refresh_check = _refresh_approved_proposal(
+        context, proposal_id, outcome_status
+    )
+    return approved_proposal, outcome_status, refresh_check, refresh
+
+
+def _refresh_approved_proposal(
+    context: RehearsalContext, proposal_id: object, outcome_status: str | None
+) -> tuple[dict[str, object], str]:
     if outcome_status == "accepted":
-        refresh = step(
+        refresh = _record_step(
+            context,
             "proposal-refresh",
             [
                 "proposal-refresh",
@@ -475,29 +493,33 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
             ],
             timeout=180,
         )
-        refresh_check = "accepted-order-refresh"
-    else:
-        refresh = step(
-            "proposal-refresh-terminal-guard",
-            [
-                "proposal-refresh",
-                str(proposal_id),
-                "--review-notes",
-                "verify terminal paper fill is not refreshed",
-                "--json",
-            ],
-            expect_success=False,
-        )
-        refresh_check = "terminal-refresh-guard"
-    step("trade-proposals-after", ["trade-proposals", "--json"])
-    step("journal-after", ["journal", "--limit", "10", "--json"])
-    step("finance-ops-after", ["finance-ops", "--json"])
-    bundle = step(
+        return refresh, "accepted-order-refresh"
+    refresh = _record_step(
+        context,
+        "proposal-refresh-terminal-guard",
+        [
+            "proposal-refresh",
+            str(proposal_id),
+            "--review-notes",
+            "verify terminal paper fill is not refreshed",
+            "--json",
+        ],
+        expect_success=False,
+    )
+    return refresh, "terminal-refresh-guard"
+
+
+def _collect_postproposal_evidence(context: RehearsalContext) -> dict[str, object]:
+    _record_step(context, "trade-proposals-after", ["trade-proposals", "--json"])
+    _record_step(context, "journal-after", ["journal", "--limit", "10", "--json"])
+    _record_step(context, "finance-ops-after", ["finance-ops", "--json"])
+    return _record_step(
+        context,
         "evidence-bundle",
         [
             "evidence-bundle",
             "--output-dir",
-            str(artifact_dir),
+            str(context.artifact_dir),
             "--label",
             "evidence",
             "--provider-check",
@@ -506,25 +528,42 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         timeout=180,
     )
 
+
+def _readiness_allows_paper_operations(readiness: dict[str, object]) -> bool:
     readiness_payload = _object_mapping(readiness.get("stdout_json"))
     paper_operations = _object_mapping(
         readiness_payload.get("paper_operations")
         if readiness_payload is not None
         else None
     )
-    readiness_allowed = (
+    return (
         paper_operations.get("allowed") is True
         if paper_operations is not None
         else False
     )
+
+
+def _build_rehearsal_summary(
+    context: RehearsalContext,
+    *,
+    readiness: dict[str, object],
+    candidate_id: object,
+    proposal_id: object,
+    approved_proposal: dict[str, object] | None,
+    outcome_status: str | None,
+    refresh_check: str,
+    refresh: dict[str, object],
+    bundle: dict[str, object],
+) -> dict[str, object]:
+    readiness_allowed = _readiness_allows_paper_operations(readiness)
     approval_status = (
         approved_proposal.get("status") if approved_proposal is not None else None
     )
     summary: dict[str, object] = {
         "created_at": datetime.now(UTC).isoformat(),
-        "artifact_dir": str(artifact_dir),
-        "execution_backend": args.execution_backend,
-        "symbols": ",".join(symbols),
+        "artifact_dir": str(context.artifact_dir),
+        "execution_backend": context.args.execution_backend,
+        "symbols": ",".join(context.symbols),
         "candidate_id": candidate_id,
         "proposal_id": proposal_id,
         "approval_status": approval_status,
@@ -533,15 +572,48 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         "refresh_ok": refresh.get("ok"),
         "evidence_bundle": bundle.get("stdout_json"),
         "readiness_allowed": readiness_allowed,
-        "steps": steps,
+        "steps": context.steps,
     }
     summary["passed"] = bool(readiness_allowed) and all(
-        bool(step_payload.get("ok")) for step_payload in steps
+        bool(step_payload.get("ok")) for step_payload in context.steps
     )
-    _write_json(artifact_dir / "rehearsal-summary.json", summary)
-    (artifact_dir / "rehearsal-report.md").write_text(
+    return summary
+
+
+def _write_rehearsal_outputs(
+    context: RehearsalContext, summary: dict[str, object]
+) -> None:
+    _write_json(context.artifact_dir / "rehearsal-summary.json", summary)
+    (context.artifact_dir / "rehearsal-report.md").write_text(
         _build_markdown_report(summary), encoding="utf-8"
     )
+
+
+def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
+    """Run the V1 paper desk rehearsal and persist summary artifacts."""
+    context = _prepare_rehearsal_context(args)
+    readiness = _run_preproposal_steps(context)
+    candidate_id = _create_rehearsal_candidate(context)
+    proposal_id = _promote_rehearsal_candidate(context, candidate_id)
+    (
+        approved_proposal,
+        outcome_status,
+        refresh_check,
+        refresh,
+    ) = _approve_and_refresh_proposal(context, proposal_id)
+    bundle = _collect_postproposal_evidence(context)
+    summary = _build_rehearsal_summary(
+        context,
+        readiness=readiness,
+        candidate_id=candidate_id,
+        proposal_id=proposal_id,
+        approved_proposal=approved_proposal,
+        outcome_status=outcome_status,
+        refresh_check=refresh_check,
+        refresh=refresh,
+        bundle=bundle,
+    )
+    _write_rehearsal_outputs(context, summary)
     return summary
 
 
