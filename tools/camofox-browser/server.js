@@ -25,6 +25,12 @@ import {
   createProxyPool,
   normalizePlaywrightProxy,
 } from './lib/proxy.js';
+import {
+  INTERACTIVE_ROLES,
+  SKIP_PATTERNS,
+  StaleRefsError,
+  createRefHelpers,
+} from './lib/refs.js';
 import { createGoogleSerpHelpers } from './lib/google-serp.js';
 import { windowSnapshot } from './lib/snapshot.js';
 import {
@@ -215,40 +221,8 @@ app.use(accessKeyMiddleware(CONFIG));
 
 const ALLOWED_URL_SCHEMES = ['http:', 'https:'];
 
-// Interactive roles to include - exclude combobox to avoid opening complex widgets
-// (date pickers, dropdowns) that can interfere with navigation
-const INTERACTIVE_ROLES = [
-  'button',
-  'link',
-  'textbox',
-  'checkbox',
-  'radio',
-  'menuitem',
-  'tab',
-  'searchbox',
-  'slider',
-  'spinbutton',
-  'switch',
-  // 'combobox' excluded - can trigger date pickers and complex dropdowns
-];
-
-// Patterns to skip (date pickers, calendar widgets)
-const SKIP_PATTERNS = [/date/i, /calendar/i, /picker/i, /datepicker/i];
-
 // timingSafeCompare imported from lib/auth.js
 const timingSafeCompare = _timingSafeCompare;
-
-// Custom error for stale/unknown element refs -- returned as 422 instead of 500
-class StaleRefsError extends Error {
-  constructor(ref, maxRef, totalRefs) {
-    super(
-      `Unknown ref: ${ref} (valid refs: e1-${maxRef}, ${totalRefs} total). Refs reset after navigation - call snapshot first.`,
-    );
-    this.name = 'StaleRefsError';
-    this.code = 'stale_refs';
-    this.ref = ref;
-  }
-}
 
 function safeError(err) {
   if (CONFIG.nodeEnv === 'production') {
@@ -305,6 +279,16 @@ let _nativeMemBaseline = null; // RSS - heapUsed at first idle measurement
 const FAILURE_THRESHOLD = 3;
 const MAX_CONSECUTIVE_TIMEOUTS = 3;
 const TAB_LOCK_TIMEOUT_MS = 35000; // Must be > HANDLER_TIMEOUT_MS so active op times out first
+
+const { buildRefs, getAriaSnapshot, refToLocator, refreshTabRefs } =
+  createRefHelpers({
+    buildrefsTimeoutMs: BUILDREFS_TIMEOUT_MS,
+    extractGoogleSerp,
+    isGoogleSerp,
+    log,
+    maxSnapshotNodes: MAX_SNAPSHOT_NODES,
+    waitForPageReady,
+  });
 
 // Proper mutex for tab serialization. The old Promise-chain lock on timeout proceeded
 // WITHOUT the lock, allowing concurrent Playwright operations that corrupt CDP state.
@@ -1698,204 +1682,6 @@ async function dismissConsentDialogs(page) {
       // Selector not found or not clickable, continue
     }
   }
-}
-
-const REFRESH_READY_TIMEOUT_MS = 2500;
-
-async function buildRefs(page) {
-  const refs = new Map();
-
-  if (!page || page.isClosed()) {
-    log('warn', 'buildRefs: page closed or invalid');
-    return refs;
-  }
-
-  // Google SERP fast path -- skip ariaSnapshot entirely
-  const url = page.url();
-  if (isGoogleSerp(url)) {
-    const { refs: googleRefs } = await extractGoogleSerp(page);
-    return googleRefs;
-  }
-
-  const start = Date.now();
-
-  // Hard total timeout on the entire buildRefs operation
-  let timerId;
-  const timeoutPromise = new Promise((_, reject) => {
-    timerId = setTimeout(
-      () => reject(new Error('buildRefs_timeout')),
-      BUILDREFS_TIMEOUT_MS,
-    );
-  });
-
-  try {
-    const result = await Promise.race([
-      _buildRefsInner(page, refs, start),
-      timeoutPromise,
-    ]);
-    clearTimeout(timerId);
-    return result;
-  } catch (err) {
-    clearTimeout(timerId);
-    if (err.message === 'buildRefs_timeout') {
-      log('warn', 'buildRefs: total timeout exceeded', {
-        elapsed: Date.now() - start,
-      });
-      return refs;
-    }
-    throw err;
-  }
-}
-
-async function _buildRefsInner(page, refs, start) {
-  await waitForPageReady(page, {
-    timeout: REFRESH_READY_TIMEOUT_MS,
-    waitForNetwork: false,
-    waitForHydration: false,
-    settleMs: 100,
-  });
-
-  // Budget remaining time for ariaSnapshot
-  const elapsed = Date.now() - start;
-  const remaining = BUILDREFS_TIMEOUT_MS - elapsed;
-  if (remaining < 2000) {
-    log('warn', 'buildRefs: insufficient time for ariaSnapshot', { elapsed });
-    return refs;
-  }
-
-  let ariaYaml;
-  try {
-    ariaYaml = await page
-      .locator('body')
-      .ariaSnapshot({ timeout: Math.min(remaining - 1000, 5000) });
-  } catch (err) {
-    log('warn', 'ariaSnapshot failed, retrying');
-    const retryBudget = BUILDREFS_TIMEOUT_MS - (Date.now() - start);
-    if (retryBudget < 2000) return refs;
-    try {
-      ariaYaml = await page
-        .locator('body')
-        .ariaSnapshot({ timeout: Math.min(retryBudget - 500, 5000) });
-    } catch (retryErr) {
-      log('warn', 'ariaSnapshot retry failed, returning empty refs', {
-        error: retryErr.message,
-      });
-      return refs;
-    }
-  }
-
-  if (!ariaYaml) {
-    log('warn', 'buildRefs: no aria snapshot');
-    return refs;
-  }
-
-  const lines = ariaYaml.split('\n');
-  let refCounter = 1;
-
-  // Track occurrences of each role+name combo for nth disambiguation
-  const seenCounts = new Map(); // "role:name" -> count
-
-  for (const line of lines) {
-    if (refCounter > MAX_SNAPSHOT_NODES) break;
-
-    const match = line.match(/^\s*-\s+(\w+)(?:\s+"([^"]*)")?/);
-    if (match) {
-      const [, role, name] = match;
-      const normalizedRole = role.toLowerCase();
-
-      if (normalizedRole === 'combobox') continue;
-
-      if (name && SKIP_PATTERNS.some((p) => p.test(name))) continue;
-
-      if (INTERACTIVE_ROLES.includes(normalizedRole)) {
-        const normalizedName = name || '';
-        const key = `${normalizedRole}:${normalizedName}`;
-
-        // Get current count and increment
-        const nth = seenCounts.get(key) || 0;
-        seenCounts.set(key, nth + 1);
-
-        const refId = `e${refCounter++}`;
-        refs.set(refId, { role: normalizedRole, name: normalizedName, nth });
-      }
-    }
-  }
-
-  return refs;
-}
-
-async function getAriaSnapshot(page) {
-  if (!page || page.isClosed()) {
-    return null;
-  }
-  await waitForPageReady(page, {
-    timeout: REFRESH_READY_TIMEOUT_MS,
-    waitForNetwork: false,
-    waitForHydration: false,
-    settleMs: 100,
-  });
-  try {
-    return await page.locator('body').ariaSnapshot({ timeout: 5000 });
-  } catch (err) {
-    log('warn', 'getAriaSnapshot failed', { error: err.message });
-    return null;
-  }
-}
-
-function refToLocator(page, ref, refs) {
-  const info = refs.get(ref);
-  if (!info) return null;
-
-  const { role, name, nth } = info;
-  let locator = page.getByRole(role, name ? { name } : undefined);
-
-  // Always use .nth() to disambiguate duplicate role+name combinations
-  // This avoids "strict mode violation" when multiple elements match
-  locator = locator.nth(nth);
-
-  return locator;
-}
-
-async function refreshTabRefs(tabState, options = {}) {
-  const {
-    reason = 'refresh',
-    timeoutMs = null,
-    preserveExistingOnEmpty = true,
-  } = options;
-
-  const beforeUrl = tabState.page?.url?.() || '';
-  const existingRefs = tabState.refs instanceof Map ? tabState.refs : new Map();
-  const refreshPromise = buildRefs(tabState.page);
-
-  let refreshedRefs;
-  if (timeoutMs) {
-    const timeoutLabel = `${reason}_refs_timeout`;
-    refreshedRefs = await Promise.race([
-      refreshPromise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(timeoutLabel)), timeoutMs),
-      ),
-    ]);
-  } else {
-    refreshedRefs = await refreshPromise;
-  }
-
-  const afterUrl = tabState.page?.url?.() || beforeUrl;
-  if (
-    preserveExistingOnEmpty &&
-    refreshedRefs.size === 0 &&
-    existingRefs.size > 0 &&
-    beforeUrl === afterUrl
-  ) {
-    log('warn', 'preserving previous refs after empty rebuild', {
-      reason,
-      url: afterUrl,
-      previousRefs: existingRefs.size,
-    });
-    return existingRefs;
-  }
-
-  return refreshedRefs;
 }
 
 mountSystemRoutes(app, {
