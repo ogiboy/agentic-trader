@@ -1,4 +1,4 @@
-export const dashboardTitle = "AGENTIC TRADER // INK CONTROL ROOM";
+export const uiLocaleEnv = "AGENTIC_TRADER_UI_LOCALE";
 
 export const dashboardPages = Object.freeze([
   "overview",
@@ -10,16 +10,6 @@ export const dashboardPages = Object.freeze([
   "settings",
 ]);
 
-export const pageLabels = Object.freeze({
-  overview: "Overview",
-  runtime: "Runtime",
-  portfolio: "Portfolio",
-  review: "Review",
-  memory: "Decision Evidence",
-  chat: "Chat",
-  settings: "Settings",
-});
-
 export const chatPersonas = Object.freeze([
   "operator_liaison",
   "regime_analyst",
@@ -28,28 +18,107 @@ export const chatPersonas = Object.freeze([
   "portfolio_manager",
 ]);
 
-export const personaLabels = Object.freeze({
-  operator_liaison: "Operator Assistant",
-  regime_analyst: "Market Regime Analyst",
-  strategy_selector: "Strategy Selector",
-  risk_steward: "Risk Steward",
-  portfolio_manager: "Portfolio Manager",
-});
-
 export const instructionModes = Object.freeze(["preview", "apply"]);
 
-export const globalShortcutHelp =
-  "r refresh  o one-shot  s start  x stop  R restart  q quit";
+const enCopy = Object.freeze({
+  chatSending: "Sending message to the operator surface...",
+  cliExecutableLabel: "CLI executable",
+  cliExecutionUnavailable: "No CLI command could be executed.",
+  connectingTo: "Connecting to {executable}...",
+  dashboardTitle: "AGENTIC TRADER // INK CONTROL ROOM",
+  emptyValue: "-",
+  errorLabel: "Error",
+  globalShortcutHelp:
+    "r refresh  o one-shot  s start  x stop  R restart  q quit",
+  instructionApplied: "Operator instruction applied to preferences.",
+  instructionFailed: "Instruction failed.",
+  instructionParsed: "Operator instruction parsed.",
+  pageLabels: {
+    overview: "Overview",
+    runtime: "Runtime",
+    portfolio: "Portfolio",
+    review: "Review",
+    memory: "Decision Evidence",
+    chat: "Chat",
+    settings: "Settings",
+  },
+  personaLabels: {
+    operator_liaison: "Operator Assistant",
+    regime_analyst: "Market Regime Analyst",
+    strategy_selector: "Strategy Selector",
+    risk_steward: "Risk Steward",
+    portfolio_manager: "Portfolio Manager",
+  },
+  ready: "Ready.",
+  unknown: "Unknown",
+  working: "working...",
+});
 
-export const cliExecutionUnavailable = "No CLI command could be executed.";
+const trCopy = Object.freeze({
+  chatSending: "Operator yuzeyine mesaj gonderiliyor...",
+  cliExecutableLabel: "CLI calistirici",
+  cliExecutionUnavailable: "CLI komutu calistirilamadi.",
+  connectingTo: "{executable} baglantisi kuruluyor...",
+  dashboardTitle: "AGENTIC TRADER // INK KONTROL ODASI",
+  emptyValue: "-",
+  errorLabel: "Hata",
+  globalShortcutHelp:
+    "r yenile  o tek-sefer  s baslat  x durdur  R yeniden baslat  q cik",
+  instructionApplied: "Operator talimati tercihlere uygulandi.",
+  instructionFailed: "Talimat basarisiz oldu.",
+  instructionParsed: "Operator talimati cozumlendi.",
+  pageLabels: {
+    overview: "Genel Bakis",
+    runtime: "Calisma",
+    portfolio: "Portfoy",
+    review: "Inceleme",
+    memory: "Karar Kaniti",
+    chat: "Sohbet",
+    settings: "Ayarlar",
+  },
+  personaLabels: {
+    operator_liaison: "Operator Asistani",
+    regime_analyst: "Piyasa Rejimi Analisti",
+    strategy_selector: "Strateji Secici",
+    risk_steward: "Risk Sorumlusu",
+    portfolio_manager: "Portfoy Yoneticisi",
+  },
+  ready: "Hazir.",
+  unknown: "Bilinmiyor",
+  working: "calisiyor...",
+});
+
+export const tuiCopyByLocale = Object.freeze({
+  en: enCopy,
+  tr: trCopy,
+});
+
+export function normalizeTuiLocale(locale) {
+  if (typeof locale !== "string") {
+    return "en";
+  }
+  const normalized = locale.toLowerCase();
+  return normalized === "tr" || normalized.startsWith("tr-") ? "tr" : "en";
+}
+
+export function getTuiCopy(locale = process.env[uiLocaleEnv]) {
+  return tuiCopyByLocale[normalizeTuiLocale(locale)];
+}
+
+export const tuiCopy = getTuiCopy();
+export const dashboardTitle = tuiCopy.dashboardTitle;
+export const pageLabels = tuiCopy.pageLabels;
+export const personaLabels = tuiCopy.personaLabels;
+export const globalShortcutHelp = tuiCopy.globalShortcutHelp;
+export const cliExecutionUnavailable = tuiCopy.cliExecutionUnavailable;
 
 /**
  * Format a persona key into its human-readable label.
  * @param {string} value - Persona key to format (may be falsy).
  * @returns {string} `personaLabels[value]` if present; otherwise `value` if truthy; otherwise `'-'`.
  */
-export function formatPersona(value) {
-  return personaLabels[value] || value || "-";
+export function formatPersona(value, copy = tuiCopy) {
+  return copy.personaLabels[value] || value || copy.emptyValue;
 }
 
 /**
@@ -57,8 +126,8 @@ export function formatPersona(value) {
  * @param {string} page - Page key to resolve (e.g., "overview", "runtime").
  * @returns {string} The display label for the page, or `'Unknown'` if the key is not recognized.
  */
-export function getPageLabel(page) {
-  return pageLabels[page] || "Unknown";
+export function getPageLabel(page, copy = tuiCopy) {
+  return copy.pageLabels[page] || copy.unknown;
 }
 
 /**
@@ -129,10 +198,10 @@ export function rotateInstructionMode(current, offset) {
  * @param {string} [params.page] - Current page key (one of the values in dashboardPages); used to compute the 1-based page index and label.
  * @returns {string} A status line like "page {index}/{total}: {label}  |  {pageShortcuts}  |  {globalShortcutHelp}" with "  |  working..." appended when `busy` is true.
  */
-export function dashboardStatusLine({ busy = false, page }) {
+export function dashboardStatusLine({ busy = false, page, copy = tuiCopy }) {
   const pageIndex = dashboardPages.indexOf(page) + 1;
-  const pageLabel = getPageLabel(page);
-  const workingSuffix = busy ? "  |  working..." : "";
+  const pageLabel = getPageLabel(page, copy);
+  const workingSuffix = busy ? `  |  ${copy.working}` : "";
 
-  return `page ${pageIndex}/${dashboardPages.length}: ${pageLabel}  |  ${getPageShortcutHelp()}  |  ${globalShortcutHelp}${workingSuffix}`;
+  return `page ${pageIndex}/${dashboardPages.length}: ${pageLabel}  |  ${getPageShortcutHelp()}  |  ${copy.globalShortcutHelp}${workingSuffix}`;
 }
