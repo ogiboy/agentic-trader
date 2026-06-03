@@ -1,4 +1,5 @@
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 
 import {
   extractBearerToken,
@@ -6,6 +7,14 @@ import {
   timingSafeCompare,
 } from '../auth.js';
 import { classifyError } from '../request-utils.js';
+
+const cookieImportRateLimiter = rateLimit({
+  identifier: 'cookie-import',
+  limit: 30,
+  windowMs: 60_000,
+  legacyHeaders: false,
+  standardHeaders: true,
+});
 
 function authorizeCookieImport(req, res, config) {
   if (config.apiKey) {
@@ -157,10 +166,17 @@ function sanitizeCookies(cookies) {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *       429:
+ *         description: Too many cookie import requests.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 function mountCookieImportRoute(app, ctx) {
   app.post(
     '/sessions/:userId/cookies',
+    cookieImportRateLimiter,
     express.json({ limit: '512kb' }),
     async (req, res) => {
       try {

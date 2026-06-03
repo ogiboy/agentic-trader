@@ -2181,6 +2181,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many cookie import requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
