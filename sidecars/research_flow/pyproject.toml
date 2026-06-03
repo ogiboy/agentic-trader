@@ -9,7 +9,7 @@ description = "Tracked CrewAI research sidecar for Agentic Trader."
 license = "LGPL-3.0-or-later"
 name = "research_flow"
 requires-python = ">=3.13,<3.14"
-version = "0.14.0"
+version = "0.14.1"
 
 [project.scripts]
 kickoff = "research_flow.main:kickoff"
