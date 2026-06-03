@@ -16,22 +16,23 @@ from agentic_trader.finance.proposal_candidate_context import (
     candidate_evidence,
 )
 from agentic_trader.finance.proposal_candidate_context import safe_note as _safe_note
+from agentic_trader.finance.proposal_candidate_validation import (
+    promotion_review_notes as _promotion_review_notes,
+)
+from agentic_trader.finance.proposal_candidate_validation import (
+    validate_candidate_promotable as _validate_candidate_promotable,
+)
 from agentic_trader.finance.proposals import (
     TradeProposalDraft,
     prepare_trade_proposal,
     utc_now_iso,
 )
-from agentic_trader.json_utils import object_dict_or_none as _object_mapping
-from agentic_trader.json_utils import object_list as _object_list
 from agentic_trader.schemas import (
     ProposalCandidateRecord,
     TradeProposalRecord,
     TradeSide,
 )
 from agentic_trader.storage.db import TradingDatabase
-
-STALE_FRESHNESS_MARKERS = ("stale", "expired", "outdated", "unknown", "missing")
-
 
 @dataclass(frozen=True, slots=True)
 class ProposalCandidateDraft:
@@ -290,170 +291,3 @@ def _default_risk_notes(warnings: tuple[str, ...]) -> str:
         return "no scanner warnings"
     return "scanner_warnings=" + ",".join(warnings)
 
-
-def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:
-    """
-    Run the full suite of promotability validations against a proposal candidate.
-
-    This invokes blocker, sizing, evidence, and risk-geometry checks in order and raises a ValueError if any validation fails.
-    """
-    _validate_candidate_blockers(candidate)
-    _validate_candidate_sizing(candidate)
-    _validate_candidate_evidence(candidate)
-    _validate_candidate_risk_geometry(candidate)
-
-
-def _validate_candidate_blockers(candidate: ProposalCandidateRecord) -> None:
-    """
-    Ensure the candidate has no blocking scanner warnings and is not watch-only.
-
-    Raises:
-        ValueError: If `candidate.evidence["blocking_warnings"]` is a list with any entries (the error lists them), or if `candidate.side` is `None` indicating a watch-only candidate.
-    """
-    blockers = _object_list(candidate.evidence.get("blocking_warnings"))
-    if blockers:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} has blocking scanner warnings: "
-            + ", ".join(str(item) for item in blockers)
-        )
-    if candidate.side is None:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} is watch-only and cannot be promoted."
-        )
-
-
-def _validate_candidate_sizing(candidate: ProposalCandidateRecord) -> None:
-    """
-    Validate that the candidate contains required sizing and risk-control values for promotion.
-
-    Parameters:
-        candidate (ProposalCandidateRecord): The proposal candidate to validate.
-
-    Raises:
-        ValueError: If both `quantity` and `notional` are missing; if `quantity` is present but <= 0; if `notional` is present but <= 0; or if either `stop_loss` or `take_profit` is missing.
-    """
-    if candidate.quantity is None and candidate.notional is None:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} has no quantity or notional."
-        )
-    if candidate.quantity is not None and candidate.quantity <= 0:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} requires quantity greater than zero."
-        )
-    if candidate.notional is not None and candidate.notional <= 0:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} requires notional greater than zero."
-        )
-    if candidate.stop_loss is None or candidate.take_profit is None:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} has no stop_loss/take_profit controls."
-        )
-
-
-def _validate_candidate_evidence(candidate: ProposalCandidateRecord) -> None:
-    """
-    Ensure the candidate contains current freshness evidence and a positive reference price.
-
-    Parameters:
-        candidate (ProposalCandidateRecord): The proposal candidate to validate.
-
-    Raises:
-        ValueError: If the candidate's freshness evidence is missing or stale.
-        ValueError: If the candidate's reference_price is less than or equal to zero.
-    """
-    if not _candidate_has_current_evidence(candidate):
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} has stale or missing freshness evidence."
-        )
-    if candidate.reference_price <= 0:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} requires reference_price greater than zero."
-        )
-
-
-def _validate_candidate_risk_geometry(candidate: ProposalCandidateRecord) -> None:
-    """
-    Validate that the candidate's stop-loss and take-profit define a correct risk geometry for its trade side.
-
-    Checks that both `stop_loss` and `take_profit` are present and, for a buy side, that stop_loss < reference_price < take_profit, or for a sell side, that take_profit < reference_price < stop_loss.
-
-    Parameters:
-        candidate (ProposalCandidateRecord): Candidate record whose risk controls and reference price will be validated.
-
-    Raises:
-        ValueError: If either stop-loss or take-profit is missing, or if the numeric relationship between stop-loss, reference price, and take-profit does not match the candidate's side.
-    """
-    stop_loss = candidate.stop_loss
-    take_profit = candidate.take_profit
-    if stop_loss is None or take_profit is None:
-        raise ValueError(
-            f"Proposal candidate {candidate.candidate_id} has no stop_loss/take_profit controls."
-        )
-    if candidate.side == "buy" and not (
-        stop_loss < candidate.reference_price < take_profit
-    ):
-        raise ValueError(
-            "Buy proposal candidate risk controls must satisfy "
-            "stop_loss < reference_price < take_profit."
-        )
-    if candidate.side == "sell" and not (
-        take_profit < candidate.reference_price < stop_loss
-    ):
-        raise ValueError(
-            "Sell proposal candidate risk controls must satisfy "
-            "take_profit < reference_price < stop_loss."
-        )
-
-
-def _candidate_has_current_evidence(candidate: ProposalCandidateRecord) -> bool:
-    """
-    Determine whether a candidate's freshness field indicates current (non-stale) evidence.
-
-    Parameters:
-        candidate (ProposalCandidateRecord): The proposal candidate whose freshness metadata will be evaluated.
-
-    Returns:
-        bool: `True` if the candidate's `freshness` is non-empty and does not contain any substring listed in `STALE_FRESHNESS_MARKERS`, `False` otherwise.
-    """
-    freshness = candidate.freshness.strip().lower()
-    if not freshness:
-        return False
-    return not any(marker in freshness for marker in STALE_FRESHNESS_MARKERS)
-
-
-def _promotion_review_notes(
-    candidate: ProposalCandidateRecord, review_notes: str
-) -> str:
-    """
-    Constructs a single-line promotion review string summarizing key candidate metadata and optional operator notes.
-
-    Parameters:
-        candidate (ProposalCandidateRecord): The candidate whose identifying fields, score, materiality, freshness, liquidity, risk notes, and canonical-analysis metadata (if present) will be included.
-        review_notes (str): Operator-provided freeform review notes; cleaned and truncated to 1000 chars before inclusion.
-
-    Returns:
-        str: A single string of parts joined with " | " containing candidate_id, preset, score, materiality, freshness, liquidity, risk_notes, optional `canonical_completeness` and `missing_sections`, and optional `operator_notes`.
-    """
-    parts = [
-        f"candidate_id={candidate.candidate_id}",
-        f"preset={candidate.preset}",
-        f"score={candidate.score:.2f}",
-        f"materiality={candidate.materiality}",
-        f"freshness={candidate.freshness}",
-        f"liquidity={candidate.liquidity}",
-        f"risk_notes={candidate.risk_notes}",
-    ]
-    canonical = candidate.evidence.get("canonical_analysis")
-    canonical_payload = _object_mapping(canonical)
-    if canonical_payload is not None:
-        completeness = canonical_payload.get("completeness_score")
-        if isinstance(completeness, int | float):
-            parts.append(f"canonical_completeness={completeness:.2f}")
-        missing_sections = _object_list(canonical_payload.get("missing_sections"))
-        sections = ",".join(str(section) for section in missing_sections[:6])
-        if sections:
-            parts.append(f"missing_sections={sections}")
-    cleaned = _safe_note(review_notes, max_length=1000).strip()
-    if cleaned:
-        parts.append(f"operator_notes={cleaned}")
-    return " | ".join(parts)
