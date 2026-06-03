@@ -13,18 +13,15 @@ import {
 } from './lib/auth.js';
 import { loadConfig } from './lib/config.js';
 import {
-  MAX_DOWNLOAD_INLINE_BYTES,
   attachDownloadListener,
   clearSessionDownloads,
   clearTabDownloads,
-  getDownloadsList,
 } from './lib/downloads.js';
 import {
   extractDeterministic,
   validateSchema as validateExtractSchema,
 } from './lib/extract.js';
 import { createFlyHelpers } from './lib/fly.js';
-import { extractPageImages } from './lib/images.js';
 import { expandMacro } from './lib/macros.js';
 import { createPluginEvents, loadPlugins } from './lib/plugins.js';
 import {
@@ -51,6 +48,7 @@ import {
 import { mountDocs } from './lib/openapi.js';
 import { mountSessionRoutes } from './lib/routes/sessions.js';
 import { mountSystemRoutes } from './lib/routes/system.js';
+import { mountTabContentRoutes } from './lib/routes/tabs-content.js';
 import { mountTabHistoryRoutes } from './lib/routes/tabs-history.js';
 import { mountTabLifecycleRoutes } from './lib/routes/tabs-lifecycle.js';
 import { mountTabNavigationRoutes } from './lib/routes/tabs-navigation.js';
@@ -3163,254 +3161,15 @@ mountTabHistoryRoutes(app, {
   withTabLock,
 });
 
-// Get links
-/**
- * @openapi
- * /tabs/{tabId}/links:
- *   get:
- *     tags: [Content]
- *     summary: Extract page links
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *       - name: userId
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Links extracted.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 links:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       text:
- *                         type: string
- *                       href:
- *                         type: string
- *                       ref:
- *                         type: string
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.get('/tabs/:tabId/links', async (req, res) => {
-  try {
-    const userId = req.query.userId;
-    const limit = parseInt(req.query.limit) || 50;
-    const offset = parseInt(req.query.offset) || 0;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) {
-      log('warn', 'links: tab not found', {
-        reqId: req.reqId,
-        tabId: req.params.tabId,
-        userId,
-        hasSession: !!session,
-      });
-      return res.status(404).json({ error: 'Tab not found' });
-    }
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-    tabState.consecutiveTimeouts = 0;
-    tabState.consecutiveFailures = 0;
-
-    const allLinks = await tabState.page.evaluate(() => {
-      const links = [];
-      document.querySelectorAll('a[href]').forEach((a) => {
-        const href = a.href;
-        const text = a.textContent?.trim().slice(0, 100) || '';
-        if (href && href.startsWith('http')) {
-          links.push({ url: href, text });
-        }
-      });
-      return links;
-    });
-
-    const total = allLinks.length;
-    const paginated = allLinks.slice(offset, offset + limit);
-
-    res.json({
-      links: paginated,
-      pagination: { total, offset, limit, hasMore: offset + limit < total },
-    });
-  } catch (err) {
-    log('error', 'links failed', { reqId: req.reqId, error: err.message });
-    handleRouteError(err, req, res);
-  }
-});
-
-// Get captured downloads
-/**
- * @openapi
- * /tabs/{tabId}/downloads:
- *   get:
- *     tags: [Content]
- *     summary: List tab downloads
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *       - name: userId
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Downloads list.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 downloads:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       filename:
- *                         type: string
- *                       url:
- *                         type: string
- *                       state:
- *                         type: string
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.get('/tabs/:tabId/downloads', async (req, res) => {
-  try {
-    const userId = req.query.userId;
-    const includeData = req.query.includeData === 'true';
-    const consume = req.query.consume === 'true';
-    const maxBytesRaw = Number(req.query.maxBytes);
-    const maxBytes =
-      Number.isFinite(maxBytesRaw) && maxBytesRaw > 0
-        ? maxBytesRaw
-        : MAX_DOWNLOAD_INLINE_BYTES;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-
-    const downloads = await getDownloadsList(tabState, {
-      includeData,
-      maxBytes,
-    });
-
-    if (consume) {
-      await clearTabDownloads(tabState);
-    }
-
-    res.json({ tabId: req.params.tabId, downloads });
-  } catch (err) {
-    failuresTotal.labels(classifyError(err), 'downloads').inc();
-    log('error', 'downloads failed', { reqId: req.reqId, error: err.message });
-    res.status(500).json({ error: safeError(err) });
-  }
-});
-
-// Get image elements from current page
-/**
- * @openapi
- * /tabs/{tabId}/images:
- *   get:
- *     tags: [Content]
- *     summary: Extract page images
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *       - name: userId
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Images extracted.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 images:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       src:
- *                         type: string
- *                       alt:
- *                         type: string
- *                       width:
- *                         type: integer
- *                       height:
- *                         type: integer
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.get('/tabs/:tabId/images', async (req, res) => {
-  try {
-    const userId = req.query.userId;
-    const includeData = req.query.includeData === 'true';
-    const maxBytesRaw = Number(req.query.maxBytes);
-    const limitRaw = Number(req.query.limit);
-    const maxBytes =
-      Number.isFinite(maxBytesRaw) && maxBytesRaw > 0
-        ? maxBytesRaw
-        : MAX_DOWNLOAD_INLINE_BYTES;
-    const limit =
-      Number.isFinite(limitRaw) && limitRaw > 0
-        ? Math.min(Math.floor(limitRaw), 20)
-        : 8;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-
-    const images = await extractPageImages(tabState.page, {
-      includeData,
-      maxBytes,
-      limit,
-    });
-
-    res.json({ tabId: req.params.tabId, images });
-  } catch (err) {
-    failuresTotal.labels(classifyError(err), 'images').inc();
-    log('error', 'images failed', { reqId: req.reqId, error: err.message });
-    res.status(500).json({ error: safeError(err) });
-  }
+mountTabContentRoutes(app, {
+  classifyError,
+  failuresTotal,
+  findTab,
+  handleRouteError,
+  log,
+  normalizeUserId,
+  safeError,
+  sessions,
 });
 
 // Screenshot
