@@ -7,6 +7,114 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.14.0 (2026-06-03)
+
+### Features
+
+- Add webgui next-intl foundation
+  ([`8478960`](https://github.com/ogiboy/agentic-trader/commit/847896028306b9fcfd0ec1f060306cfd746f5ece))
+- Add TUI locale copy foundation
+  ([`491af96`](https://github.com/ogiboy/agentic-trader/commit/491af96290a43b19c632ee5e4b8cd5b321bfad96))
+- Add terminal ui translation facade
+  ([`09080dc`](https://github.com/ogiboy/agentic-trader/commit/09080dcab14d55a9361feeb821ef3513fe49da03))
+
+### Bug Fixes
+
+- Allow changelog backfill before release tag
+  ([`11ed9d2`](https://github.com/ogiboy/agentic-trader/commit/11ed9d21cc63255f3460569dca990487413a4487))
+- Rate-limit camofox cookie imports
+  ([`d5972fc`](https://github.com/ogiboy/agentic-trader/commit/d5972fc5c1e18bac654796ecc2cb745f3b77c2d0))
+
+### Documentation
+
+- Split extended qa scenarios
+  ([`4a97c9c`](https://github.com/ogiboy/agentic-trader/commit/4a97c9c96da90280bd7d115fe3ec412bafb3515d))
+- Split runtime decision log
+  ([`6a5e636`](https://github.com/ogiboy/agentic-trader/commit/6a5e636d279e6a3beac0edafe8139462bfab048c))
+- Split research flow agent reference
+  ([`d1bb8ed`](https://github.com/ogiboy/agentic-trader/commit/d1bb8edabcbda4abe682fe1b82e4acf22039631e))
+
+### Tests
+
+- Pin ui translation locale
+  ([`df55628`](https://github.com/ogiboy/agentic-trader/commit/df5562835ca9421ebf1d60fed99979820d0b6bf8))
+- Cover docs feedback components
+  ([`7a712d2`](https://github.com/ogiboy/agentic-trader/commit/7a712d2665e25cb89786f00ddc2b6e804b719916))
+- Cover docs ui primitives
+  ([`706b2dc`](https://github.com/ogiboy/agentic-trader/commit/706b2dc9e3443435e11a5bce8685340db0106cee))
+
+### Refactors
+
+- Rename webgui component files
+  ([`1db76f3`](https://github.com/ogiboy/agentic-trader/commit/1db76f39bd04e68fb72f0bb0202700f29d29c5b3))
+- Rename docs component files
+  ([`f04d642`](https://github.com/ogiboy/agentic-trader/commit/f04d64291bf0187ce101fdc7c5ec73197133f997))
+- Split app services lifecycle
+  ([`387296f`](https://github.com/ogiboy/agentic-trader/commit/387296f1ec2f0c0f62541882de92732969c5c2fd))
+- Split app setup lifecycle
+  ([`834723c`](https://github.com/ogiboy/agentic-trader/commit/834723cf40b0cc56173b7c47b0a5cebb52df7849))
+- Split app update lifecycle
+  ([`dc9bd2a`](https://github.com/ogiboy/agentic-trader/commit/dc9bd2a0e3261fdc27e99ef31ba9053465e5d607))
+- Split app uninstall lifecycle
+  ([`422aee2`](https://github.com/ogiboy/agentic-trader/commit/422aee2c7b8a84fba6ee1b298f29556b7a9b4b04))
+- Split app up lifecycle
+  ([`81f6d71`](https://github.com/ogiboy/agentic-trader/commit/81f6d7184f872cb57903a4a11d8d7ce36fb15af8))
+- Add camofox route modules
+  ([`866b6d9`](https://github.com/ogiboy/agentic-trader/commit/866b6d9ee337ca8790b8cb0fd4698f9a18248bc6))
+- Move camofox trace routes
+  ([`c2a81e9`](https://github.com/ogiboy/agentic-trader/commit/c2a81e92f2013d14a824d560c2c4e84479c37d38))
+- Move camofox session routes
+  ([`74fcdb4`](https://github.com/ogiboy/agentic-trader/commit/74fcdb471f888ad931f8508f77993eecc22a06d5))
+- Move camofox tab lifecycle routes
+  ([`5c0a944`](https://github.com/ogiboy/agentic-trader/commit/5c0a944a9e545a889f3bf4697e26852e324ad0d4))
+- Move camofox tab navigation route
+  ([`78d829c`](https://github.com/ogiboy/agentic-trader/commit/78d829c236d12ae926e0843120dcc56560922f22))
+- Move camofox tab history routes
+  ([`4cef81f`](https://github.com/ogiboy/agentic-trader/commit/4cef81fabbad47665a13f6f2315d0c8c2b8faa1c))
+- Move camofox tab content routes
+  ([`3aad590`](https://github.com/ogiboy/agentic-trader/commit/3aad590698ac0e5a904124d448c696a4289591ab))
+- Move camofox tab media routes
+  ([`756bc9b`](https://github.com/ogiboy/agentic-trader/commit/756bc9b30ebbcd887ab28ba377eab85139eb5871))
+- Move camofox tab evaluation routes
+  ([`bae4c2e`](https://github.com/ogiboy/agentic-trader/commit/bae4c2e1d1da6c411ed3f9833edd61dec53873ea))
+- Move camofox basic interaction routes
+  ([`34827b0`](https://github.com/ogiboy/agentic-trader/commit/34827b05108c829e4f59dcb6858f64cc2a957b32))
+- Move camofox tab typing route
+  ([`e923bb5`](https://github.com/ogiboy/agentic-trader/commit/e923bb5dcffe4608c38fbdbacf63a4f5c0aef8ef))
+- Move camofox tab click route
+  ([`7f3f813`](https://github.com/ogiboy/agentic-trader/commit/7f3f813ec087abc02a51b4e8b3562cb0a5dce5bb))
+- Move camofox tab snapshot route
+  ([`dbee832`](https://github.com/ogiboy/agentic-trader/commit/dbee832ba6e48119658b340e58efb3a50bd8c0e6))
+- Move camofox legacy core routes
+  ([`4e5e31b`](https://github.com/ogiboy/agentic-trader/commit/4e5e31b237a6ee28f740468c026f1337c33f4385))
+- Move camofox legacy snapshot route
+  ([`ad0def4`](https://github.com/ogiboy/agentic-trader/commit/ad0def4d60bda94068d8553558eae58ea3e2ffdb))
+- Move camofox legacy action route
+  ([`a2fb174`](https://github.com/ogiboy/agentic-trader/commit/a2fb1746bcdd9f283686a5637f90e72de7eb44ae))
+- Move camofox google serp helpers
+  ([`03b4588`](https://github.com/ogiboy/agentic-trader/commit/03b458873f8edad8bc72955cea88238a465e1b40))
+- Move camofox ref helpers
+  ([`6e842c2`](https://github.com/ogiboy/agentic-trader/commit/6e842c25c9b737a099742c7018eb28678d807480))
+- Move camofox route safety helpers
+  ([`a9e894b`](https://github.com/ogiboy/agentic-trader/commit/a9e894b7e9ac5a22b8bacea2e63b94c265fbcc15))
+- Split smoke qa modules
+  ([`977249d`](https://github.com/ogiboy/agentic-trader/commit/977249da96155150ce50719bb40f14fc0b51ed5f))
+- Trim smoke qa interactive helpers
+  ([`dc87ff0`](https://github.com/ogiboy/agentic-trader/commit/dc87ff0a1a61e1f347830458a9028f5d7d0e2624))
+- Split paper rehearsal flow
+  ([`fc296e4`](https://github.com/ogiboy/agentic-trader/commit/fc296e4f4486db07fba52b0cb28dd86828a881dd))
+- Split research flow task planning
+  ([`7615819`](https://github.com/ogiboy/agentic-trader/commit/76158199580d1888dbb71b6a4d190eb92cce666a))
+- Split camofox server core
+  ([`e1664f4`](https://github.com/ogiboy/agentic-trader/commit/e1664f46aa62c9ee2a1af6926029cfc7f240a482))
+
+### Chores
+
+- Expand modularity i18n audit scope
+  ([`5b12646`](https://github.com/ogiboy/agentic-trader/commit/5b126464129d232f2692e1364865155b712e8921))
+- Bump modularity i18n version
+  ([`5fca753`](https://github.com/ogiboy/agentic-trader/commit/5fca7538399f43186bdc5f4f2237e9b3847f195d))
+
 ## v0.13.0 (2026-06-03)
 
 ### Features
