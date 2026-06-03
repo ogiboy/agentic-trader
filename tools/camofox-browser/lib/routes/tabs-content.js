@@ -268,8 +268,152 @@ function mountImagesRoute(app, ctx) {
   });
 }
 
+/**
+ * @openapi
+ * /tabs/{tabId}/screenshot:
+ *   get:
+ *     tags: [Content]
+ *     summary: Take a screenshot
+ *     description: Returns a base64-encoded PNG screenshot.
+ *     parameters:
+ *       - name: tabId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: userId
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Screenshot.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 screenshot:
+ *                   type: object
+ *                   properties:
+ *                     data:
+ *                       type: string
+ *                     mimeType:
+ *                       type: string
+ *       404:
+ *         description: Tab not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+function mountScreenshotRoute(app, ctx) {
+  app.get('/tabs/:tabId/screenshot', async (req, res) => {
+    try {
+      const fullPage = req.query.fullPage === 'true';
+      const { found, userId } = queryTab(req, ctx);
+      if (!found) return res.status(404).json({ error: 'Tab not found' });
+
+      const { tabState } = found;
+      const buffer = await tabState.page.screenshot({ type: 'png', fullPage });
+      ctx.pluginEvents.emit('tab:screenshot', {
+        userId,
+        tabId: req.params.tabId,
+        buffer,
+      });
+      res.set('Content-Type', 'image/png');
+      res.send(buffer);
+    } catch (err) {
+      ctx.log('error', 'screenshot failed', {
+        reqId: req.reqId,
+        error: err.message,
+      });
+      ctx.handleRouteError(err, req, res);
+    }
+  });
+}
+
+/**
+ * @openapi
+ * /tabs/{tabId}/stats:
+ *   get:
+ *     tags: [Tabs]
+ *     summary: Tab statistics
+ *     description: Returns tab metadata including URL, tool call count, visited URLs, download/failure counts.
+ *     parameters:
+ *       - name: tabId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: userId
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Tab stats.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 tabId:
+ *                   type: string
+ *                 url:
+ *                   type: string
+ *                 toolCalls:
+ *                   type: integer
+ *                 visitedUrls:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 downloadCount:
+ *                   type: integer
+ *                 consecutiveFailures:
+ *                   type: integer
+ *       404:
+ *         description: Tab not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+function mountStatsRoute(app, ctx) {
+  app.get('/tabs/:tabId/stats', async (req, res) => {
+    try {
+      const { found } = queryTab(req, ctx);
+      if (!found) return res.status(404).json({ error: 'Tab not found' });
+
+      const { tabState, listItemId } = found;
+      res.json({
+        tabId: req.params.tabId,
+        sessionKey: listItemId,
+        listItemId,
+        url: tabState.page.url(),
+        visitedUrls: Array.from(tabState.visitedUrls),
+        downloadsCount: Array.isArray(tabState.downloads)
+          ? tabState.downloads.length
+          : 0,
+        toolCalls: tabState.toolCalls,
+        refsCount: tabState.refs.size,
+      });
+    } catch (err) {
+      ctx.log('error', 'stats failed', {
+        reqId: req.reqId,
+        error: err.message,
+      });
+      ctx.handleRouteError(err, req, res);
+    }
+  });
+}
+
 export function mountTabContentRoutes(app, ctx) {
   mountLinksRoute(app, ctx);
   mountDownloadsRoute(app, ctx);
   mountImagesRoute(app, ctx);
+  mountScreenshotRoute(app, ctx);
+  mountStatsRoute(app, ctx);
 }

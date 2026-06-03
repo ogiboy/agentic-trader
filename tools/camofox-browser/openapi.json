@@ -572,140 +572,6 @@
         }
       }
     },
-    "/tabs/{tabId}/screenshot": {
-      "get": {
-        "tags": [
-          "Content"
-        ],
-        "summary": "Take a screenshot",
-        "description": "Returns a base64-encoded PNG screenshot.",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Screenshot.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "screenshot": {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "type": "string"
-                        },
-                        "mimeType": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tabs/{tabId}/stats": {
-      "get": {
-        "tags": [
-          "Tabs"
-        ],
-        "summary": "Tab statistics",
-        "description": "Returns tab metadata including URL, tool call count, visited URLs, download/failure counts.",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Tab stats.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "tabId": {
-                      "type": "string"
-                    },
-                    "url": {
-                      "type": "string"
-                    },
-                    "toolCalls": {
-                      "type": "integer"
-                    },
-                    "visitedUrls": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "downloadCount": {
-                      "type": "integer"
-                    },
-                    "consecutiveFailures": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/tabs/{tabId}/evaluate": {
       "post": {
         "tags": [
@@ -2368,6 +2234,140 @@
                           }
                         }
                       }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/screenshot": {
+      "get": {
+        "tags": [
+          "Content"
+        ],
+        "summary": "Take a screenshot",
+        "description": "Returns a base64-encoded PNG screenshot.",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Screenshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "screenshot": {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "string"
+                        },
+                        "mimeType": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/stats": {
+      "get": {
+        "tags": [
+          "Tabs"
+        ],
+        "summary": "Tab statistics",
+        "description": "Returns tab metadata including URL, tool call count, visited URLs, download/failure counts.",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tab stats.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tabId": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "toolCalls": {
+                      "type": "integer"
+                    },
+                    "visitedUrls": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "downloadCount": {
+                      "type": "integer"
+                    },
+                    "consecutiveFailures": {
+                      "type": "integer"
                     }
                   }
                 }
