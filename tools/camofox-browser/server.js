@@ -52,6 +52,7 @@ import { mountDocs } from './lib/openapi.js';
 import { mountSessionRoutes } from './lib/routes/sessions.js';
 import { mountSystemRoutes } from './lib/routes/system.js';
 import { mountTabLifecycleRoutes } from './lib/routes/tabs-lifecycle.js';
+import { mountTabNavigationRoutes } from './lib/routes/tabs-navigation.js';
 import { mountTraceRoutes } from './lib/routes/traces.js';
 import {
   classifyProxyError,
@@ -2175,312 +2176,39 @@ mountTabLifecycleRoutes(app, {
   withTimeout,
 });
 
-// Navigate
-/**
- * @openapi
- * /tabs/{tabId}/navigate:
- *   post:
- *     tags: [Navigation]
- *     summary: Navigate a tab to a URL or macro
- *     description: Navigate to a URL or expand a search macro. Auto-creates tab if not found.
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [userId]
- *             properties:
- *               userId:
- *                 type: string
- *               url:
- *                 type: string
- *               macro:
- *                 type: string
- *                 description: Search macro (e.g. @google_search).
- *               query:
- *                 type: string
- *                 description: Search query for macro.
- *               sessionKey:
- *                 type: string
- *               listItemId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Navigation result with snapshot.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *       400:
- *         description: Bad request.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post('/tabs/:tabId/navigate', async (req, res) => {
-  const tabId = req.params.tabId;
-
-  try {
-    const { userId, url, macro, query, sessionKey, listItemId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
-
-    const result = await withUserLimit(userId, () =>
-      withTimeout(
-        (async () => {
-          await ensureBrowser();
-          const resolvedSessionKey = sessionKey || listItemId || 'default';
-          let session = sessions.get(normalizeUserId(userId));
-          let found = session && findTab(session, tabId);
-
-          let tabState;
-          if (!found) {
-            session = await getSession(userId);
-            let sessionTabs = 0;
-            for (const g of session.tabGroups.values()) sessionTabs += g.size;
-            if (
-              getTotalTabCount() >= MAX_TABS_GLOBAL ||
-              sessionTabs >= MAX_TABS_PER_SESSION
-            ) {
-              // Recycle oldest tab to free a slot, then create new page
-              const recycled = await recycleOldestTab(
-                session,
-                req.reqId,
-                userId,
-              );
-              if (!recycled) {
-                throw new Error('Maximum tabs per session reached');
-              }
-            }
-            {
-              const page = await session.context.newPage();
-              tabState = createTabState(page);
-              attachDownloadListener(
-                tabState,
-                tabId,
-                log,
-                pluginEvents,
-                userId,
-              );
-              const group = getTabGroup(session, resolvedSessionKey);
-              group.set(tabId, tabState);
-              refreshActiveTabsGauge();
-              log('info', 'tab auto-created on navigate', {
-                reqId: req.reqId,
-                tabId,
-                userId,
-              });
-            }
-          } else {
-            tabState = found.tabState;
-          }
-          tabState.toolCalls++;
-          tabState.consecutiveTimeouts = 0;
-          tabState.consecutiveFailures = 0;
-
-          let targetUrl = url;
-          if (
-            macro &&
-            macro !== '__NO__' &&
-            macro !== 'none' &&
-            macro !== 'null'
-          ) {
-            targetUrl = expandMacro(macro, query) || url;
-          }
-
-          if (!targetUrl) throw new Error('url or macro required');
-
-          const urlErr = validateUrl(targetUrl);
-          if (urlErr) throw new Error(urlErr);
-
-          return await withTabLock(
-            tabId,
-            async () => {
-              const currentSessionKey = found?.listItemId || resolvedSessionKey;
-              const isGoogleSearch = isGoogleSearchUrl(targetUrl);
-
-              const navigateCurrentPage = async () => {
-                tabState.lastRequestedUrl = targetUrl;
-                const ac = (tabState.navigateAbort = new AbortController());
-                const gotoP = withPageLoadDuration('navigate', () =>
-                  tabState.page.goto(targetUrl, {
-                    waitUntil: 'domcontentloaded',
-                    timeout: 30000,
-                  }),
-                );
-                try {
-                  await Promise.race([
-                    gotoP,
-                    new Promise((_, reject) =>
-                      ac.signal.addEventListener(
-                        'abort',
-                        () =>
-                          reject(new Error('Navigation aborted: tab deleted')),
-                        { once: true },
-                      ),
-                    ),
-                  ]);
-                  tabState.visitedUrls.add(targetUrl);
-                  tabState.lastSnapshot = null;
-                } catch (err) {
-                  gotoP.catch(() => {}); // suppress unhandled rejection from still-pending goto
-                  throw err;
-                } finally {
-                  tabState.navigateAbort = null;
-                }
-              };
-
-              const prewarmGoogleHome = async () => {
-                if (
-                  !isGoogleSearch ||
-                  tabState.visitedUrls.has('https://www.google.com/')
-                )
-                  return;
-                await withPageLoadDuration('navigate', () =>
-                  tabState.page.goto('https://www.google.com/', {
-                    waitUntil: 'domcontentloaded',
-                    timeout: 30000,
-                  }),
-                );
-                tabState.visitedUrls.add('https://www.google.com/');
-                await tabState.page.waitForTimeout(1200);
-              };
-
-              const recreateTabOnFreshContext = async () => {
-                const previousRetryCount = tabState.googleRetryCount || 0;
-                browserRestartsTotal.labels('google_search_block').inc();
-                // Rotate at context level -- destroy this user's session and create
-                // a fresh one with a new proxy session. Does NOT restart the browser.
-                const key = normalizeUserId(userId);
-                const oldSession = sessions.get(key);
-                if (oldSession) {
-                  await closeSession(key, oldSession, {
-                    reason: 'google_blocked_context_rotate',
-                    clearDownloads: true,
-                    clearLocks: true,
-                  });
-                }
-                session = await getSession(userId);
-                const group = getTabGroup(session, currentSessionKey);
-                const page = await session.context.newPage();
-                tabState = createTabState(page);
-                tabState.googleRetryCount = previousRetryCount + 1;
-                attachDownloadListener(
-                  tabState,
-                  tabId,
-                  log,
-                  pluginEvents,
-                  userId,
-                );
-                group.set(tabId, tabState);
-                refreshActiveTabsGauge();
-              };
-
-              if (isGoogleSearch && proxyPool?.canRotateSessions) {
-                await prewarmGoogleHome();
-              }
-
-              await navigateCurrentPage();
-
-              if (
-                isGoogleSearch &&
-                proxyPool?.canRotateSessions &&
-                (await isGoogleSearchBlocked(tabState.page))
-              ) {
-                log(
-                  'warn',
-                  'google search blocked, rotating browser proxy session',
-                  {
-                    reqId: req.reqId,
-                    tabId,
-                    url: tabState.page.url(),
-                    proxySession: browserLaunchProxy?.sessionId || null,
-                  },
-                );
-                await recreateTabOnFreshContext();
-                await prewarmGoogleHome();
-                await navigateCurrentPage();
-              }
-
-              // For Google SERP: skip eager ref building during navigate.
-              // Results render asynchronously after DOMContentLoaded -- the snapshot
-              // call will wait for and extract them.
-              if (isGoogleSerp(tabState.page.url())) {
-                tabState.refs = new Map();
-                return {
-                  ok: true,
-                  tabId,
-                  url: tabState.page.url(),
-                  refsAvailable: false,
-                  googleSerp: true,
-                };
-              }
-
-              if (
-                isGoogleSearch &&
-                (await isGoogleSearchBlocked(tabState.page))
-              ) {
-                return {
-                  ok: false,
-                  tabId,
-                  url: tabState.page.url(),
-                  refsAvailable: false,
-                  googleBlocked: true,
-                };
-              }
-
-              tabState.refs = await buildRefs(tabState.page);
-              return {
-                ok: true,
-                tabId,
-                url: tabState.page.url(),
-                refsAvailable: tabState.refs.size > 0,
-              };
-            },
-            requestTimeoutMs(),
-          );
-        })(),
-        requestTimeoutMs(),
-        'navigate',
-      ),
-    );
-
-    log('info', 'navigated', { reqId: req.reqId, tabId, url: result.url });
-    pluginEvents.emit('tab:navigated', {
-      userId: req.body.userId,
-      tabId,
-      url: result.url,
-      prevUrl: null,
-    });
-    res.json(result);
-  } catch (err) {
-    log('error', 'navigate failed', {
-      reqId: req.reqId,
-      tabId,
-      error: err.message,
-    });
-    const is400 =
-      err.message &&
-      (err.message.startsWith('Blocked URL scheme') ||
-        err.message === 'url or macro required');
-    if (is400) {
-      return res.status(400).json({ error: safeError(err) });
-    }
-    handleRouteError(err, req, res);
-  }
+mountTabNavigationRoutes(app, {
+  attachDownloadListener,
+  browserRestartsTotal,
+  buildRefs,
+  closeSession,
+  createTabState,
+  ensureBrowser,
+  expandMacro,
+  findTab,
+  getBrowserLaunchProxy: () => browserLaunchProxy,
+  getSession,
+  getTabGroup,
+  getTotalTabCount,
+  handleRouteError,
+  isGoogleSearchBlocked,
+  isGoogleSearchUrl,
+  isGoogleSerp,
+  log,
+  maxTabsGlobal: MAX_TABS_GLOBAL,
+  maxTabsPerSession: MAX_TABS_PER_SESSION,
+  normalizeUserId,
+  pluginEvents,
+  proxyPool,
+  recycleOldestTab,
+  refreshActiveTabsGauge,
+  requestTimeoutMs,
+  safeError,
+  sessions,
+  validateUrl,
+  withPageLoadDuration,
+  withTabLock,
+  withTimeout,
+  withUserLimit,
 });
 
 // Snapshot

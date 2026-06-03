@@ -82,92 +82,6 @@
     }
   },
   "paths": {
-    "/tabs/{tabId}/navigate": {
-      "post": {
-        "tags": [
-          "Navigation"
-        ],
-        "summary": "Navigate a tab to a URL or macro",
-        "description": "Navigate to a URL or expand a search macro. Auto-creates tab if not found.",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "userId"
-                ],
-                "properties": {
-                  "userId": {
-                    "type": "string"
-                  },
-                  "url": {
-                    "type": "string"
-                  },
-                  "macro": {
-                    "type": "string",
-                    "description": "Search macro (e.g. @google_search)."
-                  },
-                  "query": {
-                    "type": "string",
-                    "description": "Search query for macro."
-                  },
-                  "sessionKey": {
-                    "type": "string"
-                  },
-                  "listItemId": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Navigation result with snapshot.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/tabs/{tabId}/snapshot": {
       "get": {
         "tags": [
@@ -2267,6 +2181,92 @@
           },
           "500": {
             "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/navigate": {
+      "post": {
+        "tags": [
+          "Navigation"
+        ],
+        "summary": "Navigate a tab to a URL or macro",
+        "description": "Navigate to a URL or expand a search macro. Auto-creates tab if not found.",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "macro": {
+                    "type": "string",
+                    "description": "Search macro (e.g. @google_search)."
+                  },
+                  "query": {
+                    "type": "string",
+                    "description": "Search query for macro."
+                  },
+                  "sessionKey": {
+                    "type": "string"
+                  },
+                  "listItemId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Navigation result with snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
             "content": {
               "application/json": {
                 "schema": {
