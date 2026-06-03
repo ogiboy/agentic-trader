@@ -208,99 +208,6 @@
         }
       }
     },
-    "/health": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Health check",
-        "description": "Detailed health with tab/session counts and failure tracking.",
-        "responses": {
-          "200": {
-            "description": "Healthy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    },
-                    "engine": {
-                      "type": "string"
-                    },
-                    "browserConnected": {
-                      "type": "boolean"
-                    },
-                    "browserRunning": {
-                      "type": "boolean"
-                    },
-                    "activeTabs": {
-                      "type": "integer"
-                    },
-                    "activeSessions": {
-                      "type": "integer"
-                    },
-                    "consecutiveFailures": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Unhealthy or recovering.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    },
-                    "recovering": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Prometheus metrics",
-        "description": "Returns Prometheus text exposition format. Requires PROMETHEUS_ENABLED=1.",
-        "responses": {
-          "200": {
-            "description": "Prometheus metrics.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Metrics disabled.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/tabs": {
       "post": {
         "tags": [
@@ -1651,7 +1558,7 @@
           "Content"
         ],
         "summary": "Structured data extraction via JSON Schema",
-        "description": "Extracts structured data from the current page using a JSON Schema whose properties\ncarry `x-ref` hints pointing at snapshot element refs (e.g. `e1`, `e2`).  \nCall `GET /tabs/{tabId}/snapshot` first to populate the ref table.\n",
+        "description": "Extracts structured data from the current page using a JSON Schema whose properties\ncarry `x-ref` hints pointing at snapshot element refs (e.g. `e1`, `e2`).\nCall `GET /tabs/{tabId}/snapshot` first to populate the ref table.\n",
         "parameters": [
           {
             "name": "tabId",
@@ -1678,7 +1585,7 @@
                   },
                   "schema": {
                     "type": "object",
-                    "description": "JSON Schema with `type: \"object\"` and a `properties` map.  \nEach property may include `x-ref` (a snapshot element ref) and an optional\n`type` (`string`, `number`, `integer`, `boolean`).\n",
+                    "description": "JSON Schema with `type: \"object\"` and a `properties` map.\nEach property may include `x-ref` (a snapshot element ref) and an optional\n`type` (`string`, `number`, `integer`, `boolean`).\n",
                     "required": [
                       "type",
                       "properties"
@@ -2644,6 +2551,99 @@
           },
           "404": {
             "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Health check",
+        "description": "Detailed health with tab/session counts and failure tracking.",
+        "responses": {
+          "200": {
+            "description": "Healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "engine": {
+                      "type": "string"
+                    },
+                    "browserConnected": {
+                      "type": "boolean"
+                    },
+                    "browserRunning": {
+                      "type": "boolean"
+                    },
+                    "activeTabs": {
+                      "type": "integer"
+                    },
+                    "activeSessions": {
+                      "type": "integer"
+                    },
+                    "consecutiveFailures": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unhealthy or recovering.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "recovering": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Prometheus metrics",
+        "description": "Returns Prometheus text exposition format. Requires PROMETHEUS_ENABLED=1.",
+        "responses": {
+          "200": {
+            "description": "Prometheus metrics.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Metrics disabled.",
             "content": {
               "application/json": {
                 "schema": {

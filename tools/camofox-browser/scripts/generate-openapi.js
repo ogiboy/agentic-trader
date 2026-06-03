@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Generate openapi.json from JSDoc annotations in server.js.
+ * Generate openapi.json from JSDoc annotations in server and route modules.
  * Run: node scripts/generate-openapi.js
  */
 
@@ -16,7 +16,7 @@ const root = join(__dirname, '..');
 
 const spec = swaggerJsdoc({
   definition: swaggerDefinition,
-  apis: [join(root, 'server.js')],
+  apis: [join(root, 'server.js'), join(root, 'lib', 'routes', '**', '*.js')],
 });
 
 const out = join(root, 'openapi.json');

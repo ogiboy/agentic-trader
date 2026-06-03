@@ -55,6 +55,7 @@ import {
   stopMemoryReporter,
 } from './lib/metrics.js';
 import { mountDocs } from './lib/openapi.js';
+import { mountSystemRoutes } from './lib/routes/system.js';
 import {
   classifyProxyError,
   createReporter,
@@ -2337,113 +2338,15 @@ async function refreshTabRefs(tabState, options = {}) {
   return refreshedRefs;
 }
 
-/**
- * @openapi
- * /health:
- *   get:
- *     tags: [System]
- *     summary: Health check
- *     description: Detailed health with tab/session counts and failure tracking.
- *     responses:
- *       200:
- *         description: Healthy.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 engine:
- *                   type: string
- *                 browserConnected:
- *                   type: boolean
- *                 browserRunning:
- *                   type: boolean
- *                 activeTabs:
- *                   type: integer
- *                 activeSessions:
- *                   type: integer
- *                 consecutiveFailures:
- *                   type: integer
- *       503:
- *         description: Unhealthy or recovering.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 recovering:
- *                   type: boolean
- */
-app.get('/health', (req, res) => {
-  if (healthState.isRecovering) {
-    return res
-      .status(503)
-      .json({ ok: false, engine: 'camoufox', recovering: true });
-  }
-  const running = browser !== null && (browser.isConnected?.() ?? false);
-  if (proxyPool?.canRotateSessions && !running) {
-    scheduleBrowserWarmRetry();
-    return res.status(503).json({
-      ok: false,
-      engine: 'camoufox',
-      browserConnected: false,
-      browserRunning: false,
-      warming: true,
-      ...(FLY_MACHINE_ID ? { machineId: FLY_MACHINE_ID } : {}),
-    });
-  }
-  const mem = process.memoryUsage();
-  const rssMb = Math.round(mem.rss / 1048576);
-  const heapUsedMb = Math.round(mem.heapUsed / 1048576);
-  const nativeMemMb = rssMb - heapUsedMb;
-  res.json({
-    ok: true,
-    engine: 'camoufox',
-    browserConnected: running,
-    browserRunning: running,
-    activeTabs: getTotalTabCount(),
-    activeSessions: sessions.size,
-    consecutiveFailures: healthState.consecutiveNavFailures,
-    memory: { rssMb, heapUsedMb, nativeMemMb },
-    ...(FLY_MACHINE_ID ? { machineId: FLY_MACHINE_ID } : {}),
-  });
-});
-
-/**
- * @openapi
- * /metrics:
- *   get:
- *     tags: [System]
- *     summary: Prometheus metrics
- *     description: Returns Prometheus text exposition format. Requires PROMETHEUS_ENABLED=1.
- *     responses:
- *       200:
- *         description: Prometheus metrics.
- *         content:
- *           text/plain:
- *             schema:
- *               type: string
- *       404:
- *         description: Metrics disabled.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.get('/metrics', async (_req, res) => {
-  const reg = getRegister();
-  if (!reg) {
-    res.status(404).json({
-      error: 'Prometheus metrics disabled. Set PROMETHEUS_ENABLED=1 to enable.',
-    });
-    return;
-  }
-  res.set('Content-Type', reg.contentType);
-  res.send(await reg.metrics());
+mountSystemRoutes(app, {
+  flyMachineId: FLY_MACHINE_ID,
+  getBrowserRunning: () => browser !== null && (browser.isConnected?.() ?? false),
+  getRegister,
+  getTotalTabCount,
+  healthState,
+  proxyPool,
+  scheduleBrowserWarmRetry,
+  sessions,
 });
 
 // Create new tab
