@@ -28,7 +28,7 @@ dependencies = [
 ]
 name = "agentic-trader"
 source = {editable = "."}
-version = "0.12.8"
+version = "0.12.9"
 
 [package.dev-dependencies]
 dev = [
