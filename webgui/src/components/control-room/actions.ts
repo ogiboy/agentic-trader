@@ -18,7 +18,7 @@ import
   } from './action-request';
 import { readJson } from './api';
 import type { DashboardLoader } from './dashboard-polling';
-import type { ControlRoomMessage, RuntimeActionKind } from './shell';
+import type { ControlRoomMessage, RuntimeActionKind } from './Shell';
 
 type ControlRoomFeedbackCopy = Readonly<{
   dashboardRefreshed: string;

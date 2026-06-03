@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import {
   ControlRoomLoadingPanel,
   ControlRoomUnavailablePanel,
-} from './loading-panel';
+} from './LoadingPanel';
 
 type ControlRoomContentProps = {
   activeView: ReactNode;

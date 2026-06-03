@@ -1,6 +1,6 @@
 import type { DashboardData } from '../control-room.helpers';
 import { readJson, WebguiHttpError } from './api';
-import type { ControlRoomMessage } from './shell';
+import type { ControlRoomMessage } from './Shell';
 
 export type SetState<T> = (value: T) => void;
 

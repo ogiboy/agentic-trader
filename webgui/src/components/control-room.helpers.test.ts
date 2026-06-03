@@ -29,7 +29,7 @@ import
     sourceHealthSummaryLine,
     systemStatusItems,
     unavailableSectionLines,
-  } from './control-room';
+  } from './ControlRoom';
 import { getControlRoomCopy } from './control-room/labels';
 
 function withIntl(children: React.ReactNode) {

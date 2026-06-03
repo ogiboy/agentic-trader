@@ -9,17 +9,17 @@ import type {
   TabId,
   ToolActionKind,
 } from '../control-room.helpers';
-import { ChatView } from './chat-view';
+import { ChatView } from './ChatView';
 import type {
   ControlRoomDiagnosticsCopySource,
 } from './diagnostics-formatting';
-import { MemoryView } from './memory-view';
-import { OverviewView } from './overview-view';
-import { PortfolioView } from './portfolio-view';
-import { ProposalDeskView } from './proposal-desk-view';
-import { ReviewView } from './review-view';
-import { RuntimeView } from './runtime-view';
-import { SettingsView } from './settings-view';
+import { MemoryView } from './MemoryView';
+import { OverviewView } from './OverviewView';
+import { PortfolioView } from './PortfolioView';
+import { ProposalDeskView } from './ProposalDeskView';
+import { ReviewView } from './ReviewView';
+import { RuntimeView } from './RuntimeView';
+import { SettingsView } from './SettingsView';
 
 type ActiveViewProps = Readonly<{
   tab: TabId;

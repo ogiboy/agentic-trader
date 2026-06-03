@@ -11,7 +11,7 @@ import
     tradeContextLines,
     unavailableSectionLines,
   } from '../control-room.helpers';
-import { Panel, TextList } from './primitives';
+import { Panel, TextList } from './Primitives';
 
 export function ReviewView({
   dashboard,

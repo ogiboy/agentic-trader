@@ -19,7 +19,7 @@ import {
   normalizeWebguiLocale,
   type WebguiLocale,
 } from '@/i18n/locales';
-import { WebguiTokenPrompt } from './primitives';
+import { WebguiTokenPrompt } from './Primitives';
 
 export type RuntimeActionKind =
   | 'refresh'

@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl';
 
 import type { DashboardData } from '../control-room.helpers';
 import { asRecord, asString } from '../control-room.helpers';
-import { Panel, TextList } from './primitives';
+import { Panel, TextList } from './Primitives';
 
 function chatPersonaLabel(
   persona: unknown,

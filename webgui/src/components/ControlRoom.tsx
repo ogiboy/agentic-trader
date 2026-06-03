@@ -20,9 +20,9 @@ import type {
 } from './control-room.helpers';
 import { normalizeChatHistory } from './control-room.helpers';
 import { useControlRoomActions } from './control-room/actions';
-import { ActiveView } from './control-room/active-view';
+import { ActiveView } from './control-room/ActiveView';
 import { authenticateWebguiSession, errorMessage } from './control-room/api';
-import { ControlRoomContent } from './control-room/content';
+import { ControlRoomContent } from './control-room/ControlRoomContent';
 import { useDashboardPolling } from './control-room/dashboard-polling';
 import { CONTROL_ROOM_TAB_IDS } from './control-room/labels';
 import {
@@ -34,7 +34,7 @@ import
     ControlRoomAuthShell,
     ControlRoomShell,
     type ControlRoomMessage,
-  } from './control-room/shell';
+  } from './control-room/Shell';
 import
   {
     useControlRoomLocaleState,
@@ -46,65 +46,7 @@ import
     systemStatusViewItems,
   } from './control-room/view-model';
 
-export
-{
-  canonicalLines,
-  failedCheckNames,
-  formatList,
-  formatNumber,
-  formatPercent,
-  formatSourceHealthCount,
-  formatTimestamp,
-  localToolActionLines,
-  localToolLines,
-  marketContextLines,
-  normalizeChatHistory,
-  positionPlanCoverageLines,
-  proposalHeadline,
-  proposalLines,
-  providerWarningLines,
-  readinessLines,
-  sourceHealthSummaryLine,
-  systemStatusItems,
-  tradeContextLines,
-  unavailableSectionLines
-} from './control-room.helpers';
-export type {
-  DashboardData,
-  InstructionMode,
-  InstructionResult,
-  KeyValueItems,
-  MessageTone,
-  PanelAccent,
-  ProposalActionKind,
-  TabId,
-  ToolActionKind
-} from './control-room.helpers';
-export { ActiveView } from './control-room/active-view';
-export { readJson, WebguiHttpError } from './control-room/api';
-export { ChatView } from './control-room/chat-view';
-export
-{
-  ControlRoomLoadingPanel,
-  ControlRoomUnavailablePanel
-} from './control-room/loading-panel';
-export { MemoryView } from './control-room/memory-view';
-export { OverviewView } from './control-room/overview-view';
-export { PortfolioView } from './control-room/portfolio-view';
-export { ProposalDeskView } from './control-room/proposal-desk-view';
-export { ReviewView } from './control-room/review-view';
-export { RuntimeView } from './control-room/runtime-view';
-export { SettingsView } from './control-room/settings-view';
-export
-{
-  useControlRoomLocaleState,
-  useLoadingSeconds
-} from './control-room/state-hooks';
-export
-{
-  currentCycleItems,
-  systemStatusViewItems
-} from './control-room/view-model';
+export * from './control-room/public-api';
 
 /**
  * Operator control room UI component for viewing dashboard data and controlling runtime, local tools, chat, and operator instructions.

@@ -8,7 +8,7 @@ import
     formatTimestamp,
     unavailableSectionLines,
   } from '../control-room.helpers';
-import { Panel, TextList } from './primitives';
+import { Panel, TextList } from './Primitives';
 
 function textValue(value: unknown): string {
   if (

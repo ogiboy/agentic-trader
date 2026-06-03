@@ -8,7 +8,7 @@ import
     asString,
     formatTimestamp,
   } from '../control-room.helpers';
-import { KeyValueList, Panel, TextList } from './primitives';
+import { KeyValueList, Panel, TextList } from './Primitives';
 
 export function RuntimeView({
   dashboard,

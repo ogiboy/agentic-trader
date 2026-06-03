@@ -14,7 +14,7 @@ import
     positionPlanCoverageLines,
     unavailableSectionLines,
   } from '../control-room.helpers';
-import { JsonPreview, KeyValueList, Panel, TextList } from './primitives';
+import { JsonPreview, KeyValueList, Panel, TextList } from './Primitives';
 
 /**
  * Render the Portfolio tab panels showing portfolio metrics, risk report, trade journal, exit plan coverage, preferences, and desk accounting notes.

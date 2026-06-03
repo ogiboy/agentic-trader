@@ -14,7 +14,7 @@ import {
   proposalHeadline,
   proposalLines,
 } from '../control-room.helpers';
-import { KeyValueList, Panel, TextList } from './primitives';
+import { KeyValueList, Panel, TextList } from './Primitives';
 
 /**
  * Render the Proposal Desk panel with proposal cards, a review-note composer, and safety metadata.

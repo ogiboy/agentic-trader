@@ -13,7 +13,7 @@ import
     readJson,
     sourceHealthSummaryLine,
     tradeContextLines,
-  } from './control-room';
+  } from './ControlRoom';
 
 describe('control-room formatting helpers', () => {
   it('formats primitive display values defensively', () => {
