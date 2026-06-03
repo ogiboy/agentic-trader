@@ -185,97 +185,6 @@
         }
       }
     },
-    "/tabs/{tabId}/click": {
-      "post": {
-        "tags": [
-          "Interaction"
-        ],
-        "summary": "Click an element",
-        "description": "Click by element ref, CSS selector, or coordinates.",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "userId"
-                ],
-                "properties": {
-                  "userId": {
-                    "type": "string"
-                  },
-                  "ref": {
-                    "type": "string",
-                    "description": "Element ref ID (e.g. \"e3\")."
-                  },
-                  "selector": {
-                    "type": "string",
-                    "description": "CSS selector fallback."
-                  },
-                  "doubleClick": {
-                    "type": "boolean"
-                  },
-                  "coordinates": {
-                    "type": "object",
-                    "properties": {
-                      "x": {
-                        "type": "number"
-                      },
-                      "y": {
-                        "type": "number"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Click result with optional post-action snapshot.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/": {
       "get": {
         "tags": [
@@ -2370,6 +2279,97 @@
                       "type": "integer"
                     }
                   }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/click": {
+      "post": {
+        "tags": [
+          "Interaction"
+        ],
+        "summary": "Click an element",
+        "description": "Click by element ref, CSS selector, or coordinates.",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string",
+                    "description": "Element ref ID (e.g. \"e3\")."
+                  },
+                  "selector": {
+                    "type": "string",
+                    "description": "CSS selector fallback."
+                  },
+                  "doubleClick": {
+                    "type": "boolean"
+                  },
+                  "coordinates": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Click result with optional post-action snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
