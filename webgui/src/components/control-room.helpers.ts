@@ -28,6 +28,7 @@ export
 } from './control-room/context-formatting';
 export
 {
+  diagnosticsCopy,
   failedCheckNames,
   formatSourceHealthCount,
   localizedStatusText,
@@ -35,6 +36,9 @@ export
   readinessLines,
   sourceHealthSummaryLine,
   systemStatusItems
+} from './control-room/diagnostics-formatting';
+export type {
+  ControlRoomDiagnosticsCopySource
 } from './control-room/diagnostics-formatting';
 export
 {

@@ -16,8 +16,11 @@ from pathlib import Path
 from typing import cast
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCAN_ROOTS = ("agentic_trader", "webgui/src", "docs", "tui")
-CODE_SUFFIXES = {".py", ".ts", ".tsx", ".mjs", ".css", ".mdx"}
+SCAN_ROOTS = (
+    "agentic_trader", "webgui/src", "docs", "tui", "scripts", "tools",
+    "sidecars/research_flow", ".ai",
+)
+CODE_SUFFIXES = {".py", ".ts", ".tsx", ".mjs", ".js", ".css", ".md", ".mdx"}
 SKIP_DIRS = {
     ".git",
     ".mypy_cache",
@@ -27,6 +30,7 @@ SKIP_DIRS = {
     ".sonar",
     ".venv",
     "__pycache__",
+    "artifacts",
     "build",
     "coverage",
     "dist",

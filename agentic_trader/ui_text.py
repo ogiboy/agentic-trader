@@ -20,6 +20,14 @@ from agentic_trader.i18n.ui_text.catalog import (
     normalize_locale,
 )
 from agentic_trader.i18n.ui_text.legacy import LEGACY_EXPORTS
+from agentic_trader.i18n.ui_text.translator import (
+    MissingUITranslationError,
+    UITranslationFormatError,
+    candidate_field_names,
+    resolve_translation_field,
+    t,
+    translate,
+)
 
 _PUBLIC_API = (
     EN_TEXT,
@@ -29,8 +37,14 @@ _PUBLIC_API = (
     UILocale,
     UI_TEXT,
     UI_LOCALE_ENV,
+    MissingUITranslationError,
+    UITranslationFormatError,
     get_ui_text,
     normalize_locale,
+    candidate_field_names,
+    resolve_translation_field,
+    t,
+    translate,
 )
 _PUBLIC_API_NAMES = (
     "EN_TEXT",
@@ -40,8 +54,14 @@ _PUBLIC_API_NAMES = (
     "UILocale",
     "UI_TEXT",
     "UI_LOCALE_ENV",
+    "MissingUITranslationError",
+    "UITranslationFormatError",
+    "candidate_field_names",
     "get_ui_text",
     "normalize_locale",
+    "resolve_translation_field",
+    "t",
+    "translate",
 )
 
 globals().update(LEGACY_EXPORTS)

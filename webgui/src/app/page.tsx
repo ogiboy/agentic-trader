@@ -1,4 +1,4 @@
-import { ControlRoom } from '@/components/control-room';
+import { ControlRoom } from '@/components/ControlRoom';
 
 const Home = () => {
   return <ControlRoom />;

@@ -74,7 +74,7 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_STATUS,
     TITLE_SYSTEM_STATUS,
-    get_ui_text,
+    t,
 )
 
 console = Console()
@@ -96,9 +96,7 @@ def safe_open_read_db(settings: Settings) -> TradingDatabase | None:
 
 
 def observer_mode_panel(feature: str, error: str | None = None) -> Panel:
-    body = get_ui_text().message_observer_mode_temporarily_unavailable.format(
-        feature=feature
-    )
+    body = t("observer.mode.temporarily_unavailable", feature=feature)
     if error:
         body += f"\n\n{error}"
     return Panel(body, title=LABEL_OBSERVER_MODE, border_style="yellow")

@@ -1,4 +1,4 @@
-import { DocPageShell } from '@/components/docs/doc-page-shell';
+import { DocPageShell } from '@/components/docs/DocPageShell';
 import { getDocPage } from '@/lib/content/get-doc-page';
 import { getDocLanguage } from '@/lib/i18n/routing';
 import { source } from '@/lib/source';

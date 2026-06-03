@@ -68,6 +68,13 @@ modular files when:
 - testing or reasoning improves when logic is extracted
 - a frontend shell starts coupling data access, copy, and rendering too tightly
 
+## Operator copy and i18n
+
+Machine-readable JSON, observer, dashboard, and API keys remain stable English
+contracts. Operator-facing terminal copy should use the shared Python UI text
+catalog through `ui_text.t("namespace.key")` or a passed `UITextCatalog` instead
+of importing large label tables into new command, Rich, or TUI modules.
+
 ## What counts as architecture drift
 
 Examples of drift we want to avoid:

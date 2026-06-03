@@ -50,10 +50,10 @@ from agentic_trader.ui_text import (
     TITLE_TOOL_READINESS,
     TITLE_WEB_GUI_SERVICE,
     TITLE_WEB_GUI_STDERR_TAIL,
-    get_ui_text,
+    t,
 )
 
-LABEL_MODEL_SERVICE = get_ui_text().label_model_service
+LABEL_MODEL_SERVICE = t("label.model_service")
 
 
 def render_setup_status(payload: dict[str, object]) -> None:

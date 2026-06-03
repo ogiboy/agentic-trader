@@ -46,11 +46,14 @@ it improves clarity. Good reasons to split a file:
 - locale-aware or feature-aware copy becomes easier to test in isolation
 
 The docs app now follows that pattern with separate `components/home`,
-`components/feedback`, `components/layout`, `lib/i18n`, and `lib/home/content`
-modules. The Web GUI control room follows the same direction: the top-level
-component should stay a state/render coordinator while view files, shell chrome,
-dashboard polling, action handlers, request helpers, primitives, and typed
-per-locale English/Turkish copy live in focused modules.
+`components/feedback`, `components/layout`, `components/ui/primitives`,
+`lib/i18n`, and `lib/home/content` modules. The Web GUI control room follows the
+same direction: the top-level component should stay a state/render coordinator
+while view files, shell chrome, dashboard polling, action handlers, request
+helpers, primitives, and typed per-locale English/Turkish copy live in focused
+modules. React component files use PascalCase names so component boundaries are
+visible in reviews; copy, formatting, hooks, and request helpers keep role-based
+lowercase names.
 
 ## Web GUI migration reality
 
@@ -62,8 +65,26 @@ re-growing the coordinator.
 
 The current split includes `state-hooks`, `view-model`, `action-request`,
 `formatting`, `diagnostics-formatting`, `context-formatting`, loading panels,
-focused view modules, shell chrome, primitives, and typed English/Turkish copy
-modules under `webgui/src/components/control-room/`.
+focused PascalCase view modules, shell chrome, primitives, and typed
+English/Turkish copy modules under `webgui/src/components/control-room/`.
+`webgui/src/components/ControlRoom.tsx` is the public facade and should not grow
+into a second implementation file.
+
+## Web GUI i18n rule
+
+Web GUI render-boundary copy uses `next-intl`. The app wires the
+`next-intl/plugin`, request config, locale routing, typed messages, and a
+client provider under `webgui/src/i18n/`. Components should prefer
+`useTranslations("controlRoom.section")` and local view-model helpers instead of
+importing a whole copy catalog. Keep observer/API/dashboard JSON keys stable in
+English because those keys are runtime contracts, not UI strings.
+
+## Docs i18n rule
+
+Docs stay on Fumadocs i18n with `/en/...` and `/tr/...` routes. Do not move docs
+onto `next-intl` only because Web GUI uses it; the docs app already has content
+routing, localized MDX, and navigation copy modules that match Fumadocs'
+contract.
 
 Safe migration rules:
 

@@ -1,8 +1,8 @@
 /**
  * OpenAPI spec generation via swagger-jsdoc + docs UI (swagger-stripey).
  *
- * swagger-jsdoc scans JSDoc `@openapi` comments on route handlers in server.js
- * (and any file passed in `apis`) to build the spec at startup.
+ * swagger-jsdoc scans JSDoc `@openapi` comments on route handlers in server.js,
+ * route modules under lib/routes, and any file passed in `apis`.
  * Docs UI lives in docs/api.html (swagger-stripey: Stripe-style 3-panel renderer).
  *
  * Usage:
@@ -101,10 +101,10 @@ const swaggerDefinition = {
  *
  * @param {import('express').Application} app
  * @param {Object} [opts]
- * @param {string[]} [opts.apis] - Glob patterns for files with @openapi JSDoc (default: ['./server.js'])
+ * @param {string[]} [opts.apis] - Glob patterns for files with @openapi JSDoc.
  */
 export function mountDocs(app, opts = {}) {
-  const apis = opts.apis || ['./server.js'];
+  const apis = opts.apis || ['./server.js', './lib/routes/**/*.js'];
 
   const spec = swaggerJsdoc({
     definition: swaggerDefinition,

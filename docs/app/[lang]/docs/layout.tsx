@@ -1,4 +1,4 @@
-import { DocsSidebarBanner } from '@/components/layout/docs-sidebar-banner';
+import { DocsSidebarBanner } from '@/components/layout/DocsSidebarBanner';
 import { getDocLanguage } from '@/lib/i18n/routing';
 import { baseOptions } from '@/lib/layout.shared';
 import { source } from '@/lib/source';

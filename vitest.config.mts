@@ -19,6 +19,8 @@ export default defineConfig({
       'webgui/src/**/*.test.ts',
       'tui/**/*.test.mjs',
       'docs/**/*.test.mjs',
+      'docs/**/*.test.ts',
+      'docs/**/*.test.tsx',
     ],
   },
 });
