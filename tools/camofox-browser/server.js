@@ -9,7 +9,6 @@ import {
   isLoopbackAddress as _isLoopbackAddress,
   timingSafeCompare as _timingSafeCompare,
   accessKeyMiddleware,
-  extractBearerToken,
   requireAuth,
 } from './lib/auth.js';
 import { loadConfig } from './lib/config.js';
@@ -50,6 +49,7 @@ import {
   stopMemoryReporter,
 } from './lib/metrics.js';
 import { mountDocs } from './lib/openapi.js';
+import { mountSessionRoutes } from './lib/routes/sessions.js';
 import { mountSystemRoutes } from './lib/routes/system.js';
 import { mountTraceRoutes } from './lib/routes/traces.js';
 import {
@@ -222,9 +222,8 @@ const INTERACTIVE_ROLES = [
 // Patterns to skip (date pickers, calendar widgets)
 const SKIP_PATTERNS = [/date/i, /calendar/i, /picker/i, /datepicker/i];
 
-// timingSafeCompare and isLoopbackAddress imported from lib/auth.js
+// timingSafeCompare imported from lib/auth.js
 const timingSafeCompare = _timingSafeCompare;
-const isLoopbackAddress = _isLoopbackAddress;
 
 // Custom error for stale/unknown element refs -- returned as 422 instead of 500
 class StaleRefsError extends Error {
@@ -268,195 +267,6 @@ function validateUrl(url) {
     return `Invalid URL: ${url}`;
   }
 }
-
-// isLoopbackAddress -- now imported from lib/auth.js (see top of file)
-
-// Import cookies into a user's browser context (Playwright cookies format)
-// POST /sessions/:userId/cookies { cookies: Cookie[] }
-//
-// SECURITY:
-// Cookie injection moves this from "anonymous browsing" to "authenticated browsing".
-/**
- * @openapi
- * /sessions/{userId}/cookies:
- *   post:
- *     tags: [Sessions]
- *     summary: Import cookies into a user session
- *     description: Import cookies for authenticated browsing. Requires BearerAuth in production.
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - name: userId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *         description: Session owner identifier.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [cookies]
- *             properties:
- *               cookies:
- *                 type: array
- *                 maxItems: 500
- *                 items:
- *                   type: object
- *                   required: [name, value, domain]
- *                   properties:
- *                     name:
- *                       type: string
- *                     value:
- *                       type: string
- *                     domain:
- *                       type: string
- *                     path:
- *                       type: string
- *                     expires:
- *                       type: number
- *                     httpOnly:
- *                       type: boolean
- *                     secure:
- *                       type: boolean
- *                     sameSite:
- *                       type: string
- *                       enum: [Strict, Lax, None]
- *     responses:
- *       200:
- *         description: Cookies imported.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 userId:
- *                   type: string
- *                 count:
- *                   type: integer
- *       400:
- *         description: Invalid cookie data.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       403:
- *         description: Forbidden.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post(
-  '/sessions/:userId/cookies',
-  express.json({ limit: '512kb' }),
-  async (req, res) => {
-    try {
-      if (CONFIG.apiKey) {
-        const apiKey = CONFIG.apiKey;
-        const token = extractBearerToken(req.headers['authorization']);
-        if (!token || !timingSafeCompare(token, apiKey)) {
-          return res.status(403).json({ error: 'Forbidden' });
-        }
-      } else {
-        const remoteAddress = req.socket?.remoteAddress || '';
-        const allowUnauthedLocal =
-          CONFIG.nodeEnv !== 'production' && isLoopbackAddress(remoteAddress);
-        if (!allowUnauthedLocal) {
-          return res.status(403).json({
-            error:
-              'Cookie import is disabled without CAMOFOX_API_KEY except for loopback requests in non-production environments.',
-          });
-        }
-      }
-
-      const userId = req.params.userId;
-      if (!req.body || !('cookies' in req.body)) {
-        return res
-          .status(400)
-          .json({ error: 'Missing "cookies" field in request body' });
-      }
-      const cookies = req.body.cookies;
-      if (!Array.isArray(cookies)) {
-        return res.status(400).json({ error: 'cookies must be an array' });
-      }
-
-      if (cookies.length > 500) {
-        return res
-          .status(400)
-          .json({ error: 'Too many cookies. Maximum 500 per request.' });
-      }
-
-      const invalid = [];
-      for (let i = 0; i < cookies.length; i++) {
-        const c = cookies[i];
-        const missing = [];
-        if (!c || typeof c !== 'object') {
-          invalid.push({ index: i, error: 'cookie must be an object' });
-          continue;
-        }
-        if (typeof c.name !== 'string' || !c.name) missing.push('name');
-        if (typeof c.value !== 'string') missing.push('value');
-        if (typeof c.domain !== 'string' || !c.domain) missing.push('domain');
-        if (missing.length) invalid.push({ index: i, missing });
-      }
-      if (invalid.length) {
-        return res.status(400).json({
-          error:
-            'Invalid cookie objects: each cookie must include name, value, and domain',
-          invalid,
-        });
-      }
-
-      const allowedFields = [
-        'name',
-        'value',
-        'domain',
-        'path',
-        'expires',
-        'httpOnly',
-        'secure',
-        'sameSite',
-      ];
-      const sanitized = cookies.map((c) => {
-        const clean = {};
-        for (const k of allowedFields) {
-          if (c[k] !== undefined) clean[k] = c[k];
-        }
-        return clean;
-      });
-
-      const session = await getSession(userId);
-      await session.context.addCookies(sanitized);
-      const result = {
-        ok: true,
-        userId: String(userId),
-        count: sanitized.length,
-      };
-      log('info', 'cookies imported', {
-        reqId: req.reqId,
-        userId: String(userId),
-        count: sanitized.length,
-      });
-      pluginEvents.emit('session:cookies:import', {
-        userId: String(userId),
-        count: sanitized.length,
-      });
-      res.json(result);
-    } catch (err) {
-      failuresTotal.labels(classifyError(err), 'set_cookies').inc();
-      log('error', 'cookie import failed', {
-        reqId: req.reqId,
-        error: err.message,
-      });
-      res.status(500).json({ error: safeError(err) });
-    }
-  },
-);
 
 let browser = null;
 let _lastBrowserPid = null; // Track PID independently for force-kill after close
@@ -4755,58 +4565,18 @@ mountTraceRoutes(app, {
   normalizeUserId,
   tracesDir: CONFIG.tracesDir,
 });
-
-// Close session
-/**
- * @openapi
- * /sessions/{userId}:
- *   delete:
- *     tags: [Sessions]
- *     summary: Destroy a user session
- *     description: Closes all tabs and cleans up state for the given userId.
- *     parameters:
- *       - name: userId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Session destroyed.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 closed:
- *                   type: integer
- *       404:
- *         description: Session not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.delete('/sessions/:userId', async (req, res) => {
-  try {
-    const userId = normalizeUserId(req.params.userId);
-    const session = sessions.get(userId);
-    if (session) {
-      await closeSession(userId, session, {
-        reason: 'api_delete_session',
-        clearDownloads: true,
-        clearLocks: true,
-      });
-      log('info', 'session closed', { userId });
-    }
-    if (sessions.size === 0) scheduleBrowserIdleShutdown();
-    res.json({ ok: true });
-  } catch (err) {
-    log('error', 'session close failed', { error: err.message });
-    handleRouteError(err, req, res);
-  }
+mountSessionRoutes(app, {
+  closeSession,
+  config: CONFIG,
+  failuresTotal,
+  getSession,
+  handleRouteError,
+  log,
+  normalizeUserId,
+  pluginEvents,
+  safeError,
+  scheduleBrowserIdleShutdown,
+  sessions,
 });
 
 // Cleanup stale sessions
