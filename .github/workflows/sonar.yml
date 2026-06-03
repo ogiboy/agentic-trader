@@ -67,19 +67,16 @@ jobs:
 
       - name: Run SonarCloud scan
         if: ${{ env.SONAR_TOKEN != '' }}
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v7
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
-        with:
-          projectBaseDir: .
-          args: >-
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }}
-            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
-            -Dsonar.python.coverage.reportPaths=.ai/qa/artifacts/sonar/coverage.xml
-            -Dsonar.javascript.lcov.reportPaths=.ai/qa/artifacts/sonar/webgui-coverage/lcov.info
+          SONAR_ORGANIZATION: ${{ env.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
+          SONAR_ARTIFACT_DIR: .ai/qa/artifacts/sonar
+          SONAR_COVERAGE_XML: .ai/qa/artifacts/sonar/coverage.xml
+          SONAR_JAVASCRIPT_LCOV: .ai/qa/artifacts/sonar/webgui-coverage/lcov.info
+          SONAR_SKIP_COVERAGE: '1'
+        run: scripts/qa/run_sonar_scan.sh pysonar
 
       - name: Explain skipped SonarCloud scan
         if: ${{ env.SONAR_TOKEN == '' }}
