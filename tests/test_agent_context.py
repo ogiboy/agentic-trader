@@ -3,9 +3,9 @@ from pathlib import Path
 import pandas as pd
 
 from agentic_trader.agents.context import (
-    render_decision_feature_summary,
     build_agent_context,
     render_agent_context,
+    render_decision_feature_summary,
 )
 from agentic_trader.config import Settings
 from agentic_trader.features import build_decision_feature_bundle

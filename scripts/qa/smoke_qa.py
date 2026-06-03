@@ -1,45 +1,31 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import io
-import json
 import os
-import shlex
 import shutil
 import subprocess
-import sys
-import time
-import pexpect
-import pandas as pd
-from agentic_trader.market.features import build_snapshot
 from argparse import ArgumentParser, Namespace
-from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
-from uuid import uuid4
+
+from scripts.qa.smoke_qa_modules import commands
+from scripts.qa.smoke_qa_modules import environment as smoke_environment
+from scripts.qa.smoke_qa_modules import ink_navigation, interactive, reporting
+from scripts.qa.smoke_qa_modules.common import (
+    artifact_path as _artifact_path,
+    coverage_path as _coverage_path,
+    write_artifact as _write_artifact,
+)
+from scripts.qa.smoke_qa_modules.environment import (
+    DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE,
+)
+from scripts.qa.smoke_qa_modules.market_context import (
+    run_market_context_edge_case_check,
+)
+from scripts.qa.smoke_qa_modules.models import CheckResult, SmokeContext
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
-TRACEBACK_MARKERS = ("Traceback (most recent call last):", "KeyboardInterrupt")
-OPERATOR_NOISE_MARKERS = (
-    "LLM structured validation failed on attempt",
-    "LLM structured request issue on attempt",
-    "LLM text request issue on attempt",
-    "Failed download:",
-)
-RENDER_SECONDS = 3.0
-EXIT_WAIT_SECONDS = 2.0
-TUI_READY_PATTERNS = (
-    r"Agentic Trader",
-    r"AGENTIC TRADER",
-    r"CONTROL ROOM",
-    r"Main Menu",
-    r"Select action",
-    r"Overview",
-)
-PROMPT_SELECT_ACTION = "Select action"
-PROMPT_PRESS_ENTER = "Press Enter to continue"
 DEFAULT_SONAR_HOST_URL = "http://localhost:9000"
 DEFAULT_SONAR_PROJECT_KEY = "agentic-trader"
 DEFAULT_SONAR_ORGANIZATION = ""
@@ -48,329 +34,52 @@ DEFAULT_SONAR_SOURCES = (
     "docs/content,docs/lib,tui"
 )
 DEFAULT_SONAR_TESTS = "tests"
-DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE = "codex-sonarqube-token"
-HELP_COMMANDS = (
-    ("top_help", ["--help"]),
-    ("top_short_help", ["-h"]),
-    ("run_help", ["run", "--help"]),
-    ("launch_help", ["launch", "--help"]),
-    ("broker_status_help", ["broker-status", "--help"]),
-    ("trade_context_help", ["trade-context", "--help"]),
-    ("tui_help", ["tui", "--help"]),
-    ("menu_help", ["menu", "--help"]),
-    ("webgui_service_help", ["webgui-service", "--help"]),
-    ("observer_api_help", ["observer-api", "--help"]),
-)
-HELP_INTERNAL_MARKERS = ("Parameters:", "Raises:", "Returns:")
-
-
-@dataclass(frozen=True)
-class CheckResult:
-    name: str
-    passed: bool
-    details: str
-    artifact: str | None = None
-
-
-@dataclass(frozen=True)
-class SmokeContext:
-    artifacts_dir: Path
-
-
-def _artifact_path(context: SmokeContext, name: str) -> Path:
-    """
-    Return the Path to a log artifact for a named check, creating the artifacts directory if necessary.
-
-    Parameters:
-        context (SmokeContext): Context containing the artifacts_dir where logs are stored.
-        name (str): Base name for the artifact file (no extension).
-
-    Returns:
-        Path: Path to the artifact file at `<artifacts_dir>/<name>.log`.
-    """
-    context.artifacts_dir.mkdir(parents=True, exist_ok=True)
-    return context.artifacts_dir / f"{name}.log"
-
-
-def _coverage_path(context: SmokeContext) -> Path:
-    """
-    Return the file path for the coverage XML artifact inside the provided context's artifacts directory.
-
-    Parameters:
-        context (SmokeContext): Context containing the artifacts_dir.
-
-    Returns:
-        Path: Path to coverage.xml within the artifacts directory.
-    """
-    return context.artifacts_dir / "coverage.xml"
-
-
-def _command_display(command: list[str]) -> str:
-    """
-    Format a command and its arguments for human-readable display.
-
-    Returns:
-        A single space-separated string containing the command and its arguments.
-    """
-    return " ".join(command)
 
 
 def _current_git_branch() -> str | None:
-    """
-    Return the current Git branch name for the repository checkout when it is not detached.
-
-    Returns:
-        branch_name (str | None): The current branch name, or `None` if the checkout is detached, the branch cannot be determined, or an error occurs.
-    """
-    try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=5,
-            check=False,
-        )
-    except Exception:
-        return None
-    branch = proc.stdout.strip()
-    if proc.returncode != 0 or not branch or branch == "HEAD":
-        return None
-    return branch
+    return smoke_environment.current_git_branch(
+        REPO_ROOT, subprocess_module=subprocess
+    )
 
 
 def _current_git_commit() -> str | None:
-    """Return the current short Git commit when available."""
-    try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=5,
-            check=False,
-        )
-    except Exception:
-        return None
-    commit = proc.stdout.strip()
-    if proc.returncode != 0 or not commit:
-        return None
-    return commit
+    return smoke_environment.current_git_commit(
+        REPO_ROOT, subprocess_module=subprocess
+    )
 
 
 def _git_worktree_dirty() -> bool | None:
-    """Return whether Git sees tracked or untracked worktree changes."""
-    try:
-        proc = subprocess.run(
-            ["git", "status", "--short", "--untracked-files=all"],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=5,
-            check=False,
-        )
-    except Exception:
-        return None
-    if proc.returncode != 0:
-        return None
-    return bool(proc.stdout.strip())
-
-
-def _redact_sensitive_text(text: str, sensitive_values: tuple[str, ...]) -> str:
-    """
-    Redact occurrences of sensitive substrings in a text string.
-
-    Parameters:
-        text (str): The input text that may contain sensitive values.
-        sensitive_values (tuple[str, ...]): Substrings to redact; empty strings are ignored.
-
-    Returns:
-        str: The input text with each non-empty sensitive value replaced by "<redacted>".
-    """
-    redacted = text
-    for value in sensitive_values:
-        if value:
-            redacted = redacted.replace(value, "<redacted>")
-    return redacted
+    return smoke_environment.git_worktree_dirty(
+        REPO_ROOT, subprocess_module=subprocess
+    )
 
 
 def _resolve_sonar_token() -> str | None:
-    """
-    Resolve the Sonar authentication token from the environment or macOS Keychain.
-
-    Checks the `SONAR_TOKEN` environment variable first. On macOS, if that is unset and the `security` utility is available,
-    attempts to read a generic password item from the Keychain using the service from
-    `SONAR_TOKEN_KEYCHAIN_SERVICE` (or the module default) and the account from
-    `SONAR_TOKEN_KEYCHAIN_ACCOUNT` (or `$USER`). Returns `None` if no token can be found
-    or if any lookup step fails.
-
-    Returns:
-        sonar_token (str | None): The resolved token string, or `None` when not available.
-    """
-    token = os.environ.get("SONAR_TOKEN")
-    if token:
-        return token
-    if sys.platform != "darwin" or shutil.which("security") is None:
-        return None
-    service = os.environ.get(
-        "SONAR_TOKEN_KEYCHAIN_SERVICE", DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE
+    return smoke_environment.resolve_sonar_token(
+        default_service=DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE,
+        env=os.environ,
+        which=shutil.which,
+        subprocess_module=subprocess,
     )
-    account = os.environ.get("SONAR_TOKEN_KEYCHAIN_ACCOUNT", os.environ.get("USER", ""))
-    if not account:
-        return None
-    try:
-        proc = subprocess.run(
-            [
-                "security",
-                "find-generic-password",
-                "-a",
-                account,
-                "-s",
-                service,
-                "-w",
-            ],
-            text=True,
-            capture_output=True,
-            timeout=10,
-            check=False,
-        )
-    except Exception:
-        return None
-    if proc.returncode != 0:
-        return None
-    return proc.stdout.strip() or None
 
 
 def _resolve_managed_conda_env_name() -> str | None:
-    """
-    Get the legacy Conda environment name declared in the repository's Codex environment manifest.
-
-    Reads .codex/environments/environment.toml and returns the first token following the first occurrence of the literal "conda activate ". Quotes around the name are stripped.
-
-    Returns:
-        str | None: The declared Conda environment name if found, `None` otherwise.
-    """
-    manifest_path = REPO_ROOT / ".codex" / "environments" / "environment.toml"
-    if not manifest_path.exists():
-        return None
-    manifest = manifest_path.read_text(encoding="utf-8", errors="replace")
-    marker = "conda activate "
-    index = manifest.find(marker)
-    if index == -1:
-        return None
-    remainder = manifest[index + len(marker) :].lstrip()
-    lines = remainder.splitlines()
-    if not lines:
-        return None
-    env_name = lines[0].strip().strip("'").strip('"')
-    return env_name or None
+    return smoke_environment.resolve_managed_conda_env_name(REPO_ROOT)
 
 
 def _resolve_smoke_python() -> str:
-    """
-    Resolve the Python executable that smoke QA should use for commands and quality gates.
-
-    Preference order:
-    1. explicit `AGENTIC_TRADER_PYTHON`
-    2. active virtualenv
-    3. repo-managed uv `.venv`
-    4. active non-base Conda env
-    5. legacy repo-managed Conda env from `.codex/environments/environment.toml`
-    6. current interpreter as a final fallback
-    """
-    candidates: list[Path] = []
-
-    explicit_python = os.environ.get("AGENTIC_TRADER_PYTHON")
-    if explicit_python:
-        candidates.append(Path(explicit_python).expanduser())
-
-    virtual_env = os.environ.get("VIRTUAL_ENV")
-    if virtual_env:
-        candidates.append(Path(virtual_env) / "bin" / "python")
-
-    candidates.append(REPO_ROOT / ".venv" / "bin" / "python")
-
-    conda_prefix = os.environ.get("CONDA_PREFIX")
-    conda_default_env = os.environ.get("CONDA_DEFAULT_ENV")
-    if conda_prefix and conda_default_env and conda_default_env != "base":
-        candidates.append(Path(conda_prefix) / "bin" / "python")
-
-    managed_env_name = _resolve_managed_conda_env_name()
-    if managed_env_name:
-        conda_roots: list[Path] = []
-        conda_exe = os.environ.get("CONDA_EXE")
-        if conda_exe:
-            conda_roots.append(Path(conda_exe).resolve().parent.parent)
-        home = Path.home()
-        conda_roots.extend(
-            [
-                home / "miniconda3",
-                home / "anaconda3",
-                Path("/opt/anaconda3"),
-                Path("/usr/local/anaconda3"),
-            ]
-        )
-        for conda_root in conda_roots:
-            candidates.append(conda_root / "envs" / managed_env_name / "bin" / "python")
-
-    candidates.append(Path(sys.executable))
-    for candidate in candidates:
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return sys.executable
+    return smoke_environment.resolve_smoke_python(REPO_ROOT, env=os.environ)
 
 
 SMOKE_PYTHON = _resolve_smoke_python()
 
 
 def _resolve_agentic_trader_executable() -> str | None:
-    """
-    Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active Conda environment's bin directory, and finally on the system PATH.
-
-    Returns:
-        The filesystem path to an executable `agentic-trader` as a string if one is found and executable, or `None` if no suitable executable is found.
-    """
-    candidates: list[Path] = [Path(SMOKE_PYTHON).with_name("agentic-trader")]
-    conda_prefix = os.environ.get("CONDA_PREFIX")
-    if conda_prefix:
-        candidates.append(Path(conda_prefix) / "bin" / "agentic-trader")
-    which_path = shutil.which("agentic-trader")
-    if which_path is not None:
-        candidates.append(Path(which_path))
-    for candidate in candidates:
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return None
-
-
-def _write_artifact(path: Path, content: str) -> None:
-    """
-    Write text content to the given file path, creating or overwriting it.
-
-    The file is written with UTF-8 encoding; invalid characters are replaced.
-    """
-    path.write_text(content, encoding="utf-8", errors="replace")
-
-
-def _output_has_traceback(output: str) -> bool:
-    """
-    Check whether the given captured output contains any known traceback or interrupt markers.
-
-    Parameters:
-        output (str): Combined stdout and stderr text to scan for error markers.
-
-    Returns:
-        True if any marker from TRACEBACK_MARKERS appears in `output`, False otherwise.
-    """
-    return any(marker in output for marker in TRACEBACK_MARKERS)
-
-
-def _operator_noise_marker(output: str) -> str | None:
-    """Return the first raw provider/retry marker that should not leak to terminal UX."""
-    for marker in OPERATOR_NOISE_MARKERS:
-        if marker in output:
-            return marker
-    return None
+    return smoke_environment.resolve_agentic_trader_executable(
+        SMOKE_PYTHON,
+        env=os.environ,
+        which=shutil.which,
+    )
 
 
 def run_command_capture(
@@ -384,176 +93,17 @@ def run_command_capture(
     env_overrides: dict[str, str] | None = None,
     sensitive_values: tuple[str, ...] = (),
 ) -> CheckResult:
-    """
-    Run a command, record its stdout/stderr and metadata to a per-check artifact, and return a CheckResult describing success or failure.
-
-    Parameters:
-        context (SmokeContext): Context whose artifacts_dir is used to write the per-check log.
-        name (str): Short identifier used to name the artifact and the resulting CheckResult.
-        command (list[str]): Command and arguments to execute.
-        timeout (int): Seconds to wait before terminating the command.
-        require_json_stdout (bool): If True, the check also requires that stdout parses as JSON.
-        display (str | None): Human-friendly command string to record in the artifact; if None the command list is joined.
-
-    Returns:
-        CheckResult: Contains the check name, whether it passed, human-readable details, and the artifact path.
-            `passed` is True only if the process exit code is 0, the combined stdout/stderr contains no traceback markers, and (when requested) stdout is valid JSON.
-            `details` includes `exit_code=<n>` and, when JSON parsing fails, `invalid_json=<error>`.
-
-    Notes:
-        On exception while running the subprocess, an artifact is written containing the exception and a failing CheckResult is returned.
-    """
-    artifact = _artifact_path(context, name)
-    display_command = display or _command_display(command)
-    proc_or_result = _run_capture_process(
+    return commands.run_command_capture(
+        context,
+        name,
         command,
-        artifact=artifact,
-        display_command=display_command,
+        repo_root=REPO_ROOT,
+        subprocess_module=subprocess,
         timeout=timeout,
+        require_json_stdout=require_json_stdout,
+        display=display,
         env_overrides=env_overrides,
         sensitive_values=sensitive_values,
-        name=name,
-    )
-    if isinstance(proc_or_result, CheckResult):
-        return proc_or_result
-
-    return _capture_process_result(
-        proc_or_result,
-        name=name,
-        artifact=artifact,
-        display_command=display_command,
-        require_json_stdout=require_json_stdout,
-        sensitive_values=sensitive_values,
-    )
-
-
-def _run_capture_process(
-    command: list[str],
-    *,
-    artifact: Path,
-    display_command: str,
-    timeout: int,
-    env_overrides: dict[str, str] | None,
-    sensitive_values: tuple[str, ...],
-    name: str,
-) -> subprocess.CompletedProcess[str] | CheckResult:
-    try:
-        return subprocess.run(
-            command,
-            cwd=REPO_ROOT,
-            env={**os.environ, **env_overrides} if env_overrides is not None else None,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        return _timeout_capture_result(
-            exc,
-            name=name,
-            artifact=artifact,
-            display_command=display_command,
-            timeout=timeout,
-            sensitive_values=sensitive_values,
-        )
-    except Exception as exc:
-        exception_text = _redact_sensitive_text(str(exc), sensitive_values)
-        _write_artifact(
-            artifact, f"$ {display_command}\n\nEXCEPTION:\n{exception_text}\n"
-        )
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"exception={exception_text}",
-            artifact=str(artifact),
-        )
-
-
-def _timeout_capture_result(
-    exc: subprocess.TimeoutExpired,
-    *,
-    name: str,
-    artifact: Path,
-    display_command: str,
-    timeout: int,
-    sensitive_values: tuple[str, ...],
-) -> CheckResult:
-    stdout = _decode_timeout_stream(exc.stdout)
-    stderr = _decode_timeout_stream(exc.stderr)
-    stdout = _redact_sensitive_text(stdout, sensitive_values)
-    stderr = _redact_sensitive_text(stderr, sensitive_values)
-    exception_text = _redact_sensitive_text(str(exc), sensitive_values)
-    _write_artifact(
-        artifact,
-        f"$ {display_command}\n"
-        f"cwd: {REPO_ROOT}\n"
-        f"timeout: {timeout}\n\n"
-        f"STDOUT:\n{stdout}\n\n"
-        f"STDERR:\n{stderr}\n\n"
-        f"EXCEPTION:\n{exception_text}\n",
-    )
-    return CheckResult(
-        name=name,
-        passed=False,
-        details=f"timeout_after={timeout}s",
-        artifact=str(artifact),
-    )
-
-
-def _decode_timeout_stream(value: str | bytes | None) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return value
-
-
-def _capture_process_result(
-    proc: subprocess.CompletedProcess[str],
-    *,
-    name: str,
-    artifact: Path,
-    display_command: str,
-    require_json_stdout: bool,
-    sensitive_values: tuple[str, ...],
-) -> CheckResult:
-    stdout = proc.stdout or ""
-    stderr = proc.stderr or ""
-    json_error = _json_stdout_error(stdout) if require_json_stdout else None
-    artifact_stdout = _redact_sensitive_text(stdout, sensitive_values)
-    artifact_stderr = _redact_sensitive_text(stderr, sensitive_values)
-
-    artifact_body = (
-        f"$ {display_command}\n"
-        f"cwd: {REPO_ROOT}\n"
-        f"exit_code: {proc.returncode}\n\n"
-        f"STDOUT:\n{artifact_stdout}\n\n"
-        f"STDERR:\n{artifact_stderr}"
-    )
-    if json_error is not None:
-        artifact_body += f"\n\nJSON_ERROR:\n{json_error}\n"
-    _write_artifact(artifact, artifact_body)
-
-    combined_output = stdout + stderr
-    noise_marker = _operator_noise_marker(combined_output)
-    passed = (
-        proc.returncode == 0
-        and not _output_has_traceback(combined_output)
-        and noise_marker is None
-    )
-    if require_json_stdout:
-        passed = passed and json_error is None
-
-    details = f"exit_code={proc.returncode}"
-    if json_error is not None:
-        details += f"; invalid_json={json_error}"
-    if noise_marker is not None:
-        details += f"; raw_operator_noise={noise_marker}"
-    return CheckResult(
-        name=name,
-        passed=passed,
-        details=details,
-        artifact=str(artifact),
     )
 
 
@@ -567,647 +117,40 @@ def run_expected_failure_capture(
     expected_exit_codes: tuple[int, ...] = (1, 2),
     display: str | None = None,
 ) -> CheckResult:
-    """Run a negative-path command and pass only when it fails safely."""
-    artifact = _artifact_path(context, name)
-    display_command = display or _command_display(command)
-    try:
-        proc = subprocess.run(
-            command,
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        return _timeout_capture_result(
-            exc,
-            name=name,
-            artifact=artifact,
-            display_command=display_command,
-            timeout=timeout,
-            sensitive_values=(),
-        )
-    except Exception as exc:
-        _write_artifact(artifact, f"$ {display_command}\n\nEXCEPTION:\n{exc}\n")
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"exception={exc}",
-            artifact=str(artifact),
-        )
-
-    combined_output = f"{proc.stdout}\n{proc.stderr}"
-    passed = (
-        proc.returncode in expected_exit_codes
-        and expected_text in combined_output
-        and not _output_has_traceback(combined_output)
-    )
-    _write_artifact(
-        artifact,
-        (
-            f"$ {display_command}\n"
-            f"cwd: {REPO_ROOT}\n"
-            f"expected_exit_codes: {expected_exit_codes}\n"
-            f"expected_text: {expected_text}\n"
-            f"exit_code: {proc.returncode}\n\n"
-            f"STDOUT:\n{proc.stdout}\n\n"
-            f"STDERR:\n{proc.stderr}"
-        ),
-    )
-    details = f"exit_code={proc.returncode}"
-    if expected_text not in combined_output:
-        details += "; expected_text_missing"
-    if proc.returncode not in expected_exit_codes:
-        details += "; unexpected_exit_code"
-    return CheckResult(
-        name=name,
-        passed=passed,
-        details=details,
-        artifact=str(artifact),
+    return commands.run_expected_failure_capture(
+        context,
+        name,
+        command,
+        repo_root=REPO_ROOT,
+        subprocess_module=subprocess,
+        expected_text=expected_text,
+        timeout=timeout,
+        expected_exit_codes=expected_exit_codes,
+        display=display,
     )
 
 
 def run_cli_help_contract_check(
     context: SmokeContext, agentic_trader_executable: str
 ) -> CheckResult:
-    """Verify key operator help screens stay concise and user-facing."""
-    name = "cli_help_contract"
-    artifact = _artifact_path(context, name)
-    issues: list[str] = []
-    output_sections: list[str] = []
-
-    for check_name, args in HELP_COMMANDS:
-        command = [agentic_trader_executable, *args]
-        display_command = _command_display(command)
-        try:
-            proc = subprocess.run(
-                command,
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-                timeout=30,
-                check=False,
-            )
-        except Exception as exc:
-            issues.append(f"{check_name}: exception={exc}")
-            output_sections.append(f"$ {display_command}\nEXCEPTION:\n{exc}")
-            continue
-
-        combined_output = f"{proc.stdout}\n{proc.stderr}"
-        output_sections.append(
-            f"$ {display_command}\nexit_code: {proc.returncode}\n\n{combined_output}"
-        )
-        if proc.returncode != 0:
-            issues.append(f"{check_name}: exit_code={proc.returncode}")
-        if "Usage:" not in combined_output:
-            issues.append(f"{check_name}: missing Usage")
-        for marker in HELP_INTERNAL_MARKERS:
-            if marker in combined_output:
-                issues.append(f"{check_name}: internal marker {marker}")
-        if _output_has_traceback(combined_output):
-            issues.append(f"{check_name}: traceback")
-
-    _write_artifact(
-        artifact,
-        f"issues: {json.dumps(issues, indent=2)}\n\n"
-        + "\n\n---\n\n".join(output_sections),
+    return commands.run_cli_help_contract_check(
+        context,
+        agentic_trader_executable,
+        repo_root=REPO_ROOT,
+        subprocess_module=subprocess,
     )
-    return CheckResult(
-        name=name,
-        passed=not issues,
-        details="help_contract_ok" if not issues else "; ".join(issues),
-        artifact=str(artifact),
-    )
-
-
-def _json_stdout_error(stdout: str) -> str | None:
-    try:
-        json.loads(stdout)
-    except json.JSONDecodeError as exc:
-        return str(exc)
-    return None
 
 
 def run_dashboard_contract_check(
     context: SmokeContext, command: list[str], *, timeout: int = 30
 ) -> CheckResult:
-    """
-    Validate dashboard JSON fields that operator surfaces rely on.
-
-    This lightweight contract check intentionally tolerates an empty runtime
-    database, but it fails if the dashboard payload drops the runtime-mode or
-    market-context, provider diagnostics, or V1 readiness sections that newer
-    CLI, Ink, Web GUI, and observer surfaces consume.
-    """
-    name = "dashboard_contract"
-    artifact = _artifact_path(context, name)
-    display_command = _command_display(command)
-    issues: list[str] = []
-    try:
-        proc = subprocess.run(
-            command,
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-        )
-        payload = json.loads(proc.stdout or "{}")
-    except Exception as exc:
-        _write_artifact(artifact, f"$ {display_command}\n\nEXCEPTION:\n{exc}\n")
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"exception={exc}",
-            artifact=str(artifact),
-        )
-
-    issues.extend(_dashboard_contract_issues(payload, proc.returncode))
-
-    _write_artifact(
-        artifact,
-        (
-            f"$ {display_command}\n"
-            f"cwd: {REPO_ROOT}\n"
-            f"issues: {json.dumps(issues, indent=2)}\n\n"
-            f"STDOUT:\n{proc.stdout}\n\n"
-            f"STDERR:\n{proc.stderr}"
-        ),
+    return commands.run_dashboard_contract_check(
+        context,
+        command,
+        repo_root=REPO_ROOT,
+        subprocess_module=subprocess,
+        timeout=timeout,
     )
-    return CheckResult(
-        name=name,
-        passed=not issues and not _output_has_traceback(proc.stdout + proc.stderr),
-        details="contract_ok" if not issues else "; ".join(issues),
-        artifact=str(artifact),
-    )
-
-
-def _dashboard_contract_issues(
-    payload: dict[str, object], returncode: int
-) -> list[str]:
-    issues: list[str] = []
-    if returncode != 0:
-        issues.append(f"exit_code={returncode}")
-    _require_dict_field(payload, "doctor", issues, required_keys=("runtime_mode",))
-    _require_dict_field(payload, "status", issues, required_keys=("runtime_mode",))
-    _validate_market_context_section(payload, issues)
-    _require_dict_field(payload, "recentRuns", issues, required_keys=("runs",))
-    _validate_provider_diagnostics_section(payload, issues)
-    _validate_v1_readiness_section(payload, issues)
-    _validate_finance_ops_section(payload, issues)
-    _validate_broker_section(payload, issues)
-    return issues
-
-
-def _require_dict_field(
-    payload: dict[str, object],
-    key: str,
-    issues: list[str],
-    *,
-    required_keys: tuple[str, ...] = (),
-) -> dict[str, object] | None:
-    value = payload.get(key)
-    if not isinstance(value, dict):
-        issues.append(f"{key} section missing")
-        return None
-    for required_key in required_keys:
-        if required_key not in value:
-            issues.append(f"{key}.{required_key} missing")
-    return cast(dict[str, object], value)
-
-
-def _validate_market_context_section(
-    payload: dict[str, object], issues: list[str]
-) -> None:
-    market_context = _require_dict_field(payload, "marketContext", issues)
-    if market_context is None:
-        return
-    if "contextPack" not in market_context:
-        issues.append("marketContext.contextPack missing")
-        return
-    context_pack = market_context["contextPack"]
-    if context_pack is None:
-        return
-    if not isinstance(context_pack, dict):
-        issues.append("marketContext.contextPack has unexpected type")
-        return
-    for field in ("summary", "bars_analyzed", "horizons"):
-        if field not in context_pack:
-            issues.append(f"marketContext.contextPack.{field} missing")
-
-
-def _validate_provider_diagnostics_section(
-    payload: dict[str, object], issues: list[str]
-) -> None:
-    provider_diagnostics = _require_dict_field(payload, "providerDiagnostics", issues)
-    if provider_diagnostics is None:
-        return
-    if not isinstance(provider_diagnostics.get("warnings"), list):
-        issues.append("providerDiagnostics.warnings missing")
-    if not isinstance(provider_diagnostics.get("providers"), list):
-        issues.append("providerDiagnostics.providers missing")
-
-
-def _validate_v1_readiness_section(
-    payload: dict[str, object], issues: list[str]
-) -> None:
-    v1_readiness = _require_dict_field(payload, "v1Readiness", issues)
-    if v1_readiness is None:
-        return
-    if not isinstance(v1_readiness.get("paper_operations"), dict):
-        issues.append("v1Readiness.paper_operations missing")
-    paper_evidence = v1_readiness.get("paper_evidence")
-    if not isinstance(paper_evidence, dict):
-        issues.append("v1Readiness.paper_evidence missing")
-    else:
-        paper_evidence_payload = cast(dict[str, object], paper_evidence)
-        review_artifacts = paper_evidence_payload.get("review_artifacts", [])
-        if not isinstance(review_artifacts, list) or (
-            "evidence_bundle" not in review_artifacts
-        ):
-            issues.append("v1Readiness.paper_evidence.review_artifacts incomplete")
-    if not isinstance(v1_readiness.get("alpaca_paper"), dict):
-        issues.append("v1Readiness.alpaca_paper missing")
-
-
-def _validate_broker_section(payload: dict[str, object], issues: list[str]) -> None:
-    broker = _require_dict_field(payload, "broker", issues)
-    if broker is None:
-        return
-    if "external_paper" not in broker:
-        issues.append("broker.external_paper missing")
-    if not isinstance(broker.get("healthcheck"), dict):
-        issues.append("broker.healthcheck missing")
-
-
-def _validate_finance_ops_section(
-    payload: dict[str, object], issues: list[str]
-) -> None:
-    finance_ops = _require_dict_field(payload, "financeOps", issues)
-    if finance_ops is None:
-        return
-    if not isinstance(finance_ops.get("checks"), list):
-        issues.append("financeOps.checks missing")
-    if not isinstance(finance_ops.get("broker"), dict):
-        issues.append("financeOps.broker missing")
-    if not isinstance(finance_ops.get("portfolio"), dict):
-        issues.append("financeOps.portfolio missing")
-    if not isinstance(finance_ops.get("paperEvidence"), dict):
-        issues.append("financeOps.paperEvidence missing")
-
-
-def run_market_context_edge_case_check(context: SmokeContext) -> CheckResult:
-    """
-    Validate deterministic Market Context Pack edge cases used by V1 readiness.
-
-    This intentionally avoids network and LLM calls. It protects the operator
-    contract that operation windows fail closed when materially under-covered,
-    while training-style snapshot generation can preserve undercoverage as a
-    visible quality flag for replay/evaluation.
-    """
-    name = "market_context_edge_cases"
-    artifact = _artifact_path(context, name)
-    issues, observations = _market_context_edge_case_results()
-
-    _write_artifact(
-        artifact,
-        json.dumps(
-            {
-                "issues": issues,
-                "observations": observations,
-            },
-            indent=2,
-            default=str,
-        ),
-    )
-    return CheckResult(
-        name=name,
-        passed=not issues,
-        details="context_edge_cases_ok" if not issues else "; ".join(issues),
-        artifact=str(artifact),
-    )
-
-
-def _market_context_edge_case_results() -> tuple[list[str], dict[str, object]]:
-    issues: list[str] = []
-    observations: dict[str, object] = {}
-    try:
-        _check_partial_daily_window(issues, observations)
-        intraday_frame = _intraday_edge_case_frame()
-        _check_intraday_fail_closed(intraday_frame, issues, observations)
-        _check_training_replay_undercoverage(intraday_frame, issues, observations)
-        _check_higher_timeframe_fallbacks(issues, observations)
-    except Exception as exc:
-        issues.append(f"exception={exc}")
-    return issues, observations
-
-
-def _qa_ohlcv_frame(periods: int, *, index: Any | None = None) -> Any:
-
-    return pd.DataFrame(
-        {
-            "open": [100 + i for i in range(periods)],
-            "high": [101 + i for i in range(periods)],
-            "low": [99 + i for i in range(periods)],
-            "close": [100 + i for i in range(periods)],
-            "volume": [1_000 + (i * 10) for i in range(periods)],
-        },
-        index=index,
-    )
-
-
-def _intraday_edge_case_frame() -> Any:
-
-    return _qa_ohlcv_frame(
-        120, index=pd.date_range("2025-01-01 09:30", periods=120, freq="h")
-    )
-
-
-def _pack_payload(pack: Any | None) -> object:
-    return pack.model_dump(mode="json") if pack is not None else None
-
-
-def _require_context_flag(
-    pack: Any | None,
-    flag: str,
-    issues: list[str],
-    *,
-    missing_pack: str,
-    missing_flag: str,
-) -> None:
-    if pack is None:
-        issues.append(missing_pack)
-    elif flag not in pack.data_quality_flags:
-        issues.append(missing_flag)
-
-
-def _check_partial_daily_window(
-    issues: list[str], observations: dict[str, object]
-) -> None:
-
-    partial_frame = _qa_ohlcv_frame(
-        80, index=pd.date_range("2025-01-01", periods=80, freq="B")
-    )
-    partial_snapshot = build_snapshot(
-        partial_frame, symbol="PARTIAL", interval="1d", lookback="180d"
-    )
-    partial_pack = partial_snapshot.context_pack
-    observations["partial_daily"] = _pack_payload(partial_pack)
-    _require_context_flag(
-        partial_pack,
-        "partial_lookback_coverage",
-        issues,
-        missing_pack="partial daily context pack missing",
-        missing_flag="partial daily window did not mark partial_lookback_coverage",
-    )
-
-
-def _check_intraday_fail_closed(
-    intraday_frame: Any, issues: list[str], observations: dict[str, object]
-) -> None:
-
-    try:
-        build_snapshot(
-            intraday_frame, symbol="INTRADAY", interval="1h", lookback="180d"
-        )
-    except ValueError as exc:
-        observations["intraday_operation_block"] = str(exc)
-        if "coverage is too thin" not in str(exc):
-            issues.append("intraday operation block did not explain thin coverage")
-        return
-    issues.append("intraday provider-limit window did not fail closed")
-
-
-def _check_training_replay_undercoverage(
-    intraday_frame: Any, issues: list[str], observations: dict[str, object]
-) -> None:
-
-    replay_snapshot = build_snapshot(
-        intraday_frame,
-        symbol="TRAIN",
-        interval="1h",
-        lookback="180d",
-        enforce_lookback_coverage=False,
-    )
-    replay_pack = replay_snapshot.context_pack
-    observations["intraday_training"] = _pack_payload(replay_pack)
-    _require_context_flag(
-        replay_pack,
-        "low_lookback_coverage",
-        issues,
-        missing_pack="training replay context pack missing",
-        missing_flag="training replay did not preserve low_lookback_coverage",
-    )
-
-
-def _check_higher_timeframe_fallbacks(
-    issues: list[str], observations: dict[str, object]
-) -> None:
-
-    range_pack = build_snapshot(
-        _qa_ohlcv_frame(80), symbol="RANGE", interval="1d", lookback="90d"
-    ).context_pack
-    observations["non_datetime_index"] = _pack_payload(range_pack)
-    _require_context_flag(
-        range_pack,
-        "higher_timeframe_fallback",
-        issues,
-        missing_pack="non-datetime context pack missing",
-        missing_flag="non-datetime index did not mark higher_timeframe_fallback",
-    )
-
-    short_htf_pack = build_snapshot(
-        _qa_ohlcv_frame(80, index=pd.date_range("2025-01-01", periods=80, freq="B")),
-        symbol="SHORTHTF",
-        interval="1d",
-        lookback="90d",
-    ).context_pack
-    observations["short_higher_timeframe"] = _pack_payload(short_htf_pack)
-    _require_context_flag(
-        short_htf_pack,
-        "higher_timeframe_fallback",
-        issues,
-        missing_pack="short higher-timeframe context pack missing",
-        missing_flag="short higher-timeframe window did not mark higher_timeframe_fallback",
-    )
-
-
-def _spawn_env() -> dict[str, str]:
-    """
-    Provide an environment dictionary for spawning interactive child processes, ensuring a default terminal type.
-
-    Returns:
-        env (dict[str, str]): A copy of the current process environment with `TERM` set to `"xterm-256color"` when it was not already defined.
-    """
-    env = os.environ.copy()
-    env.setdefault("TERM", "xterm-256color")
-    return env
-
-
-def _drain_child(child: pexpect.spawn[str], seconds: float) -> None:
-    """
-    Consume and discard any pending output from a spawned pexpect child for up to the given number of seconds.
-
-    This repeatedly performs short, non-blocking expect calls to read available data while the child process is alive, stopping when the deadline is reached or if an OSError occurs.
-
-    Parameters:
-        child (pexpect.spawn): The spawned child process whose output should be drained.
-        seconds (float): Maximum time in seconds to attempt draining output.
-    """
-    deadline = time.monotonic() + seconds
-    while child.isalive() and time.monotonic() < deadline:
-        try:
-            child.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.25)
-        except OSError:
-            break
-
-
-def _close_interactive_child(child: pexpect.spawn[str]) -> str:
-    """
-    Attempt to close a spawned pexpect child process by sending a quit key, then Ctrl-C, and finally force-terminating if necessary.
-
-    Parameters:
-        child (pexpect.spawn): The spawned child process to close.
-
-    Returns:
-        A string describing how the child exited:
-        - "exited_after_render": child was already not alive on entry.
-        - "exited_before_q": child exited while attempting to send "q".
-        - "sent_q": successfully sent "q" and the child exited (or is the method used if it later exited).
-        - "exited_before_ctrl_c": child exited while attempting to send Ctrl-C.
-        - "sent_ctrl_c": successfully sent Ctrl-C and the child exited (or is the method used if it later exited).
-        - "force_terminated": child remained alive after both signals and was forcibly terminated.
-    """
-    if not child.isalive():
-        return "exited_after_render"
-    try:
-        child.send("q")
-        exit_method = "sent_q"
-    except OSError:
-        return "exited_before_q"
-    _drain_child(child, EXIT_WAIT_SECONDS)
-
-    if not child.isalive():
-        return exit_method
-    try:
-        child.sendcontrol("c")
-        exit_method = "sent_ctrl_c"
-    except OSError:
-        return "exited_before_ctrl_c"
-    _drain_child(child, EXIT_WAIT_SECONDS)
-
-    if child.isalive():
-        child.terminate(force=True)
-        time.sleep(0.2)
-        return "force_terminated"
-    return exit_method
-
-
-def _write_interactive_artifact(
-    artifact: Path,
-    display_command: str,
-    exit_method: str,
-    child: pexpect.spawn[str],
-    output: str,
-) -> None:
-    """
-    Write an artifact file summarizing a spawned interactive TUI session.
-
-    Parameters:
-        artifact (Path): Path to the artifact file to create (UTF-8 text).
-        display_command (str): Human-readable command string shown at the top of the artifact.
-        exit_method (str): How the session was terminated (e.g., "exited_after_render", "sent_ctrl_c", "force_terminated").
-        child (pexpect.spawn): The spawned process object whose exitstatus and signalstatus will be recorded.
-        output (str): Captured terminal output to include under the "CAPTURE" section.
-    """
-    _write_artifact(
-        artifact,
-        f"$ {display_command}\n"
-        f"cwd: {REPO_ROOT}\n"
-        f"exit_method: {exit_method}\n"
-        f"exitstatus: {child.exitstatus}\n"
-        f"signalstatus: {child.signalstatus}\n\n"
-        f"CAPTURE:\n{output}\n",
-    )
-
-
-def _interactive_check_result(
-    name: str,
-    artifact: Path,
-    exit_method: str,
-    child: pexpect.spawn[str],
-    output: str,
-) -> CheckResult:
-    """
-    Evaluate the captured interactive session and produce a CheckResult that indicates whether the TUI run passed smoke checks.
-
-    Parameters:
-        name (str): Logical name of the check.
-        artifact (Path): Path to the artifact file containing the saved session.
-        exit_method (str): How the session was terminated (e.g., "exited_after_render", "sent_ctrl_c", "force_terminated").
-        child (pexpect.spawn): Spawned process object; its exitstatus is used to determine failures.
-        output (str): Captured terminal output from the session.
-
-    Returns:
-        CheckResult: Contains `passed` set to `false` when any of the following are observed: the output is empty or whitespace, a traceback is detected in output, the process exited with a nonzero code (except the special-case of Ctrl-C exit with status 130), or the session was force-terminated; otherwise `passed` is `true`. The `details` field describes the exit method and failure reason, and `artifact` is the artifact path as a string.
-    """
-    if not output.strip():
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"{exit_method}; no_visible_output",
-            artifact=str(artifact),
-        )
-    if _output_has_traceback(output):
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"{exit_method}; traceback_detected",
-            artifact=str(artifact),
-        )
-    noise_marker = _operator_noise_marker(output)
-    if noise_marker is not None:
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"{exit_method}; raw_operator_noise={noise_marker}",
-            artifact=str(artifact),
-        )
-    ctrl_c_exit = exit_method == "sent_ctrl_c" and child.exitstatus == 130
-    if child.exitstatus not in (None, 0) and not ctrl_c_exit:
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"{exit_method}; exit_code={child.exitstatus}",
-            artifact=str(artifact),
-        )
-    if exit_method == "force_terminated":
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=exit_method,
-            artifact=str(artifact),
-        )
-    return CheckResult(
-        name=name,
-        passed=True,
-        details=exit_method,
-        artifact=str(artifact),
-    )
-
-
-def _wait_for_tui_ready(child: pexpect.spawn[str], *, timeout: int) -> str:
-    """
-    Wait for a concrete rendering marker that indicates the spawned TUI is actually alive.
-
-    A visible byte stream alone is not enough for smoke QA because startup errors can
-    print output before the operator surface renders. These patterns are deliberately
-    broad across the Ink and Rich surfaces while still requiring an Agentic Trader
-    UI marker rather than arbitrary child output.
-    """
-    matched_index = child.expect(list(TUI_READY_PATTERNS), timeout=timeout)
-    return TUI_READY_PATTERNS[matched_index]
 
 
 def run_tui_open_and_quit(
@@ -1219,147 +162,21 @@ def run_tui_open_and_quit(
     display: str | None = None,
     timeout: int = 20,
 ) -> CheckResult:
-    """
-    Launches a TUI command, attempts to render and quit it, captures the terminal session to an artifact, and returns a pass/fail check result.
-
-    The spawned process runs in the repository root with a fixed terminal size; its captured output, exit method, and exit codes are persisted to an artifact file named for this check. The CheckResult indicates success when the TUI produced visible output, contains no traceback markers, and exited cleanly (with a special-case allowance for Ctrl-C). On error or exception the artifact contains the exception and any captured output.
-
-    Parameters:
-        display (str | None): Optional human-readable command string to record in the artifact; when omitted a display string is derived from `command` and `args`.
-        timeout (int): Seconds to use as the spawn/read timeout for the interactive session.
-
-    Returns:
-        CheckResult: Result for the named smoke check; `passed` is `true` when the interactive run met the success criteria, `false` otherwise. The `artifact` field points to the written log file and `details` explains failures when present.
-    """
-    artifact = _artifact_path(context, name)
-    display_command = display or _command_display([command, *args])
-    log = io.StringIO()
-    child: pexpect.spawn[str] | None = None
-
-    try:
-        child = pexpect.spawn(
-            command,
-            args=args,
-            cwd=str(REPO_ROOT),
-            env=cast(Any, _spawn_env()),
-            encoding="utf-8",
-            timeout=timeout,
-            dimensions=(36, 120),
-        )
-        child.logfile_read = log
-        ready_signal = _wait_for_tui_ready(child, timeout=timeout)
-        _drain_child(child, RENDER_SECONDS)
-        exit_method = _close_interactive_child(child)
-        child.close(force=False)
-
-        output = log.getvalue()
-        _write_interactive_artifact(
-            artifact, display_command, exit_method, child, output
-        )
-        result = _interactive_check_result(name, artifact, exit_method, child, output)
-        if not result.passed:
-            return result
-        return CheckResult(
-            name=result.name,
-            passed=True,
-            details=f"{result.details}; ready={ready_signal}",
-            artifact=result.artifact,
-        )
-    except pexpect.TIMEOUT as exc:
-        output = log.getvalue()
-        if child is not None and child.isalive():
-            child.terminate(force=True)
-        _write_artifact(
-            artifact,
-            f"$ {display_command}\n"
-            f"cwd: {REPO_ROOT}\n"
-            f"failure: tui_ready_timeout\n"
-            f"timeout: {timeout}\n"
-            f"exception: {exc}\n\n"
-            f"CAPTURE:\n{output}\n",
-        )
-        return CheckResult(
-            name=name,
-            passed=False,
-            details="tui_ready_timeout",
-            artifact=str(artifact),
-        )
-    except pexpect.EOF as exc:
-        output = log.getvalue()
-        _write_artifact(
-            artifact,
-            f"$ {display_command}\n"
-            f"cwd: {REPO_ROOT}\n"
-            f"failure: tui_ready_eof\n"
-            f"exception: {exc}\n\n"
-            f"CAPTURE:\n{output}\n",
-        )
-        return CheckResult(
-            name=name,
-            passed=False,
-            details="tui_ready_eof",
-            artifact=str(artifact),
-        )
-    except Exception as exc:
-        output = log.getvalue()
-        if child is not None and child.isalive():
-            child.terminate(force=True)
-        _write_artifact(
-            artifact,
-            f"$ {display_command}\n"
-            f"cwd: {REPO_ROOT}\n"
-            f"exception: {exc}\n\n"
-            f"CAPTURE:\n{output}\n",
-        )
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"exception={exc}",
-            artifact=str(artifact),
-        )
-
-
-def _ink_settings_capture_issues(output: str) -> list[str]:
-    """
-    Check the compact Ink settings pane output for required markers.
-
-    Parameters:
-        output (str): Captured pane text from the Ink settings view.
-
-    Returns:
-        list[str]: Issue messages for each required marker that is missing; empty list if all markers are present.
-    """
-    required_markers = {
-        "page 7/7: Settings": "settings page header missing",
-        "RECENT RUNS": "recent runs panel missing",
-        "Risk / Style:": "risk/style preference line missing",
-        "Behavior / Strictness:": "behavior/strictness line missing",
-        "Mode: preview": "instruction composer mode missing",
-    }
-    return [issue for marker, issue in required_markers.items() if marker not in output]
-
-
-def _tmux_capture_pane(tmux_path: str, session_name: str, *, timeout: int) -> str:
-    """
-    Capture the visible contents of a tmux pane and return it as text.
-
-    Parameters:
-        tmux_path (str): Path to the tmux executable.
-        session_name (str): Name of the tmux session whose pane to capture.
-        timeout (int): Seconds to wait before the capture operation times out.
-
-    Returns:
-        str: The captured pane text, or an empty string if there is no output.
-    """
-    proc = subprocess.run(
-        [tmux_path, "capture-pane", "-pt", f"{session_name}:0.0"],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
+    return interactive.run_tui_open_and_quit(
+        context,
+        name,
+        command,
+        args,
+        repo_root=REPO_ROOT,
+        display=display,
         timeout=timeout,
-        check=False,
     )
-    return proc.stdout or ""
+
+
+def ink_settings_capture_issues(output: str) -> list[str]:
+    """Public test seam for Settings page capture validation."""
+
+    return ink_navigation.ink_settings_capture_issues(output)
 
 
 def run_ink_settings_navigation(
@@ -1368,152 +185,14 @@ def run_ink_settings_navigation(
     *,
     timeout: int = 30,
 ) -> CheckResult:
-    """
-    Check that the Ink TUI, when launched inside a compact tmux session, renders its overview and that the settings page contains the expected markers.
-
-    Parameters:
-        context (SmokeContext): Smoke test context that determines where artifacts are written.
-        command (str): Executable or command used to launch the Ink TUI (the function will append `tui`).
-        timeout (int): Maximum time in seconds to wait for rendering and navigation before reporting a failure.
-
-    Returns:
-        CheckResult: Result named "ink_settings_navigation". `passed` is `True` when the overview rendered and the settings page contains all required markers; otherwise `False`. `details` is `"tmux_settings_navigation_ok"` on success or a semicolon-separated list of issue messages on failure. `artifact` points to the written tmux overview/settings capture and the issue list.
-    """
-    name = "ink_settings_navigation"
-    artifact = _artifact_path(context, name)
-    tmux_path = shutil.which("tmux")
-    if tmux_path is None:
-        return _skip_result(context, name, "tmux not found on PATH")
-
-    session_name = f"agentic-trader-ink-{int(time.time() * 1000)}-{uuid4().hex}"
-    launch_command = f"cd {shlex.quote(str(REPO_ROOT))} && {shlex.quote(command)} tui"
-    overview_capture = ""
-    settings_capture = ""
-    issues: list[str] = []
-
-    try:
-        _start_tmux_session(tmux_path, session_name, launch_command, timeout, issues)
-        overview_capture = _wait_for_ink_overview(tmux_path, session_name, timeout)
-        if not _ink_overview_ready(overview_capture):
-            issues.append("ink overview did not render in tmux")
-        if not issues:
-            settings_capture = _open_and_capture_ink_settings(
-                tmux_path, session_name, timeout, issues
-            )
-            _send_tmux_key(tmux_path, session_name, "q", timeout=timeout)
-            time.sleep(1.0)
-    except subprocess.CalledProcessError as exc:
-        stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else str(exc.stderr)
-        issues.append(
-            f"tmux new-session failed with code {exc.returncode}: {stderr or 'no stderr'}"
-        )
-    except Exception as exc:
-        issues.append(f"exception={exc}")
-    finally:
-        subprocess.run(
-            [tmux_path, "kill-session", "-t", session_name],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=5,
-            check=False,
-        )
-
-    _write_artifact(
-        artifact,
-        f"$ {command} tui (tmux compact navigation)\n"
-        f"cwd: {REPO_ROOT}\n"
-        f"issues: {json.dumps(issues, indent=2)}\n\n"
-        f"OVERVIEW_CAPTURE:\n{overview_capture}\n\n"
-        f"SETTINGS_CAPTURE:\n{settings_capture}\n",
-    )
-    return CheckResult(
-        name=name,
-        passed=not issues,
-        details="tmux_settings_navigation_ok" if not issues else "; ".join(issues),
-        artifact=str(artifact),
-    )
-
-
-def _start_tmux_session(
-    tmux_path: str,
-    session_name: str,
-    launch_command: str,
-    timeout: int,
-    issues: list[str],
-) -> None:
-    launch_proc = subprocess.run(
-        [
-            tmux_path,
-            "new-session",
-            "-d",
-            "-s",
-            session_name,
-            "-x",
-            "110",
-            "-y",
-            "30",
-            launch_command,
-        ],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
+    return ink_navigation.run_ink_settings_navigation(
+        context,
+        command,
+        repo_root=REPO_ROOT,
+        subprocess_module=subprocess,
+        shutil_module=shutil,
         timeout=timeout,
-        check=True,
     )
-    if launch_proc.stderr:
-        issues.append(f"tmux new-session stderr: {launch_proc.stderr.strip()}")
-
-
-def _wait_for_ink_overview(tmux_path: str, session_name: str, timeout: int) -> str:
-    capture = ""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        capture = _tmux_capture_pane(tmux_path, session_name, timeout=timeout)
-        if _ink_overview_ready(capture):
-            return capture
-        time.sleep(0.5)
-    return capture
-
-
-def _ink_overview_ready(capture: str) -> bool:
-    return (
-        "AGENTIC TRADER // INK CONTROL ROOM" in capture
-        and "page " in capture
-        and "Last refresh:" in capture
-    )
-
-
-def _send_tmux_key(
-    tmux_path: str, session_name: str, key: str, *, timeout: int
-) -> None:
-    subprocess.run(
-        [tmux_path, "send-keys", "-t", f"{session_name}:0.0", key],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-        check=False,
-    )
-
-
-def _open_and_capture_ink_settings(
-    tmux_path: str,
-    session_name: str,
-    timeout: int,
-    issues: list[str],
-) -> str:
-    _send_tmux_key(tmux_path, session_name, "7", timeout=timeout)
-    capture = ""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        capture = _tmux_capture_pane(tmux_path, session_name, timeout=timeout)
-        current_issues = _ink_settings_capture_issues(capture)
-        if not current_issues:
-            return capture
-        time.sleep(0.5)
-    issues.extend(_ink_settings_capture_issues(capture))
-    return capture
 
 
 def run_rich_menu_deep_navigation(
@@ -1522,142 +201,15 @@ def run_rich_menu_deep_navigation(
     *,
     timeout: int = 20,
 ) -> CheckResult:
-    """
-    Navigate the application's rich "menu" TUI through a scripted sequence and record the session.
-
-    Runs the given command with the "menu" argument in a pexpect-controlled terminal, performs a fixed sequence of menu selections to exercise nested routes, captures terminal output to an interactive artifact in the run artifacts directory, and evaluates the session for errors or operator noise.
-
-    Parameters:
-        context (SmokeContext): Smoke test context providing the artifacts directory.
-        command (str): Executable or command to run (will be invoked with the "menu" subcommand).
-        timeout (int): Seconds to wait for expected TUI prompts and operations.
-
-    Returns:
-        CheckResult: Result whose `passed` is true when the scripted navigation completed without tracebacks, operator-noise markers, empty capture, disallowed exit methods, or non-permitted exit codes; `artifact` contains the path to the written interactive log.
-    """
-    name = "rich_menu_deep_navigation"
-    artifact = _artifact_path(context, name)
-    display_command = _command_display([command, "menu"])
-    log = io.StringIO()
-    child: pexpect.spawn[str] | None = None
-
-    try:
-        child = pexpect.spawn(
-            command,
-            args=["menu"],
-            cwd=str(REPO_ROOT),
-            env=cast(Any, _spawn_env()),
-            encoding="utf-8",
-            timeout=timeout,
-            dimensions=(40, 140),
-        )
-        child.logfile_read = log
-        _wait_for_tui_ready(child, timeout=timeout)
-
-        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
-        child.sendline("6")
-        child.expect("Review And Trace", timeout=timeout)
-        child.sendline("3")
-        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
-        child.sendline("")
-
-        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
-        child.sendline("5")
-        child.expect("Research And Memory", timeout=timeout)
-        child.sendline("2")
-        child.expect("Runtime Events|Recent Runs", timeout=timeout)
-        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
-        child.sendline("")
-        child.expect("Research And Memory", timeout=timeout)
-        child.sendline("3")
-        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
-        child.sendline("")
-
-        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
-        child.sendline("4")
-        child.expect("Portfolio And Risk", timeout=timeout)
-        child.sendline("1")
-        child.expect("Portfolio", timeout=timeout)
-        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
-        child.sendline("")
-        child.expect("Portfolio And Risk", timeout=timeout)
-        child.sendline("4")
-        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
-        child.sendline("")
-
-        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
-        child.sendline("7")
-        _drain_child(child, EXIT_WAIT_SECONDS)
-        exit_method = "scripted_navigation"
-        if child.isalive():
-            child.sendcontrol("c")
-            exit_method = "scripted_navigation_ctrl_c"
-            _drain_child(child, EXIT_WAIT_SECONDS)
-        if child.isalive():
-            child.terminate(force=True)
-            exit_method = "force_terminated"
-
-        child.close(force=False)
-        output = log.getvalue()
-        _write_interactive_artifact(
-            artifact, display_command, exit_method, child, output
-        )
-        return _interactive_check_result(name, artifact, exit_method, child, output)
-    except Exception as exc:
-        output = log.getvalue()
-        if child is not None and child.isalive():
-            child.terminate(force=True)
-        _write_artifact(
-            artifact,
-            f"$ {display_command}\n"
-            f"cwd: {REPO_ROOT}\n"
-            f"exception: {exc}\n\n"
-            f"CAPTURE:\n{output}\n",
-        )
-        return CheckResult(
-            name=name,
-            passed=False,
-            details=f"exception={exc}",
-            artifact=str(artifact),
-        )
-
-
-def _skip_result(context: SmokeContext, name: str, details: str) -> CheckResult:
-    """
-    Create and record a skipped check result.
-
-    Parameters:
-        context (SmokeContext): Artifact directory/context used to store the skip log.
-        name (str): Identifier for the check; used to name the artifact file and the result.
-        details (str): Human-readable reason for skipping the check.
-
-    Returns:
-        CheckResult: A result with `passed=True`, `details` starting with "skipped; " followed by `details`,
-        and `artifact` set to the path of the written skip log.
-    """
-    artifact = _artifact_path(context, name)
-    _write_artifact(artifact, f"SKIPPED: {details}\n")
-    return CheckResult(
-        name=name,
-        passed=True,
-        details=f"skipped; {details}",
-        artifact=str(artifact),
+    return interactive.run_rich_menu_deep_navigation(
+        context,
+        command,
+        repo_root=REPO_ROOT,
+        timeout=timeout,
     )
 
 
 def _require_executable(context: SmokeContext, name: str) -> CheckResult | None:
-    """
-    Verify that a required executable is available and record a failing artifact if it is not.
-
-    Checks availability of `name`; for `"agentic-trader"` it uses the resolver that checks next to the Python interpreter, the active conda prefix, and PATH, otherwise it uses `shutil.which`. If the executable is missing, writes `<name>_missing.log` into the artifacts directory and returns a failing CheckResult describing the missing executable.
-
-    Parameters:
-        context (SmokeContext): Context containing the artifacts directory for written diagnostics.
-        name (str): The executable name to verify.
-
-    Returns:
-        None if the executable was found; a failing CheckResult with `details` and `artifact` when it is not.
-    """
     if name == "agentic-trader":
         if _resolve_agentic_trader_executable() is not None:
             return None
@@ -1674,147 +226,43 @@ def _require_executable(context: SmokeContext, name: str) -> CheckResult | None:
 
 
 def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
-    """
-    Write a JSON summary of the smoke run to the artifacts directory.
-
-    The file is named "smoke-summary.json" and contains the repository root, the artifacts directory path, the Python interpreter path, the resolved `agentic-trader` executable path (or null if not found), and the provided list of check results serialized as dictionaries.
-
-    Parameters:
-        context (SmokeContext): Context containing the artifacts_dir where the summary will be written.
-        results (list[CheckResult]): Ordered list of check results to include in the summary.
-
-    Returns:
-        Path: Path to the written "smoke-summary.json" file.
-    """
-    summary_path = context.artifacts_dir / "smoke-summary.json"
-    payload: dict[str, Any] = {
-        "repo_root": str(REPO_ROOT),
-        "artifacts_dir": str(context.artifacts_dir),
-        "python": SMOKE_PYTHON,
-        "agentic_trader_path": _resolve_agentic_trader_executable(),
-        "results": [asdict(result) for result in results],
-    }
-    summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    return summary_path
-
-
-def _status_label(passed: bool) -> str:
-    return "PASS" if passed else "FAIL"
-
-
-def _dirty_label(value: bool | None) -> str:
-    if value is None:
-        return "unknown"
-    return "yes" if value else "no"
+    return reporting.write_summary(
+        context,
+        results,
+        repo_root=REPO_ROOT,
+        smoke_python=SMOKE_PYTHON,
+        resolve_agentic_trader_executable=_resolve_agentic_trader_executable,
+    )
 
 
 def _write_report(
     context: SmokeContext, results: list[CheckResult], summary_path: Path
 ) -> Path:
-    """Write a compact Markdown QA report next to the JSON smoke summary."""
-    report_path = context.artifacts_dir / "qa-report.md"
-    failed = [result for result in results if not result.passed]
-    branch = _current_git_branch() or "detached"
-    commit = _current_git_commit() or "unknown"
-    dirty = _git_worktree_dirty()
-    agentic_path = _resolve_agentic_trader_executable() or "not found"
-    generated_at = datetime.now().astimezone().isoformat(timespec="seconds")
-
-    lines = [
-        "# QA Smoke Report",
-        "",
-        f"- Generated: {generated_at}",
-        f"- Repo: `{REPO_ROOT}`",
-        f"- Branch: `{branch}`",
-        f"- Commit: `{commit}`",
-        f"- Worktree dirty: `{_dirty_label(dirty)}`",
-        f"- Python: `{SMOKE_PYTHON}`",
-        f"- Agentic Trader: `{agentic_path}`",
-        f"- Summary JSON: `{summary_path}`",
-        f"- Result: `{_status_label(not failed)}`",
-        f"- Checks: `{len(results) - len(failed)} passed / {len(failed)} failed / {len(results)} total`",
-        "",
-        "## Checks",
-        "",
-        "| Status | Check | Details | Artifact |",
-        "| --- | --- | --- | --- |",
-    ]
-    for result in results:
-        artifact = f"`{result.artifact}`" if result.artifact else "-"
-        details = result.details.replace("|", "\\|")
-        lines.append(
-            f"| {_status_label(result.passed)} | `{result.name}` | {details} | {artifact} |"
-        )
-
-    lines.extend(["", "## Triage"])
-    if failed:
-        lines.append("")
-        for result in failed:
-            artifact = f" Artifact: `{result.artifact}`." if result.artifact else ""
-            lines.append(f"- `{result.name}` failed: {result.details}.{artifact}")
-    else:
-        lines.extend(
-            [
-                "",
-                "- No smoke failures were detected.",
-                "- Cross-check any visual/operator claims against the artifacts before promoting a run as release evidence.",
-            ]
-        )
-
-    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return report_path
+    return reporting.write_report(
+        context,
+        results,
+        summary_path,
+        repo_root=REPO_ROOT,
+        smoke_python=SMOKE_PYTHON,
+        resolve_agentic_trader_executable=_resolve_agentic_trader_executable,
+        current_git_branch=_current_git_branch,
+        current_git_commit=_current_git_commit,
+        git_worktree_dirty=_git_worktree_dirty,
+    )
 
 
 def _run_id() -> str:
-    """
-    Produce a timestamp string used as a unique run identifier.
-
-    Returns:
-        str: Timestamp in the format YYYYMMDD-HHMMSS (e.g., 20260413-142530).
-    """
     return datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
 def _claim_artifacts_dir(run_label: str) -> Path:
-    """
-    Claim and create a unique artifacts directory for this run.
-
-    Creates ARTIFACTS_ROOT if missing and then attempts to create a new subdirectory named
-    `<run_label>` or `<run_label>-N` (with N starting at 2) to avoid collisions with
-    concurrent runs. Returns the Path to the newly created directory.
-
-    Parameters:
-        run_label (str): Base name to use for the run directory.
-
-    Returns:
-        Path: Path to the claimed artifacts directory.
-
-    Raises:
-        RuntimeError: If a unique directory cannot be created after 999 attempts.
-    """
-    ARTIFACTS_ROOT.mkdir(parents=True, exist_ok=True)
-    for attempt in range(1, 1000):
-        suffix = "" if attempt == 1 else f"-{attempt}"
-        candidate = ARTIFACTS_ROOT / f"{run_label}{suffix}"
-        try:
-            candidate.mkdir(parents=True, exist_ok=False)
-        except FileExistsError:
-            continue
-        return candidate
-    msg = f"Unable to claim a unique smoke artifact directory for {run_label!r}"
-    raise RuntimeError(msg)
+    return reporting.claim_artifacts_dir(ARTIFACTS_ROOT, run_label)
 
 
 def claim_artifacts_dir(run_label: str) -> Path:
     """Public test seam for claiming a unique smoke artifact directory."""
 
     return _claim_artifacts_dir(run_label)
-
-
-def ink_settings_capture_issues(output: str) -> list[str]:
-    """Public test seam for Settings page capture validation."""
-
-    return _ink_settings_capture_issues(output)
 
 
 def resolve_smoke_python() -> str:
@@ -1838,21 +286,6 @@ def write_report(
 
 
 def _parse_args() -> Namespace:
-    """
-    Parse command-line arguments for the smoke QA script.
-
-    Supports flags to include code-quality checks and SonarQube analysis, and to configure Sonar host/project and the artifact run label.
-
-    Returns:
-        argparse.Namespace: Parsed arguments with attributes:
-            include_quality (bool): If true, run ruff, pytest, and pyright when available.
-            include_sonar (bool): If true, run pysonar (requires SONAR_TOKEN or Keychain token).
-            sonar_host_url (str): SonarQube host URL to use when running pysonar.
-            sonar_project_key (str): SonarQube project key to use when running pysonar.
-            sonar_organization (str): Optional SonarCloud organization key.
-            sonar_branch_name (str | None): Optional SonarQube branch name override.
-            run_label (str): Subdirectory name under .ai/qa/artifacts/ where artifacts will be written.
-    """
     parser = ArgumentParser(
         description="Run terminal smoke QA checks for Agentic Trader."
     )
@@ -1884,7 +317,10 @@ def _parse_args() -> Namespace:
     parser.add_argument(
         "--sonar-branch-name",
         default=os.environ.get("SONAR_BRANCH_NAME"),
-        help="Optional SonarQube branch name for --include-sonar. Leave unset for local Community Build.",
+        help=(
+            "Optional SonarQube branch name for --include-sonar. Leave unset for "
+            "local Community Build."
+        ),
     )
     parser.add_argument(
         "--run-label",
@@ -1894,7 +330,10 @@ def _parse_args() -> Namespace:
     parser.add_argument(
         "--include-runtime-cycle",
         action="store_true",
-        help="Run one isolated foreground orchestrator cycle. This is slower and requires live market data plus a healthy LLM.",
+        help=(
+            "Run one isolated foreground orchestrator cycle. This is slower and "
+            "requires live market data plus a healthy LLM."
+        ),
     )
     parser.add_argument(
         "--runtime-symbol",
@@ -1917,7 +356,6 @@ def _parse_args() -> Namespace:
 def _runtime_cycle_check(
     context: SmokeContext, args: Namespace, agentic_trader_executable: str
 ) -> CheckResult:
-    """Run one isolated foreground orchestrator cycle for deeper runtime QA."""
     runtime_dir = context.artifacts_dir / "runtime-cycle"
     database_path = runtime_dir / "agentic_trader.duckdb"
     return run_command_capture(
@@ -1953,17 +391,6 @@ def _runtime_cycle_check(
 
 
 def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]:
-    """
-    Run the predefined set of CLI and TUI smoke checks for `agentic-trader` and a Python TUI, collecting their CheckResult entries.
-
-    If the `agentic-trader` executable is not found on PATH, a single failing availability CheckResult is returned. Otherwise this function runs multiple command-capture checks (including several JSON-output checks) and interactive TUI open-and-quit checks for the `agentic-trader` CLI, then always runs a Python TUI check against `main.py`. Artifacts for each check are written into context.artifacts_dir.
-
-    Parameters:
-        context (SmokeContext): Execution context containing the artifacts directory where per-check logs are written.
-
-    Returns:
-        list[CheckResult]: Ordered list of results for each performed check (availability, CLI checks, TUI checks, and the Python TUI).
-    """
     results: list[CheckResult] = []
     agentic_trader_executable = _resolve_agentic_trader_executable()
     missing_agentic_trader = _require_executable(context, "agentic-trader")
@@ -1971,132 +398,7 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
         results.append(missing_agentic_trader)
     else:
         assert agentic_trader_executable is not None
-        results.extend(
-            [
-                run_command_capture(
-                    context,
-                    "doctor",
-                    [agentic_trader_executable, "doctor"],
-                ),
-                run_command_capture(
-                    context,
-                    "dashboard_snapshot",
-                    [agentic_trader_executable, "dashboard-snapshot"],
-                    require_json_stdout=True,
-                ),
-                run_dashboard_contract_check(
-                    context,
-                    [agentic_trader_executable, "dashboard-snapshot"],
-                ),
-                run_cli_help_contract_check(context, agentic_trader_executable),
-                run_market_context_edge_case_check(context),
-                run_command_capture(
-                    context,
-                    "runtime_mode_checklist_json",
-                    [
-                        agentic_trader_executable,
-                        "runtime-mode-checklist",
-                        "operation",
-                        "--json",
-                        "--skip-provider-check",
-                    ],
-                    require_json_stdout=True,
-                ),
-                run_expected_failure_capture(
-                    context,
-                    "observer_api_empty_host_blocked",
-                    [
-                        agentic_trader_executable,
-                        "observer-api",
-                        "--host",
-                        "",
-                        "--port",
-                        "8765",
-                    ],
-                    expected_text="Observer API is local-only by default.",
-                ),
-                run_command_capture(
-                    context,
-                    "status_json",
-                    [agentic_trader_executable, "status", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "broker_status_json",
-                    [agentic_trader_executable, "broker-status", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "finance_ops_json",
-                    [agentic_trader_executable, "finance-ops", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "provider_diagnostics_json",
-                    [agentic_trader_executable, "provider-diagnostics", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "v1_readiness_json",
-                    [agentic_trader_executable, "v1-readiness", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "supervisor_status_json",
-                    [agentic_trader_executable, "supervisor-status", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "logs_json",
-                    [agentic_trader_executable, "logs", "--json", "--limit", "5"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "preferences_json",
-                    [agentic_trader_executable, "preferences", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "portfolio_json",
-                    [agentic_trader_executable, "portfolio", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_command_capture(
-                    context,
-                    "memory_policy_json",
-                    [agentic_trader_executable, "memory-policy", "--json"],
-                    require_json_stdout=True,
-                ),
-                run_tui_open_and_quit(
-                    context,
-                    "main_entrypoint_launcher",
-                    agentic_trader_executable,
-                    [],
-                ),
-                run_tui_open_and_quit(
-                    context,
-                    "direct_tui_entrypoint",
-                    agentic_trader_executable,
-                    ["tui"],
-                ),
-                run_ink_settings_navigation(context, agentic_trader_executable),
-                run_tui_open_and_quit(
-                    context,
-                    "rich_menu",
-                    agentic_trader_executable,
-                    ["menu"],
-                ),
-                run_rich_menu_deep_navigation(context, agentic_trader_executable),
-            ]
-        )
+        results.extend(_agentic_trader_surface_checks(context, agentic_trader_executable))
         if args.include_runtime_cycle:
             results.append(
                 _runtime_cycle_check(context, args, agentic_trader_executable)
@@ -2114,21 +416,103 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
     return results
 
 
+def _agentic_trader_surface_checks(
+    context: SmokeContext, agentic_trader_executable: str
+) -> list[CheckResult]:
+    return [
+        run_command_capture(
+            context,
+            "doctor",
+            [agentic_trader_executable, "doctor"],
+        ),
+        run_command_capture(
+            context,
+            "dashboard_snapshot",
+            [agentic_trader_executable, "dashboard-snapshot"],
+            require_json_stdout=True,
+        ),
+        run_dashboard_contract_check(
+            context,
+            [agentic_trader_executable, "dashboard-snapshot"],
+        ),
+        run_cli_help_contract_check(context, agentic_trader_executable),
+        run_market_context_edge_case_check(context),
+        run_command_capture(
+            context,
+            "runtime_mode_checklist_json",
+            [
+                agentic_trader_executable,
+                "runtime-mode-checklist",
+                "operation",
+                "--json",
+                "--skip-provider-check",
+            ],
+            require_json_stdout=True,
+        ),
+        run_expected_failure_capture(
+            context,
+            "observer_api_empty_host_blocked",
+            [
+                agentic_trader_executable,
+                "observer-api",
+                "--host",
+                "",
+                "--port",
+                "8765",
+            ],
+            expected_text="Observer API is local-only by default.",
+        ),
+        *_json_surface_checks(context, agentic_trader_executable),
+        run_tui_open_and_quit(
+            context,
+            "main_entrypoint_launcher",
+            agentic_trader_executable,
+            [],
+        ),
+        run_tui_open_and_quit(
+            context,
+            "direct_tui_entrypoint",
+            agentic_trader_executable,
+            ["tui"],
+        ),
+        run_ink_settings_navigation(context, agentic_trader_executable),
+        run_tui_open_and_quit(
+            context,
+            "rich_menu",
+            agentic_trader_executable,
+            ["menu"],
+        ),
+        run_rich_menu_deep_navigation(context, agentic_trader_executable),
+    ]
+
+
+def _json_surface_checks(
+    context: SmokeContext, agentic_trader_executable: str
+) -> list[CheckResult]:
+    checks = (
+        ("status_json", ["status", "--json"]),
+        ("broker_status_json", ["broker-status", "--json"]),
+        ("finance_ops_json", ["finance-ops", "--json"]),
+        ("provider_diagnostics_json", ["provider-diagnostics", "--json"]),
+        ("v1_readiness_json", ["v1-readiness", "--json"]),
+        ("supervisor_status_json", ["supervisor-status", "--json"]),
+        ("logs_json", ["logs", "--json", "--limit", "5"]),
+        ("preferences_json", ["preferences", "--json"]),
+        ("portfolio_json", ["portfolio", "--json"]),
+        ("memory_policy_json", ["memory-policy", "--json"]),
+    )
+    return [
+        run_command_capture(
+            context,
+            name,
+            [agentic_trader_executable, *args],
+            require_json_stdout=True,
+        )
+        for name, args in checks
+    ]
+
+
 def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[str]:
-    """
-    Builds the pytest command-line invocation used for running the test suite.
-
-    When `include_coverage` is True, adds coverage measurement for the `agentic_trader`
-    package and writes an XML report to the run artifacts coverage path resolved from
-    the provided `context`.
-
-    Parameters:
-        context (SmokeContext): Context used to resolve artifact paths (coverage.xml).
-        include_coverage (bool): If True, include coverage flags and an XML report path.
-
-    Returns:
-        list[str]: The full pytest command as an argument list suitable for subprocess execution.
-    """
     command = [SMOKE_PYTHON, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
     if include_coverage:
         command.extend(
@@ -2143,18 +527,6 @@ def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[st
 def _quality_checks(
     context: SmokeContext, *, include_coverage: bool
 ) -> list[CheckResult]:
-    """
-    Run the project's static and test-quality checks (ruff, pytest, and pyright) and collect their results.
-
-    When `include_coverage` is true, pytest is invoked to produce a coverage XML report alongside test execution. If `pyright` is not available, the returned list contains a failing `CheckResult` for the pyright check.
-
-    Parameters:
-        context (SmokeContext): Execution/artifacts context used to write per-check logs.
-        include_coverage (bool): If true, enable coverage reporting for the pytest run.
-
-    Returns:
-        list[CheckResult]: Results for the `ruff_check`, `pytest`, and `pyright` checks (pyright result will indicate failure if the executable is not found).
-    """
     results = [
         run_command_capture(
             context,
@@ -2203,21 +575,6 @@ def _quality_checks(
 
 
 def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
-    """
-    Run the repository SonarQube scanner wrapper and record output in the artifacts directory.
-
-    If a Sonar token cannot be resolved, writes a diagnostic artifact and returns
-    a failing CheckResult. Otherwise delegates to scripts/qa/run_sonar_scan.sh so
-    --include-sonar uses the same Python and JavaScript coverage path as
-    pnpm run sonar.
-
-    Parameters:
-        context (SmokeContext): Execution context containing the artifacts directory.
-        args (Namespace): Parsed CLI arguments; must provide `sonar_host_url` and `sonar_project_key`, and may include `sonar_branch_name` and `sonar_organization`.
-
-    Returns:
-        CheckResult: Result of the pysonar invocation; `passed` indicates success and `artifact` is the path to the written log.
-    """
     token = _resolve_sonar_token()
     if not token:
         artifact = _artifact_path(context, "pysonar")
@@ -2273,14 +630,6 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
 
 
 def main() -> int:
-    """
-    Run the smoke QA suite, produce per-check artifacts and a consolidated JSON summary, print a pass/fail table, and return an exit status.
-
-    Creates a unique artifacts directory for the run, executes surface smoke checks and (optionally) code-quality and Sonar checks, writes per-check log artifacts and a top-level `smoke-summary.json`, and prints a human-readable summary with each check's status, details, and artifact path.
-
-    Returns:
-        int: 0 if all checks passed, 1 if any check failed.
-    """
     args = _parse_args()
     context = SmokeContext(artifacts_dir=_claim_artifacts_dir(args.run_label))
 

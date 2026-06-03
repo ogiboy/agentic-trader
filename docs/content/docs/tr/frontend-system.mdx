@@ -47,11 +47,14 @@ tarafı bölünmeli. Dosya bölmek için iyi nedenler:
 - locale-aware ya da feature-aware copy'yi ayrı test etmek kolaylaşıyorsa
 
 Docs uygulaması artık bu yaklaşımı `components/home`, `components/feedback`,
-`components/layout`, `lib/i18n` ve `lib/home/content` ayrımıyla uyguluyor. Web
-GUI control room da aynı yöne gidiyor: üst seviye component state/render
-coordinator olarak kalmalı; view dosyaları, shell chrome, dashboard polling,
-action handler'ları, request helper'ları, primitive'ler ve typed dil bazlı
-İngilizce/Türkçe copy ayrı modüllerde durmalı.
+`components/layout`, `components/ui/primitives`, `lib/i18n` ve
+`lib/home/content` ayrımıyla uyguluyor. Web GUI control room da aynı yöne
+gidiyor: üst seviye component state/render coordinator olarak kalmalı; view
+dosyaları, shell chrome, dashboard polling, action handler'ları, request
+helper'ları, primitive'ler ve typed dil bazlı İngilizce/Türkçe copy ayrı
+modüllerde durmalı. React component dosyaları PascalCase isim kullanır; copy,
+formatting, hook ve request helper dosyaları ise rol bazlı lowercase isimlerle
+kalır.
 
 ## Web GUI migration gerçeği
 
@@ -63,8 +66,27 @@ ayırmalı.
 
 Mevcut bölünme `webgui/src/components/control-room/` altında `state-hooks`,
 `view-model`, `action-request`, `formatting`, `diagnostics-formatting`,
-`context-formatting`, loading panelleri, odaklı view modülleri, shell chrome,
-primitive'ler ve typed İngilizce/Türkçe copy modüllerini içeriyor.
+`context-formatting`, loading panelleri, odaklı PascalCase view modülleri, shell
+chrome, primitive'ler ve typed İngilizce/Türkçe copy modüllerini içeriyor.
+`webgui/src/components/ControlRoom.tsx` public facade olarak kalmalı; ikinci bir
+uygulama dosyasına dönüşmemeli.
+
+## Web GUI i18n kuralı
+
+Web GUI render sınırındaki copy için `next-intl` kullanır. Uygulama
+`next-intl/plugin`, request config, locale routing, typed messages ve client
+provider parçalarını `webgui/src/i18n/` altında bağlar. Component'ler tüm copy
+katalogunu import etmek yerine `useTranslations("controlRoom.section")` ve
+yerel view-model helper'larını tercih etmeli. Observer/API/dashboard JSON
+anahtarları İngilizce ve stabil kalır; bunlar UI metni değil runtime
+contract'idir.
+
+## Docs i18n kuralı
+
+Docs Fumadocs i18n üzerinde `/en/...` ve `/tr/...` route'larıyla kalır. Web GUI
+`next-intl` kullanıyor diye docs'u da oraya taşımayız; docs uygulamasında
+Fumadocs contract'ine uyan content routing, lokalize MDX ve navigation copy
+modülleri zaten vardır.
 
 Güvenli migration kuralları:
 

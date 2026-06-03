@@ -1,7 +1,5 @@
 from typing import Any, cast
 
-from tests.typing_helpers import approx
-
 from agentic_trader.agents.risk import build_risk_plan
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
@@ -10,6 +8,7 @@ from agentic_trader.schemas import (
     RiskPlan,
     StrategyPlan,
 )
+from tests.typing_helpers import approx
 
 
 class _RiskLLM:

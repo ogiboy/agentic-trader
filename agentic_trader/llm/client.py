@@ -1,7 +1,5 @@
 import json
 import logging
-import re
-from collections.abc import Callable
 from textwrap import dedent
 from typing import Any, cast
 
@@ -10,604 +8,24 @@ from pydantic import BaseModel, ValidationError
 
 from agentic_trader.config import Settings
 from agentic_trader.llm.providers import LLMProvider, build_provider
+from agentic_trader.llm.structured import (
+    redact_payload,
+    request_issue_retry_prompt,
+    schema_field_instruction,
+    validate_structured_content,
+    validation_error_summary,
+    validation_retry_prompt,
+)
 from agentic_trader.schemas import AgentRole, LLMHealthStatus
 
 logger = logging.getLogger(__name__)
-_SENSITIVE_PAYLOAD_KEYS = {"thinking", "thought", "thoughts", "reasoning"}
-_NO_TRADE_PHRASE = "no trade"
 
 
-def _object_mapping(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    return cast(dict[str, object], value)
-
-
-def _coerce_numeric_strings(obj: Any) -> Any:
-    """
-    Recursively convert strings that represent whole numbers or decimals into int or float values.
-
-    Recurses into dicts and lists; for string values, trims whitespace and if the entire string matches the numeric pattern "-?\\d+(?:\\.\\d+)?" it returns an `int` when the string contains only digits (no sign/decimal) and a `float` otherwise. If parsing fails or the value is not a numeric string, the original value is returned unchanged.
-
-    Parameters:
-        obj (Any): The value (or nested structure) to coerce.
-
-    Returns:
-        Any: The input with numeric-like strings converted to `int` or `float` where applicable; other values are returned as-is.
-    """
-    if isinstance(obj, dict):
-        return {
-            k: _coerce_numeric_strings(v) for k, v in cast(dict[Any, Any], obj).items()
-        }
-    if isinstance(obj, list):
-        return [_coerce_numeric_strings(item) for item in cast(list[Any], obj)]
-    if isinstance(obj, str):
-        s = obj.strip()
-        if re.fullmatch(r"-?\d+(?:\.\d+)?", s):
-            try:
-                return int(s) if s.isdigit() else float(s)
-            except (ValueError, TypeError):
-                return obj
-    return obj
-
-
-def _get_by_loc(obj: Any, path: tuple[str | int, ...]) -> Any:
-    """Navigate nested dict/list by path tuple."""
-    current: object = obj
-    for part in path:
-        current_mapping = _object_mapping(current)
-        if current_mapping is not None and isinstance(part, str):
-            current = current_mapping.get(part)
-        elif isinstance(current, list) and isinstance(part, int):
-            current_list = cast(list[object], current)
-            if 0 <= part < len(current_list):
-                current = current_list[part]
-            else:
-                return None
-        else:
-            return None
-    return current
-
-
-def _set_by_loc(obj: Any, path: tuple[str | int, ...], value: Any) -> bool:
-    """Set value in nested dict/list at path tuple."""
-    if not path:
-        return False
-    current = obj
-    # Navigate to parent
-    for part in path[:-1]:
-        next_item = _navigate_one(current, part)
-        if next_item is None:
-            return False
-        current = next_item
-    # Set final value
-    last_part = path[-1]
-    if isinstance(current, dict) and isinstance(last_part, str):
-        current[last_part] = value
-        return True
-    if isinstance(current, list) and isinstance(last_part, int):
-        current_list = cast(list[object], current)
-        if 0 <= last_part < len(current_list):
-            current_list[last_part] = value
-            return True
-    return False
-
-
-def _navigate_one(obj: Any, key: str | int) -> Any:
-    """
-    Retrieve the nested value one level down for a dict or list key, creating a missing dict key as an empty dict.
-
-    Parameters:
-        obj (Any): The container to navigate; expected to be a dict or list.
-        key (str | int): For dicts, a string key (will be created as an empty dict if missing). For lists, an integer index (must be within bounds).
-
-    Returns:
-        Any: The value at the next level for the given key/index, or `None` if navigation is not possible.
-    """
-    if isinstance(obj, dict) and isinstance(key, str):
-        if key not in cast(dict[str, Any], obj):
-            cast(dict[str, Any], obj)[key] = {}
-        return cast(dict[str, Any], obj)[key]
-    if (
-        isinstance(obj, list)
-        and isinstance(key, int)
-        and 0 <= key < len(cast(list[Any], obj))
-    ):
-        return cast(list[Any], obj)[key]
-    return None
-
-
-def _coerce_confidence(value: Any) -> float:
-    """Coerce qualitative or malformed confidence values conservatively."""
-    if value is None:
-        return 0.0
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        qualitative = {
-            "none": 0.0,
-            "unknown": 0.0,
-            "very low": 0.1,
-            "low": 0.25,
-            "medium": 0.5,
-            "moderate": 0.5,
-            "high": 0.75,
-            "very high": 0.9,
-        }
-        if normalized in qualitative:
-            return qualitative[normalized]
-        if normalized.endswith("%"):
-            return min(max(float(normalized[:-1]) / 100.0, 0.0), 1.0)
-    return min(max(float(value), 0.0), 1.0)
-
-
-# Safe coercion for common numeric fields that LLMs often emit as zeros/invalid.
-_SANITIZE_RULES: dict[str, Callable[[Any], float | int]] = {
-    "confidence": _coerce_confidence,
-    "confidence_cap": _coerce_confidence,
-    "position_size_pct": lambda v: min(
-        max(float(v) if v is not None else 0.01, 0.01), 1.0
-    ),
-    "size_multiplier": lambda v: min(
-        max(float(v) if v is not None else 0.01, 0.01), 1.0
-    ),
-    "max_holding_bars": lambda v: max(int(v) if v is not None else 1, 1),
-    "stop_loss": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
-    "take_profit": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
-    "risk_reward_ratio": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
-}
-
-
-def _contains_any(value: str, tokens: tuple[str, ...]) -> bool:
-    return any(token in value for token in tokens)
-
-
-def _regime_alias(value: str) -> str | None:
-    if "no" in value and "trade" in value:
-        return "no_trade"
-    if _contains_any(value, ("range", "sideways", "mixed", "chop", "consolidat")):
-        return "range"
-    if "volatil" in value:
-        return "high_volatility"
-    if "break" in value:
-        return "breakout_candidate"
-    if _contains_any(value, ("bull", "up")):
-        return "trend_up"
-    if _contains_any(value, ("bear", "down")):
-        return "trend_down"
-    return None
-
-
-def _direction_bias_alias(value: str) -> str | None:
-    if _contains_any(
-        value,
-        (
-            "flat",
-            "neutral",
-            "mixed",
-            "sideways",
-            "none",
-            _NO_TRADE_PHRASE,
-        ),
-    ):
-        return "flat"
-    if _contains_any(value, ("long", "buy", "bull", "up", "positive")):
-        return "long"
-    if _contains_any(value, ("short", "sell", "bear", "down", "negative")):
-        return "short"
-    return None
-
-
-def _action_alias(value: str) -> str | None:
-    if _contains_any(value, ("hold", "flat", "neutral", "none", _NO_TRADE_PHRASE)):
-        return "hold"
-    if _contains_any(value, ("long", "buy", "bull", "up")):
-        return "buy"
-    if _contains_any(value, ("short", "sell", "bear", "down")):
-        return "sell"
-    return None
-
-
-def _semantic_value_alias(schema_name: str, field_name: str, value: str) -> Any:
-    """Map common free-form enum phrases to conservative schema values."""
-    normalized = value.strip().lower().replace("-", "_")
-    normalized = " ".join(normalized.split())
-    compact = normalized.replace("_", " ")
-    if schema_name == "RegimeAssessment" and field_name == "regime":
-        return _regime_alias(compact) or value
-    if schema_name == "RegimeAssessment" and field_name == "direction_bias":
-        return _direction_bias_alias(compact) or value
-    if schema_name in {"StrategyPlan", "ManagerDecision"} and field_name in {
-        "action",
-        "action_bias",
-    }:
-        return _action_alias(compact) or value
-    return value
-
-
-_WRAPPER_KEYS = (
-    "coordinator",
-    "brief",
-    "regime",
-    "assessment",
-    "strategy",
-    "plan",
-    "risk",
-    "manager",
-    "decision",
-    "result",
-    "output",
-)
-_SCHEMA_ALIAS_MAP: dict[str, dict[str, str]] = {
-    "ResearchCoordinatorBrief": {
-        "focus": "market_focus",
-        "priorities": "priority_signals",
-        "priority": "priority_signals",
-        "cautions": "caution_flags",
-        "warnings": "caution_flags",
-    },
-    "RegimeAssessment": {
-        "bias": "direction_bias",
-        "direction": "direction_bias",
-        "directional_bias": "direction_bias",
-        "rationale": "reasoning",
-        "summary": "reasoning",
-        "message": "reasoning",
-        "notes": "reasoning",
-        "fallback_reason": "reasoning",
-        "risks": "key_risks",
-    },
-    "StrategyPlan": {
-        "family": "strategy_family",
-        "strategy": "strategy_family",
-        "entry": "entry_logic",
-        "entry_rules": "entry_logic",
-        "invalidation": "invalidation_logic",
-        "exit": "invalidation_logic",
-        "rationale": "entry_logic",
-        "reasons": "reason_codes",
-    },
-    "RiskPlan": {
-        "size": "position_size_pct",
-        "position_size": "position_size_pct",
-        "stop": "stop_loss",
-        "target": "take_profit",
-        "take": "take_profit",
-        "rr": "risk_reward_ratio",
-        "holding_bars": "max_holding_bars",
-        "holding_period": "max_holding_bars",
-        "rationale": "notes",
-    },
-    "ManagerDecision": {
-        "action": "action_bias",
-        "bias": "action_bias",
-        "confidence": "confidence_cap",
-        "size": "size_multiplier",
-        "notes": "rationale",
-    },
-}
-_SCHEMA_VALUE_ALIAS_MAP: dict[str, dict[str, dict[str, Any]]] = {
-    "ResearchCoordinatorBrief": {
-        "market_focus": {
-            "trend": "trend_following",
-            "trending": "trend_following",
-            "breakout_watch": "breakout",
-            "defensive": "capital_preservation",
-            "capital preservation": "capital_preservation",
-            "wait": "no_trade",
-            "none": "no_trade",
-        }
-    },
-    "RegimeAssessment": {
-        "regime": {
-            "bullish": "trend_up",
-            "uptrend": "trend_up",
-            "up_trend": "trend_up",
-            "trend up": "trend_up",
-            "bearish": "trend_down",
-            "downtrend": "trend_down",
-            "down_trend": "trend_down",
-            "trend down": "trend_down",
-            "sideways": "range",
-            "ranging": "range",
-            "mixed": "range",
-            "choppy": "range",
-            "consolidation": "range",
-            "consolidating": "range",
-            "neutral": "range",
-            "volatile": "high_volatility",
-            "high volatility": "high_volatility",
-            "breakout": "breakout_candidate",
-            "cautious": "no_trade",
-            "wait": "no_trade",
-            _NO_TRADE_PHRASE: "no_trade",
-        },
-        "direction_bias": {
-            "bullish": "long",
-            "buy": "long",
-            "up": "long",
-            "positive": "long",
-            "bearish": "short",
-            "sell": "short",
-            "down": "short",
-            "negative": "short",
-            "neutral": "flat",
-            "sideways": "flat",
-            "none": "flat",
-            "no_trade": "flat",
-        },
-    },
-    "StrategyPlan": {
-        "strategy_family": {
-            "trend": "trend_following",
-            "momentum": "trend_following",
-            "breakout_candidate": "breakout",
-            "range": "mean_reversion",
-            "sideways": "mean_reversion",
-            "hold": "no_trade",
-            "none": "no_trade",
-        },
-        "action": {
-            "long": "buy",
-            "short": "sell",
-            "flat": "hold",
-            "none": "hold",
-            "no_trade": "hold",
-        },
-    },
-    "ManagerDecision": {
-        "action_bias": {
-            "long": "buy",
-            "short": "sell",
-            "flat": "hold",
-            "none": "hold",
-            "no_trade": "hold",
-        }
-    },
-}
-
-
-def _redact_payload(value: Any) -> Any:
-    """Remove provider reasoning fields before payload previews reach logs or UI."""
-    if isinstance(value, dict):
-        redacted: dict[str, Any] = {}
-        for key, item in cast(dict[Any, Any], value).items():
-            key_text = str(key)
-            if key_text.lower() in _SENSITIVE_PAYLOAD_KEYS:
-                redacted[key_text] = "<redacted>"
-            else:
-                redacted[key_text] = _redact_payload(item)
-        return redacted
-    if isinstance(value, list):
-        return [_redact_payload(item) for item in cast(list[Any], value)]
-    return value
-
-
-def _extract_field_name_from_path(path: tuple[str | int, ...]) -> str | None:
-    """Extract field name (last string component) from error path."""
-    for component in reversed(path):
-        if isinstance(component, str):
-            return component
-    return None
-
-
-def _attempt_sanitize_and_validate[T: BaseModel](
-    data: Any, exc: ValidationError, schema: type[T]
-) -> T | None:
-    """
-    Attempt to coerce and clamp common numeric fields in a dict and retry Pydantic validation.
-
-    Examines the errors from a Pydantic ValidationError and, for any error path whose final string key matches a known sanitize rule, applies that rule to mutate `data`. After applying any changes, it coerces numeric-like strings to numbers and attempts to validate into `schema`. If no applicable sanitizations are found or re-validation fails, returns None.
-
-    Parameters:
-        data (Any): The parsed object to inspect and potentially mutate; function only operates when this is a dict.
-        exc (ValidationError): The original Pydantic ValidationError containing `.errors()` to determine failing locations.
-        schema (type[T]): The Pydantic model class to validate against after sanitization.
-
-    Returns:
-        T | None: The validated model instance if sanitization and re-validation succeed, otherwise `None`.
-    """
-    if not isinstance(data, dict):
-        return None
-
-    try:
-        errors = exc.errors()
-    except Exception:
-        return None
-
-    if not errors:
-        return None
-
-    changes_made = False
-    for error in errors:
-        error_path: tuple[str | int, ...] = tuple(error.get("loc", ()))
-        if not error_path:
-            continue
-
-        field_name = _extract_field_name_from_path(error_path)
-        if not field_name or field_name not in _SANITIZE_RULES:
-            continue
-
-        current_value = _get_by_loc(data, error_path)
-        try:
-            sanitized_value = _SANITIZE_RULES[field_name](current_value)
-            _set_by_loc(data, error_path, sanitized_value)
-            changes_made = True
-            logger.info(
-                "Sanitized field '%s': %s → %s",
-                field_name,
-                current_value,
-                sanitized_value,
-            )
-        except Exception as e:
-            logger.debug("Could not sanitize %s: %s", field_name, e)
-
-    if not changes_made:
-        return None
-
-    data = _coerce_numeric_strings(data)
-    try:
-        return schema.model_validate(data)
-    except ValidationError as retry_exc:
-        logger.debug("Sanitization retry failed: %s", retry_exc)
-        return None
-
-
-def _mark_llm_source[T: BaseModel](parsed: T) -> T:
-    """
-    Mark a Pydantic model's source as "llm" and clear its fallback reason when present.
-
-    If the provided object exposes a `source` attribute, return a copy with `source` set to `"llm"` and `fallback_reason` set to `None`. Otherwise return the original object unchanged.
-
-    Parameters:
-        parsed: A model or object; typically a Pydantic model instance that may have `source` and `fallback_reason` attributes.
-
-    Returns:
-        The updated model with `source="llm"` and `fallback_reason=None` if applicable, otherwise the original `parsed`.
-    """
-    if hasattr(parsed, "source"):
-        return parsed.model_copy(update={"source": "llm", "fallback_reason": None})
-    return parsed
-
-
-def _validate_structured_content[T: BaseModel](content: str, schema: type[T]) -> T:
-    """
-    Validate a JSON-formatted string and return a validated Pydantic model instance, applying numeric coercion and targeted sanitization when necessary.
-
-    Attempts to parse `content` as JSON. If parsing fails, delegates to `schema.model_validate_json(content)` and marks the result as coming from the LLM. If parsing succeeds, coerces numeric-looking strings to numbers, then validates via `schema.model_validate`. On ValidationError, attempts targeted sanitization and re-validation; if sanitization produces a valid model that is returned, otherwise the original ValidationError is re-raised.
-
-    Parameters:
-        content (str): The raw JSON text returned by the LLM.
-        schema (type[T]): The Pydantic model class to validate against.
-
-    Returns:
-        T: An instance of `schema` validated and possibly sanitized.
-
-    Raises:
-        pydantic.ValidationError: If validation fails and sanitization does not produce a valid model.
-    """
-    try:
-        data_obj = json.loads(content)
-    except json.JSONDecodeError:
-        return _mark_llm_source(schema.model_validate_json(content))
-
-    data_obj = _normalize_structured_payload(data_obj, schema)
-    data_obj = _coerce_numeric_strings(data_obj)
-    try:
-        return _mark_llm_source(schema.model_validate(data_obj))
-    except ValidationError as exc:
-        sanitized = _attempt_sanitize_and_validate(data_obj, exc, schema)
-        if sanitized is not None:
-            return _mark_llm_source(sanitized)
-        raise
-
-
-def _normalize_structured_payload(data: Any, schema: type[BaseModel]) -> Any:
-    """Unwrap harmless LLM JSON wrappers and alias field names before validation."""
-    if not isinstance(data, dict):
-        return data
-
-    normalized = dict(cast(dict[str, Any], data))
-    field_names = set(schema.model_fields)
-    if field_names.isdisjoint(normalized):
-        for key in _WRAPPER_KEYS:
-            candidate = normalized.get(key)
-            if isinstance(candidate, dict):
-                normalized = dict(cast(dict[str, Any], candidate))
-                break
-
-    aliases = _SCHEMA_ALIAS_MAP.get(schema.__name__, {})
-    for source_key, target_key in aliases.items():
-        if source_key in normalized and target_key not in normalized:
-            normalized[target_key] = normalized[source_key]
-
-    value_aliases = _SCHEMA_VALUE_ALIAS_MAP.get(schema.__name__, {})
-    for field_name, replacements in value_aliases.items():
-        value = normalized.get(field_name)
-        if isinstance(value, str):
-            normalized_value = value.strip().lower().replace("-", "_")
-            normalized_value = " ".join(normalized_value.split())
-            normalized[field_name] = replacements.get(
-                normalized_value,
-                _semantic_value_alias(schema.__name__, field_name, value),
-            )
-
-    return normalized
-
-
-def _schema_field_instruction(schema: type[BaseModel]) -> str:
-    """Render concise top-level field requirements for structured prompts."""
-    required = schema.model_json_schema().get("required", [])
-    field_names = list(schema.model_fields)
-    required_text = ", ".join(str(item) for item in required) or "none"
-    allowed_text = ", ".join(field_names)
-    return (
-        f"Required top-level keys: {required_text}.\n"
-        f"Allowed top-level keys: {allowed_text}."
-    )
-
-
-def _validation_error_summary(exc: ValidationError) -> str:
-    """Return a concise operator-facing summary for a Pydantic validation error."""
-    try:
-        errors = exc.errors()
-    except Exception:
-        return "schema validation failed"
-
-    missing_fields: list[str] = []
-    invalid_fields: list[str] = []
-    for error in errors:
-        loc = error.get("loc", ())
-        field = ".".join(str(part) for part in loc) if loc else "(root)"
-        if error.get("type") == "missing":
-            missing_fields.append(field)
-        else:
-            invalid_fields.append(field)
-
-    parts: list[str] = []
-    if missing_fields:
-        parts.append(f"missing required fields: {', '.join(missing_fields)}")
-    if invalid_fields:
-        parts.append(f"invalid fields: {', '.join(invalid_fields)}")
-    return "; ".join(parts) if parts else "schema validation failed"
-
-
-def _validation_retry_prompt(prompt: str, content: str) -> str:
-    """
-    Builds a retry instruction telling the LLM its previous JSON response failed validation and requesting corrected JSON only.
-
-    Parameters:
-        prompt (str): The original prompt sent to the LLM.
-        content (str): The previous LLM response that failed validation.
-
-    Returns:
-        str: A dedented prompt string that includes the original prompt, a note that the previous response did not validate (including that response), and a directive to "Return corrected JSON only."
-    """
-    return dedent(f"""
-        {prompt}
-
-        Your previous response did not validate:
-        {content}
-
-        Return corrected JSON only.
-        """).strip()
-
-
-def _request_issue_retry_prompt(prompt: str) -> str:
-    """
-    Constructs a retry prompt instructing the model to return a complete JSON object when the previous response was empty or invalid.
-
-    Parameters:
-        prompt (str): The original prompt to include at the start of the retry message.
-
-    Returns:
-        str: A dedented string containing the original prompt followed by a short instruction that the previous response was empty, malformed, or invalid and that the model should return a complete JSON object only.
-    """
-    return dedent(f"""
-        {prompt}
-
-        Your previous response was empty, malformed, or otherwise invalid.
-        Return a complete JSON object only.
-        """).strip()
+class _StructuredRetry(Exception):
+    def __init__(self, *, next_prompt: str, reason: Exception) -> None:
+        super().__init__(str(reason))
+        self.next_prompt = next_prompt
+        self.reason = reason
 
 
 class LocalLLM:
@@ -634,7 +52,7 @@ class LocalLLM:
     @staticmethod
     def _payload_preview(payload: Any) -> str:
         try:
-            rendered = json.dumps(_redact_payload(payload), ensure_ascii=True)
+            rendered = json.dumps(redact_payload(payload), ensure_ascii=True)
         except Exception:
             rendered = str(payload)
         return rendered[:400]
@@ -686,6 +104,97 @@ class LocalLLM:
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         return self.provider.health_check(include_generation=include_generation)
 
+    def _structured_completion_prompt(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        schema: type[BaseModel],
+    ) -> str:
+        schema_json = json.dumps(schema.model_json_schema(), indent=2)
+        field_instruction = schema_field_instruction(schema)
+        return dedent(f"""
+            {system_prompt}
+
+            You must respond with valid JSON only.
+            Do not wrap the JSON in markdown fences.
+            Keep string fields concise and practical.
+            Return the requested schema object itself, not a status report, not a runtime summary, and not an analysis wrapper.
+            If the correct decision is no-trade or hold, still return the full requested schema object.
+            Never return an error object.
+            {field_instruction}
+
+            The JSON must validate against this schema:
+            {schema_json}
+
+            User request:
+            {user_prompt}
+            """).strip()
+
+    def _complete_structured_attempt[T: BaseModel](
+        self,
+        *,
+        attempt: int,
+        prompt: str,
+        schema: type[T],
+    ) -> T:
+        content = ""
+        try:
+            payload = self._generate_once(
+                prompt,
+                json_mode=True,
+                json_schema=schema.model_json_schema(),
+            )
+            content = self._extract_response_text(payload)
+            logger.debug(
+                "LLM structured response attempt %s: content_length=%s content_preview=%s",
+                attempt + 1,
+                len(content),
+                content[:100] if content else "(empty)",
+            )
+            if not content:
+                raise RuntimeError(
+                    f"LLM returned an empty response body. Payload preview: {self._payload_preview(payload)}"
+                )
+            return validate_structured_content(content, schema)
+        except ValidationError as exc:
+            logger.debug(
+                "LLM structured validation failed on attempt %s: %s",
+                attempt + 1,
+                exc,
+            )
+            raise _StructuredRetry(
+                next_prompt=validation_retry_prompt(prompt, content),
+                reason=exc,
+            ) from exc
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+            ValueError,
+        ) as exc:
+            logger.debug(
+                "LLM structured request issue on attempt %s: %s",
+                attempt + 1,
+                exc,
+            )
+            raise _StructuredRetry(
+                next_prompt=request_issue_retry_prompt(prompt),
+                reason=exc,
+            ) from exc
+
+    def _structured_failure(
+        self,
+        *,
+        schema: type[BaseModel],
+        last_error: Exception | None,
+    ) -> RuntimeError:
+        if isinstance(last_error, ValidationError):
+            return RuntimeError(
+                f"LLM structured output validation failed for {schema.__name__}: "
+                f"{validation_error_summary(last_error)}"
+            )
+        return RuntimeError(f"LLM request failed: {last_error}")
+
     def complete_structured[T: BaseModel](
         self,
         *,
@@ -707,77 +216,27 @@ class LocalLLM:
         Raises:
             RuntimeError: If the LLM repeatedly returns empty, malformed, or non-validating responses and all retry attempts are exhausted; the last underlying exception is chained.
         """
-        schema_json = json.dumps(schema.model_json_schema(), indent=2)
-        field_instruction = _schema_field_instruction(schema)
-
-        prompt = dedent(f"""
-            {system_prompt}
-
-            You must respond with valid JSON only.
-            Do not wrap the JSON in markdown fences.
-            Keep string fields concise and practical.
-            Return the requested schema object itself, not a status report, not a runtime summary, and not an analysis wrapper.
-            If the correct decision is no-trade or hold, still return the full requested schema object.
-            Never return an error object.
-            {field_instruction}
-
-            The JSON must validate against this schema:
-            {schema_json}
-
-            User request:
-            {user_prompt}
-            """).strip()
-
+        prompt = self._structured_completion_prompt(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            schema=schema,
+        )
         last_error: Exception | None = None
         for attempt in range(self.settings.max_retries + 1):
-            content = ""
             try:
-                payload = self._generate_once(
-                    prompt,
-                    json_mode=True,
-                    json_schema=schema.model_json_schema(),
+                return self._complete_structured_attempt(
+                    attempt=attempt,
+                    prompt=prompt,
+                    schema=schema,
                 )
-                content = self._extract_response_text(payload)
-                logger.debug(
-                    "LLM structured response attempt %s: content_length=%s content_preview=%s",
-                    attempt + 1,
-                    len(content),
-                    content[:100] if content else "(empty)",
-                )
-                if not content:
-                    raise RuntimeError(
-                        f"LLM returned an empty response body. Payload preview: {self._payload_preview(payload)}"
-                    )
-                return _validate_structured_content(content, schema)
-            except ValidationError as exc:
-                last_error = exc
-                logger.debug(
-                    "LLM structured validation failed on attempt %s: %s",
-                    attempt + 1,
-                    exc,
-                )
-                prompt = _validation_retry_prompt(prompt, content)
-                continue
-            except (
-                httpx.HTTPError,
-                RuntimeError,
-                ValueError,
-            ) as exc:
-                last_error = exc
-                logger.debug(
-                    "LLM structured request issue on attempt %s: %s",
-                    attempt + 1,
-                    exc,
-                )
-                prompt = _request_issue_retry_prompt(prompt)
+            except _StructuredRetry as exc:
+                last_error = exc.reason
+                prompt = exc.next_prompt
                 continue
 
-        if isinstance(last_error, ValidationError):
-            raise RuntimeError(
-                f"LLM structured output validation failed for {schema.__name__}: "
-                f"{_validation_error_summary(last_error)}"
-            ) from last_error
-        raise RuntimeError(f"LLM request failed: {last_error}") from last_error
+        raise self._structured_failure(
+            schema=schema, last_error=last_error
+        ) from last_error
 
     def complete_text(
         self,

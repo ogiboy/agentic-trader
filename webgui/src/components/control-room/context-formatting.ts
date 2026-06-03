@@ -1,41 +1,52 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard context payloads are schema-loose JSON today */
-import type { DashboardData } from '../control-room.helpers';
+import { CONTROL_ROOM_CONTEXT_COPY } from './copy/context';
 import { formatList, formatNumber, formatPercent } from './formatting';
+import { asRecord, asRecordArray, asString, isRecord } from './payload';
+import type { DashboardData, DashboardRecord } from './types';
 
 export function accountCurrency(dashboard: DashboardData): string {
+  const financeOps = asRecord(dashboard.financeOps);
+  const financeAccounting = asRecord(financeOps.accounting);
+  const portfolio = asRecord(dashboard.portfolio);
+  const portfolioAccounting = asRecord(portfolio.accounting);
+  const preferences = asRecord(dashboard.preferences);
+  const currencies = Array.isArray(preferences.currencies)
+    ? preferences.currencies
+    : [];
   return (
-    dashboard.financeOps?.accounting?.currency ||
-    dashboard.portfolio?.accounting?.currency ||
-    dashboard.preferences?.currencies?.[0] ||
+    asString(financeAccounting.currency, '') ||
+    asString(portfolioAccounting.currency, '') ||
+    asString(currencies[0], '') ||
     'USD'
   );
 }
 
 export function tradeContextLines(
-  record: Record<string, any> | null | undefined,
+  record: unknown,
 ): string[] {
-  if (!record) {
+  const tradeRecord = asRecord(record);
+  if (!Object.keys(tradeRecord).length) {
     return ['No persisted trade context is available yet.'];
   }
-  const routedModels = Object.entries(record.routed_models || {})
+  const consensus = asRecord(tradeRecord.consensus);
+  const routedModels = Object.entries(asRecord(tradeRecord.routed_models))
     .map(([role, model]) => `${role}:${model}`)
     .join(' | ');
   return [
-    `Trade ID: ${record.trade_id ?? '-'}`,
-    `Run ID: ${record.run_id ?? '-'}`,
-    `Consensus: ${record.consensus?.alignment_level ?? '-'}`,
-    `Manager Rationale: ${record.manager_rationale ?? '-'}`,
-    `Execution Rationale: ${record.execution_rationale ?? '-'}`,
-    `Execution Backend: ${record.execution_backend ?? '-'}`,
-    `Execution Adapter: ${record.execution_adapter ?? '-'}`,
-    `Execution Outcome: ${record.execution_outcome_status ?? '-'}`,
-    `Rejection Reason: ${record.execution_rejection_reason ?? '-'}`,
-    `Review Summary: ${record.review_summary ?? '-'}`,
+    `Trade ID: ${asString(tradeRecord.trade_id)}`,
+    `Run ID: ${asString(tradeRecord.run_id)}`,
+    `Consensus: ${asString(consensus.alignment_level)}`,
+    `Manager Rationale: ${asString(tradeRecord.manager_rationale)}`,
+    `Execution Rationale: ${asString(tradeRecord.execution_rationale)}`,
+    `Execution Backend: ${asString(tradeRecord.execution_backend)}`,
+    `Execution Adapter: ${asString(tradeRecord.execution_adapter)}`,
+    `Execution Outcome: ${asString(tradeRecord.execution_outcome_status)}`,
+    `Rejection Reason: ${asString(tradeRecord.execution_rejection_reason)}`,
+    `Review Summary: ${asString(tradeRecord.review_summary)}`,
     `Routed Models: ${routedModels || '-'}`,
   ];
 }
 
-function proposalSizeLabel(proposal: Record<string, any>): string {
+function proposalSizeLabel(proposal: DashboardRecord): string {
   if (typeof proposal.quantity === 'number') {
     return `qty ${formatNumber(proposal.quantity, 4)}`;
   }
@@ -45,35 +56,38 @@ function proposalSizeLabel(proposal: Record<string, any>): string {
   return '-';
 }
 
-export function proposalHeadline(proposal: Record<string, any>): string {
-  return `${proposal.symbol ?? '-'} ${String(proposal.side ?? '-').toUpperCase()} | ${proposal.status ?? '-'} | ${proposalSizeLabel(proposal)}`;
+export function proposalHeadline(proposal: unknown): string {
+  const proposalRecord = asRecord(proposal);
+  return `${asString(proposalRecord.symbol)} ${asString(proposalRecord.side).toUpperCase()} | ${asString(proposalRecord.status)} | ${proposalSizeLabel(proposalRecord)}`;
 }
 
 export function proposalLines(dashboard: DashboardData): string[] {
-  const payload = dashboard.tradeProposals;
+  const payload = asRecord(dashboard.tradeProposals);
   if (payload?.available === false) {
-    return [`Proposal desk unavailable: ${payload.error || 'Unknown error.'}`];
+    return [`Proposal desk unavailable: ${asString(payload.error, 'Unknown error.')}`];
   }
-  const proposals = Array.isArray(payload?.proposals) ? payload.proposals : [];
+  const proposals = asRecordArray(payload.proposals);
   if (!proposals.length) {
     return ['No manual-review proposals are queued yet.'];
   }
   return proposals.map(
-    (proposal: Record<string, any>) =>
-      `${proposal.proposal_id ?? '-'} | ${proposalHeadline(proposal)} | confidence=${formatNumber(proposal.confidence, 2)} | source=${proposal.source ?? '-'}`,
+    (proposal) =>
+      `${asString(proposal.proposal_id)} | ${proposalHeadline(proposal)} | confidence=${formatNumber(proposal.confidence, 2)} | source=${asString(proposal.source)}`,
   );
 }
 
 export function positionPlanCoverageLines(dashboard: DashboardData): string[] {
-  const coverage =
-    dashboard.financeOps?.positionPlanCoverage ||
-    dashboard.positionPlanCoverage;
-  if (!coverage) {
+  const financeOps = asRecord(dashboard.financeOps);
+  const coverageSource = isRecord(financeOps.positionPlanCoverage)
+    ? financeOps.positionPlanCoverage
+    : dashboard.positionPlanCoverage;
+  if (!isRecord(coverageSource)) {
     return ['No position plan coverage snapshot is available yet.'];
   }
+  const coverage = coverageSource;
   if (coverage.available === false) {
     return [
-      `Position plan coverage unavailable: ${coverage.error || 'Unknown error.'}`,
+      `Position plan coverage unavailable: ${asString(coverage.error, 'Unknown error.')}`,
     ];
   }
   return [
@@ -87,7 +101,7 @@ export function positionPlanCoverageLines(dashboard: DashboardData): string[] {
 export function proposalApprovalBlockedReason(
   dashboard: DashboardData,
 ): string {
-  const broker = dashboard.broker || {};
+  const broker = asRecord(dashboard.broker);
   if (broker.kill_switch_active) {
     return 'Execution kill switch is active.';
   }
@@ -95,65 +109,82 @@ export function proposalApprovalBlockedReason(
     return 'Live backend is not proposal-approval ready in V1.';
   }
   if (broker.state === 'blocked') {
-    return broker.message || 'Broker state is blocked.';
+    return asString(
+      broker.message,
+      CONTROL_ROOM_CONTEXT_COPY.brokerStateBlocked,
+    );
   }
   return '';
 }
 
 export function canonicalLines(
-  snapshot: Record<string, any> | null | undefined,
+  snapshot: unknown,
 ): string[] {
-  if (!snapshot) {
+  const snapshotRecord = asRecord(snapshot);
+  if (!Object.keys(snapshotRecord).length) {
     return ['No canonical analysis snapshot is available yet.'];
   }
-  const sources = (snapshot.source_attributions || [])
+  const market = asRecord(snapshotRecord.market);
+  const fundamental = asRecord(snapshotRecord.fundamental);
+  const macro = asRecord(snapshotRecord.macro);
+  const marketAttribution = asRecord(market.attribution);
+  const fundamentalAttribution = asRecord(fundamental.attribution);
+  const macroAttribution = asRecord(macro.attribution);
+  const sources = asRecordArray(snapshotRecord.source_attributions)
     .slice(0, 6)
     .map(
-      (source: Record<string, any>) =>
-        `${source.provider_type}:${source.source_name} (${source.source_role}, ${source.freshness})`,
+      (source) =>
+        `${asString(source.provider_type)}:${asString(source.source_name)} (${asString(source.source_role)}, ${asString(source.freshness)})`,
     );
   return [
-    `Summary: ${snapshot.summary || '-'}`,
-    `Completeness: ${snapshot.completeness_score ?? '-'}`,
-    `Missing Sections: ${formatList(snapshot.missing_sections)}`,
-    `Market Source: ${snapshot.market?.attribution?.source_name ?? '-'}`,
-    `Fundamental Source: ${snapshot.fundamental?.attribution?.source_name ?? '-'}`,
-    `Macro Source: ${snapshot.macro?.attribution?.source_name ?? '-'}`,
-    `News Events: ${(snapshot.news_events || []).length}`,
-    `Disclosures: ${(snapshot.disclosures || []).length}`,
-    ...sources.map((source: string) => `Source: ${source}`),
+    `Summary: ${asString(snapshotRecord.summary)}`,
+    `Completeness: ${asString(snapshotRecord.completeness_score)}`,
+    `Missing Sections: ${formatList(snapshotRecord.missing_sections)}`,
+    `Market Source: ${asString(marketAttribution.source_name)}`,
+    `Fundamental Source: ${asString(fundamentalAttribution.source_name)}`,
+    `Macro Source: ${asString(macroAttribution.source_name)}`,
+    `News Events: ${Array.isArray(snapshotRecord.news_events) ? snapshotRecord.news_events.length : 0}`,
+    `Disclosures: ${Array.isArray(snapshotRecord.disclosures) ? snapshotRecord.disclosures.length : 0}`,
+    ...sources.map((source) => `Source: ${source}`),
   ];
 }
 
 export function marketContextLines(
-  pack: Record<string, any> | null | undefined,
+  pack: unknown,
 ): string[] {
-  if (!pack) {
+  const contextPack = asRecord(pack);
+  if (!Object.keys(contextPack).length) {
     return ['No persisted market context pack is available yet.'];
   }
-  const horizons = (pack.horizons || [])
+  const horizons = asRecordArray(contextPack.horizons)
     .slice(0, 4)
     .map(
-      (item: Record<string, any>) =>
-        `${item.horizon_bars} bars | ${item.trend_vote} | return=${item.return_pct ?? '-'} | drawdown=${item.max_drawdown_pct ?? '-'}`,
+      (item) =>
+        `${asString(item.horizon_bars)} bars | ${asString(item.trend_vote)} | return=${asString(item.return_pct)} | drawdown=${asString(item.max_drawdown_pct)}`,
     );
   return [
-    `Summary: ${pack.summary || '-'}`,
-    `Lookback: ${pack.lookback ?? '-'} | Interval: ${pack.interval ?? '-'}`,
-    `Window: ${pack.window_start ?? '-'} -> ${pack.window_end ?? '-'}`,
-    `Coverage: ${pack.bars_analyzed ?? '-'} / ${pack.bars_expected ?? '-'} (${pack.coverage_ratio ?? '-'})`,
-    `Quality: ${formatList(pack.data_quality_flags)}`,
-    `Anomalies: ${formatList(pack.anomaly_flags)}`,
+    `Summary: ${asString(contextPack.summary)}`,
+    `Lookback: ${asString(contextPack.lookback)} | Interval: ${asString(contextPack.interval)}`,
+    `Window: ${asString(contextPack.window_start)} -> ${asString(contextPack.window_end)}`,
+    `Coverage: ${asString(contextPack.bars_analyzed)} / ${asString(contextPack.bars_expected)} (${asString(contextPack.coverage_ratio)})`,
+    `Quality: ${formatList(contextPack.data_quality_flags)}`,
+    `Anomalies: ${formatList(contextPack.anomaly_flags)}`,
     ...horizons,
   ];
 }
 
 export function unavailableSectionLines(
-  section: Record<string, any> | null | undefined,
+  section: unknown,
   label: string,
 ): null | string[] {
-  if (section?.available === false) {
-    return [`${label} unavailable: ${section.error || 'Unknown error.'}`];
+  const sectionRecord = asRecord(section);
+  if (sectionRecord.available === false) {
+    return [
+      `${label} unavailable: ${asString(
+        sectionRecord.error,
+        CONTROL_ROOM_CONTEXT_COPY.unknownError,
+      )}`,
+    ];
   }
   return null;
 }

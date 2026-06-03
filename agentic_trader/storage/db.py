@@ -1,31 +1,15 @@
-import json
-from collections.abc import Sequence
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Literal, cast, get_args
-from uuid import uuid4
+from typing import Any
 
 import duckdb
 
 from agentic_trader.config import Settings
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
-from agentic_trader.memory.embeddings import (
-    build_memory_document,
-    embed_artifacts,
-    embedding_metadata,
-)
-from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowed
-from agentic_trader.runtime_feed import append_service_event, write_service_state
+from agentic_trader.memory.policy import MemoryActor
 from agentic_trader.schemas import (
     AccountMark,
-    AgentStageTrace,
     ChatHistoryEntry,
-    ChatPersona,
-    CoordinatorFocus,
     DailyRiskReport,
-    ExecutionSide,
     InvestmentPreferences,
-    JournalStatus,
     PortfolioSnapshot,
     PositionPlanSnapshot,
     PositionSnapshot,
@@ -33,411 +17,37 @@ from agentic_trader.schemas import (
     ProposalCandidateStatus,
     RunArtifacts,
     RunRecord,
-    RuntimeMode,
     ServiceEvent,
     ServiceEventLevel,
-    ServiceState,
     ServiceStateSnapshot,
     TradeContextRecord,
     TradeJournalEntry,
     TradeProposalRecord,
     TradeProposalStatus,
-    TradeSide,
 )
-
-type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]
-TERMINAL_SERVICE_STATES: set[ServiceState] = {
-    "stopped",
-    "completed",
-    "failed",
-    "blocked",
-}
-SERVICE_STATE_VALUES = set(get_args(ServiceState))
-RUNTIME_MODE_VALUES = set(get_args(RuntimeMode))
-
-
-@dataclass
-class ServiceStateUpdate:
-    state: str
-    continuous: bool
-    poll_seconds: int | None
-    cycle_count: int
-    message: str
-    service_name: str = "orchestrator"
-    runtime_mode: RuntimeMode | None = None
-    symbols: list[str] | None = None
-    interval: str | None = None
-    lookback: str | None = None
-    max_cycles: int | None = None
-    current_symbol: str | None = None
-    last_error: str | None = None
-    pid: int | None = None
-    clear_pid: bool = False
-    stop_requested: bool | None = None
-    background_mode: bool | None = None
-    launch_count: int | None = None
-    restart_count: int | None = None
-    stdout_log_path: str | None = None
-    stderr_log_path: str | None = None
-
-
-@dataclass
-class _TraceContextSummaries:
-    routed_models: dict[str, str]
-    retrieved_memory_summary: dict[str, list[str]]
-    retrieval_explanation_summary: dict[str, list[dict[str, object]]]
-    tool_outputs: dict[str, list[str]]
-    shared_memory_summary: dict[str, list[str]]
-
-
-@dataclass
-class _ResolvedServiceStateValues:
-    runtime_mode: RuntimeMode
-    started_at: str
-    pid: int | None
-    stop_requested: bool
-    symbols: list[str]
-    interval: str | None
-    lookback: str | None
-    max_cycles: int | None
-    background_mode: bool
-    launch_count: int
-    restart_count: int
-    last_terminal_state: str | None
-    last_terminal_at: str | None
-    stdout_log_path: str | None
-    stderr_log_path: str | None
-
-
-def _empty_trace_context_summaries() -> _TraceContextSummaries:
-    return _TraceContextSummaries(
-        routed_models={},
-        retrieved_memory_summary={},
-        retrieval_explanation_summary={},
-        tool_outputs={},
-        shared_memory_summary={},
-    )
-
-
-def _str_or_none(value: Any) -> str | None:
-    """
-    Return the string representation of value, or None when value is None.
-
-    Returns:
-        `str` if `value` is not `None`, `None` otherwise.
-    """
-    return str(value) if value is not None else None
-
-
-def _int_or_none(value: Any) -> int | None:
-    """
-    Convert a value to an integer when present.
-
-    Parameters:
-        value (Any): The input to convert; if `None`, no conversion is performed.
-
-    Returns:
-        int if value is not None, `None` otherwise.
-    """
-    return int(value) if value is not None else None
-
-
-def _bool_or_default(value: Any, default: bool) -> bool:
-    """
-    Resolve a boolean from an input, falling back to a provided default when the input is None.
-
-    Parameters:
-        value (Any): The input to convert to bool; if `None`, the `default` is used instead.
-        default (bool): The boolean value returned when `value` is `None`.
-
-    Returns:
-        bool: `bool(value)` if `value` is not `None`, otherwise `default`.
-    """
-    return bool(value) if value is not None else default
-
-
-def _resolve_value[T](new_value: T | None, existing_value: T | None, default: T) -> T:
-    """
-    Choose a resolved value from `new_value`, `existing_value`, or `default`.
-
-    Parameters:
-        new_value (T | None): Preferred value; used if not `None`.
-        existing_value (T | None): Fallback value; used if `new_value` is `None` and this is not `None`.
-        default (T): Final fallback returned if both `new_value` and `existing_value` are `None`.
-
-    Returns:
-        T: `new_value` if it is not `None`, otherwise `existing_value` if it is not `None`, otherwise `default`.
-    """
-    if new_value is not None:
-        return new_value
-    if existing_value is not None:
-        return existing_value
-    return default
-
-
-def _resolve_optional_value[T](
-    new_value: T | None, existing_value: T | None
-) -> T | None:
-    """
-    Selects a value between a new candidate and an existing fallback, preferring the new when present.
-
-    Parameters:
-        new_value (T | None): Candidate value to use if not `None`.
-        existing_value (T | None): Fallback value returned when `new_value` is `None`.
-
-    Returns:
-        `new_value` if it is not `None`, otherwise `existing_value` (which may be `None`).
-    """
-    return new_value if new_value is not None else existing_value
-
-
-def _existing_value(
-    existing: ServiceStateSnapshot | None,
-    attr: str,
-) -> Any | None:
-    if existing is None:
-        return None
-    return getattr(existing, attr)
-
-
-def _resolve_started_at(
-    *,
-    update: ServiceStateUpdate,
-    existing: ServiceStateSnapshot | None,
-    now: str,
-) -> str:
-    started_at = _existing_value(existing, "started_at")
-    if update.state == "starting" or started_at is None:
-        return now
-    return started_at
-
-
-def _resolve_service_pid(
-    update: ServiceStateUpdate, existing: ServiceStateSnapshot | None
-) -> int | None:
-    if update.clear_pid:
-        return None
-    return _resolve_optional_value(update.pid, _existing_value(existing, "pid"))
-
-
-def _resolve_symbols(
-    symbols: list[str] | None, existing: ServiceStateSnapshot | None
-) -> list[str]:
-    """
-    Selects the symbols list to use for a service state update.
-
-    Parameters:
-        symbols (list[str] | None): Explicit symbols provided for the update; if not None, these are used.
-        existing (ServiceStateSnapshot | None): Existing service state to fall back to when `symbols` is None.
-
-    Returns:
-        list[str]: The resolved symbols list — `symbols` if provided, otherwise `existing.symbols` if `existing` is present, otherwise an empty list.
-    """
-    if symbols is not None:
-        return list(symbols)
-    if existing is not None:
-        return existing.symbols
-    return []
-
-
-def _resolve_terminal_state(
-    *, state: str, existing: ServiceStateSnapshot | None, now: str
-) -> tuple[str | None, str | None]:
-    """
-    Determine the terminal state and timestamp to record when updating a service's state.
-
-    If the provided `state` is in TERMINAL_SERVICE_STATES, returns `(state, now)`. Otherwise, if an existing snapshot is provided, returns its `last_terminal_state` and `last_terminal_at`; if no existing snapshot is available, returns `(None, None)`.
-
-    Parameters:
-        state: The new service state string being applied.
-        existing: The prior ServiceStateSnapshot for the service, or `None` if none exists.
-        now: ISO-8601 timestamp string representing the current time used when marking a terminal state.
-
-    Returns:
-        A tuple `(last_terminal_state, last_terminal_at)` where `last_terminal_state` is the terminal state string or `None`, and `last_terminal_at` is the timestamp string when that terminal state was recorded or `None`.
-    """
-    if state in TERMINAL_SERVICE_STATES:
-        return state, now
-    if existing is None:
-        return None, None
-    return existing.last_terminal_state, existing.last_terminal_at
-
-
-def _coerce_service_state(value: Any) -> ServiceState:
-    state = str(value)
-    return cast(ServiceState, state) if state in SERVICE_STATE_VALUES else "stopped"
-
-
-def _coerce_runtime_mode(value: Any) -> RuntimeMode:
-    mode = str(value)
-    return cast(RuntimeMode, mode) if mode in RUNTIME_MODE_VALUES else "operation"
-
-
-def _decode_symbols(value: Any) -> list[str]:
-    """
-    Parse a JSON-encoded symbols value into a list of strings.
-
-    Parameters:
-        value (Any): A JSON-serializable value (commonly a JSON string or sequence). If `None`, this returns an empty list.
-
-    Returns:
-        list[str]: The decoded list of symbol strings, or an empty list when `value` is `None`.
-    """
-    return json.loads(str(value)) if value is not None else []
-
-
-def _decode_object_payload(value: Any) -> dict[str, object]:
-    """
-    Parse a JSON value and return its object form, or an empty mapping on failure.
-
-    Attempts to decode `value` as JSON and return the resulting object as a dict with string keys.
-    If `value` is None, is not valid JSON, or the decoded JSON is not an object, an empty dict is returned.
-
-    Parameters:
-        value: The input to parse (typically a JSON string or a value convertible to string).
-
-    Returns:
-        A dict mapping string keys to decoded JSON values, or an empty dict if parsing fails or the JSON is not an object.
-    """
-    if value is None:
-        return {}
-    try:
-        payload = json.loads(str(value))
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(payload, dict):
-        return {}
-    return {str(key): item for key, item in cast(dict[object, object], payload).items()}
-
-
-def _int_or_default(value: Any, default: int) -> int:
-    """
-    Convert a value to an int, falling back to the provided default when the value is None.
-
-    Parameters:
-        value (Any): The value to convert using int(); if None, the default is returned.
-        default (int): Integer to return when value is None.
-
-    Returns:
-        int: The converted integer or the provided default.
-    """
-    return int(value) if value is not None else default
-
-
-def _trace_context(trace: AgentStageTrace) -> dict[str, Any] | None:
-    try:
-        context = json.loads(trace.context_json)
-    except json.JSONDecodeError:
-        return None
-    return cast(dict[str, Any], context) if isinstance(context, dict) else None
-
-
-def _summarize_trace_contexts(
-    traces: list[AgentStageTrace],
-) -> _TraceContextSummaries:
-    summaries = _empty_trace_context_summaries()
-    for trace in traces:
-        summaries.routed_models[trace.role] = trace.model_name
-        context = _trace_context(trace)
-        if context is None:
-            continue
-        _collect_trace_context_summary(summaries, trace.role, context)
-    return summaries
-
-
-def _collect_trace_context_summary(
-    summaries: _TraceContextSummaries,
-    role: str,
-    context: dict[str, Any],
-) -> None:
-    retrieved_memories = context.get("retrieved_memories")
-    if isinstance(retrieved_memories, list):
-        summaries.retrieved_memory_summary[role] = [
-            str(item) for item in cast(list[object], retrieved_memories)[:5]
-        ]
-
-    retrieval_explanations = context.get("retrieval_explanations")
-    if isinstance(retrieval_explanations, list):
-        summaries.retrieval_explanation_summary[role] = [
-            cast(dict[str, Any], item)
-            for item in cast(list[object], retrieval_explanations)[:5]
-            if isinstance(item, dict)
-        ]
-
-    trace_tool_outputs = context.get("tool_outputs")
-    if isinstance(trace_tool_outputs, list):
-        summaries.tool_outputs[role] = [
-            str(item) for item in cast(list[object], trace_tool_outputs)[:5]
-        ]
-
-    shared_memory_bus = context.get("shared_memory_bus")
-    if isinstance(shared_memory_bus, list):
-        summaries.shared_memory_summary[role] = [
-            str(cast(dict[str, object], item).get("summary", ""))
-            for item in cast(list[object], shared_memory_bus)[:5]
-            if isinstance(item, dict)
-        ]
-
-
-def _execution_adapter_name(
-    execution_intent: ExecutionIntent | None,
-    execution_outcome: ExecutionOutcome | None,
-) -> str | None:
-    if execution_outcome is not None:
-        return execution_outcome.adapter_name
-    if execution_intent is not None:
-        return execution_intent.adapter_name
-    return None
-
-
-def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
-    """
-    Convert a database row tuple into a ServiceStateSnapshot.
-
-    The input `row` is expected to follow the service_state table column order:
-    (service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at, continuous,
-     poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
-     current_symbol, last_error, pid, stop_requested, background_mode,
-     launch_count, restart_count, last_terminal_state, last_terminal_at,
-     stdout_log_path, stderr_log_path, message).
-
-    Parameters:
-        row (tuple[Any, ...]): A database row tuple matching the columns above. `symbols_json` may be None or a JSON string.
-
-    Unknown state strings are normalized to "stopped" so stale or manually
-    edited runtime rows cannot break observer/status surfaces. The current
-    schema already accepts the transitional "stopping" state.
-
-    Returns:
-        ServiceStateSnapshot: Parsed snapshot with coerced types (strings, ints, bools, lists) and sensible defaults for missing/None fields.
-    """
-    return ServiceStateSnapshot(
-        service_name=str(row[0]),
-        state=_coerce_service_state(row[1]),
-        runtime_mode=_coerce_runtime_mode(row[2]),
-        updated_at=str(row[3]),
-        started_at=_str_or_none(row[4]),
-        last_heartbeat_at=_str_or_none(row[5]),
-        continuous=bool(row[6]),
-        poll_seconds=_int_or_none(row[7]),
-        cycle_count=int(row[8]),
-        symbols=_decode_symbols(row[9]),
-        interval=_str_or_none(row[10]),
-        lookback=_str_or_none(row[11]),
-        max_cycles=_int_or_none(row[12]),
-        current_symbol=_str_or_none(row[13]),
-        last_error=_str_or_none(row[14]),
-        pid=_int_or_none(row[15]),
-        stop_requested=_bool_or_default(row[16], False),
-        background_mode=_bool_or_default(row[17], False),
-        launch_count=_int_or_default(row[18], 0),
-        restart_count=_int_or_default(row[19], 0),
-        last_terminal_state=_str_or_none(row[20]),
-        last_terminal_at=_str_or_none(row[21]),
-        stdout_log_path=_str_or_none(row[22]),
-        stderr_log_path=_str_or_none(row[23]),
-        message=str(row[24]),
-    )
+from agentic_trader.storage import memory_vectors as memory_vector_store
+from agentic_trader.storage import operator_chat as operator_chat_store
+from agentic_trader.storage import order_records as order_store
+from agentic_trader.storage import portfolio as portfolio_store
+from agentic_trader.storage import preferences as preference_store
+from agentic_trader.storage import proposals as proposal_store
+from agentic_trader.storage import run_records as run_store
+from agentic_trader.storage import services as service_store
+from agentic_trader.storage import trade_journal as trade_store
+from agentic_trader.storage.order_records import OrderRow
+from agentic_trader.storage.schema import (
+    create_core_tables,
+    create_execution_tables,
+    create_memory_tables,
+    create_service_tables,
+    ensure_default_account,
+    migrate_memory_vector_columns,
+    migrate_service_state_columns,
+    migrate_trade_journal_constraints,
+    migrate_trade_proposal_columns,
+    table_exists,
+)
+from agentic_trader.storage.services import ServiceStateUpdate
 
 
 class TradingDatabase:
@@ -452,15 +62,7 @@ class TradingDatabase:
             self._init_schema()
 
     def _table_exists(self, table_name: str) -> bool:
-        row = self.conn.execute(
-            """
-            select count(*)
-            from information_schema.tables
-            where table_name = ?
-            """,
-            [table_name],
-        ).fetchone()
-        return row is not None and int(row[0]) > 0
+        return table_exists(self.conn, table_name)
 
     def _init_schema(self) -> None:
         """
@@ -472,742 +74,61 @@ class TradingDatabase:
         with the configured default cash when absent) and ensures a default preferences profile exists
         (inserting a default `InvestmentPreferences()` when absent).
         """
-        self._create_core_tables()
-        self._migrate_trade_journal_constraints()
-        self._create_execution_tables()
-        self._migrate_trade_proposal_columns()
-        self._create_service_tables()
-        self._migrate_service_state_columns()
-        self._create_memory_tables()
-        self._migrate_memory_vector_columns()
-        self._ensure_default_account()
+        create_core_tables(self.conn)
+        migrate_trade_journal_constraints(self.conn)
+        create_execution_tables(self.conn)
+        migrate_trade_proposal_columns(self.conn)
+        create_service_tables(self.conn)
+        migrate_service_state_columns(self.conn)
+        create_memory_tables(self.conn)
+        migrate_memory_vector_columns(self.conn)
+        ensure_default_account(
+            self.conn,
+            default_cash=self.settings.default_cash,
+        )
         self._ensure_default_preferences()
-
-    def _create_core_tables(self) -> None:
-        """
-        Create core database tables if they do not already exist.
-
-        This initializes the main schema used by the application by ensuring the presence of:
-        - runs: metadata and payload for executed runs.
-        - orders: persisted order proposals/records and their pricing/position metadata.
-        - account_state: current account cash and realized P&L snapshot.
-        - positions: per-symbol position quantities and pricing.
-        - fills: executed fill records and cash/P&L deltas.
-        - position_plans: planned position parameters and invalidation/holding metadata.
-        - preferences: serialized user/investment preferences.
-        - account_marks: saved portfolio snapshots/notes for risk tracking and auditing.
-        - trade_journal: open/closed trade journal entries with decision & outcome details.
-        - trade_contexts: persisted context/trace payloads associated with trades.
-
-        No value is returned.
-        """
-        self.conn.execute("""
-            create table if not exists runs (
-                run_id varchar primary key,
-                created_at varchar not null,
-                symbol varchar not null,
-                interval varchar not null,
-                approved boolean not null,
-                payload_json varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists orders (
-                order_id varchar primary key,
-                created_at varchar not null,
-                symbol varchar not null,
-                side varchar not null,
-                approved boolean not null,
-                entry_price double not null,
-                stop_loss double not null,
-                take_profit double not null,
-                position_size_pct double not null,
-                confidence double not null,
-                rationale varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists account_state (
-                account_id varchar primary key,
-                updated_at varchar not null,
-                cash double not null,
-                realized_pnl double not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists positions (
-                symbol varchar primary key,
-                quantity double not null,
-                average_price double not null,
-                market_price double not null,
-                updated_at varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists fills (
-                fill_id varchar primary key,
-                order_id varchar not null,
-                created_at varchar not null,
-                symbol varchar not null,
-                side varchar not null,
-                quantity double not null,
-                price double not null,
-                cash_delta double not null,
-                realized_pnl_delta double not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists position_plans (
-                symbol varchar primary key,
-                side varchar not null,
-                entry_price double not null,
-                stop_loss double not null,
-                take_profit double not null,
-                max_holding_bars integer not null,
-                holding_bars integer not null,
-                invalidation_logic varchar not null,
-                updated_at varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists preferences (
-                profile_id varchar primary key,
-                updated_at varchar not null,
-                payload_json varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists account_marks (
-                mark_id varchar primary key,
-                created_at varchar not null,
-                source varchar not null,
-                note varchar not null,
-                cycle_count integer,
-                symbol varchar,
-                cash double not null,
-                market_value double not null,
-                equity double not null,
-                realized_pnl double not null,
-                unrealized_pnl double not null,
-                open_positions integer not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists trade_journal (
-                trade_id varchar primary key,
-                opened_at varchar not null,
-                closed_at varchar,
-                symbol varchar not null,
-                run_id varchar,
-                entry_order_id varchar not null,
-                exit_order_id varchar,
-                planned_side varchar not null,
-                approved boolean not null,
-                journal_status varchar not null,
-                entry_price double not null,
-                exit_price double,
-                stop_loss double not null,
-                take_profit double not null,
-                position_size_pct double not null,
-                confidence double not null,
-                coordinator_focus varchar not null,
-                strategy_family varchar not null,
-                manager_bias varchar not null,
-                review_summary varchar not null,
-                exit_reason varchar,
-                realized_pnl double,
-                notes varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists trade_contexts (
-                trade_id varchar primary key,
-                created_at varchar not null,
-                run_id varchar,
-                symbol varchar not null,
-                payload_json varchar not null
-            )
-            """)
-
-    def _create_execution_tables(self) -> None:
-        """
-        Ensure execution-related database tables exist: `execution_records`, `trade_proposals`, and `proposal_candidates`.
-
-        `execution_records` stores adapter intent/outcome metadata for executions (intent/outcome payloads, adapter/backend selection, status, and optional rejection reason). `trade_proposals` persists proposed trades and their lifecycle fields (including `limit_price`). `proposal_candidates` persists candidate signals and metadata, including `evidence_json` for serialized evidence.
-        """
-        self.conn.execute("""
-            create table if not exists execution_records (
-                intent_id varchar primary key,
-                created_at varchar not null,
-                run_id varchar,
-                order_id varchar,
-                symbol varchar not null,
-                execution_backend varchar not null,
-                adapter_name varchar not null,
-                status varchar not null,
-                rejection_reason varchar,
-                intent_json varchar not null,
-                outcome_json varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists trade_proposals (
-                proposal_id varchar primary key,
-                created_at varchar not null,
-                updated_at varchar not null,
-                symbol varchar not null,
-                side varchar not null,
-                order_type varchar not null,
-                quantity double,
-                notional double,
-                reference_price double not null,
-                confidence double not null,
-                thesis varchar not null,
-                stop_loss double,
-                take_profit double,
-                invalidation_condition varchar,
-                source varchar not null,
-                status varchar not null,
-                review_notes varchar not null,
-                rejection_reason varchar,
-                execution_intent_id varchar,
-                execution_order_id varchar,
-                execution_outcome_status varchar,
-                limit_price double
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists proposal_candidates (
-                candidate_id varchar primary key,
-                created_at varchar not null,
-                updated_at varchar not null,
-                symbol varchar not null,
-                preset varchar not null,
-                signal varchar not null,
-                side varchar,
-                score double not null,
-                reference_price double not null,
-                confidence double not null,
-                quantity double,
-                notional double,
-                thesis varchar not null,
-                stop_loss double,
-                take_profit double,
-                invalidation_condition varchar,
-                source varchar not null,
-                status varchar not null,
-                materiality varchar not null,
-                freshness varchar not null,
-                liquidity varchar not null,
-                spread_pct double not null,
-                risk_notes varchar not null,
-                evidence_json varchar not null,
-                proposal_id varchar
-            )
-            """)
-
-    def _create_service_tables(self) -> None:
-        """
-        Create the database tables used to persist service runtime state, service events, and operator chat history if they do not already exist.
-
-        Creates three tables:
-        - `service_state`: stores per-service runtime metadata and control flags (state, runtime mode, timestamps, pid, stop/background controls, symbols, interval/lookback/max_cycles, terminal markers, log paths, and a freeform message).
-        - `service_events`: records individual service-level events with level, type, message, optional cycle count and symbol.
-        - `operator_chat_history`: stores operator chat exchanges (persona, user message, and system response) for auditing and review.
-        """
-        self.conn.execute("""
-            create table if not exists service_state (
-                service_name varchar primary key,
-                state varchar not null,
-                runtime_mode varchar not null default 'operation',
-                updated_at varchar not null,
-                started_at varchar,
-                last_heartbeat_at varchar,
-                continuous boolean not null,
-                poll_seconds integer,
-                cycle_count integer not null,
-                symbols_json varchar not null default '[]',
-                interval varchar,
-                lookback varchar,
-                max_cycles integer,
-                current_symbol varchar,
-                last_error varchar,
-                pid bigint,
-                stop_requested boolean not null default false,
-                background_mode boolean not null default false,
-                launch_count integer not null default 0,
-                restart_count integer not null default 0,
-                last_terminal_state varchar,
-                last_terminal_at varchar,
-                stdout_log_path varchar,
-                stderr_log_path varchar,
-                message varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists service_events (
-                event_id varchar primary key,
-                created_at varchar not null,
-                service_name varchar not null,
-                level varchar not null,
-                event_type varchar not null,
-                message varchar not null,
-                cycle_count integer,
-                symbol varchar
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists operator_chat_history (
-                entry_id varchar primary key,
-                created_at varchar not null,
-                persona varchar not null,
-                user_message varchar not null,
-                response_text varchar not null
-            )
-            """)
-
-    def _column_names(self, table_name: str) -> set[str]:
-        """
-        Return the set of column names for the given table.
-
-        @returns set[str]: The column names present in `table_name`; returns an empty set if the table does not exist or has no columns.
-        """
-        return {
-            str(row[1])
-            for row in self.conn.execute(
-                f"pragma table_info('{table_name}')"
-            ).fetchall()
-        }
-
-    def _add_missing_columns(
-        self, table_name: str, column_statements: dict[str, str]
-    ) -> None:
-        """
-        Add any missing columns to a table by executing the provided SQL statements for each absent column.
-
-        Parameters:
-            table_name (str): Name of the table to check.
-            column_statements (dict[str, str]): Mapping from column name to the full SQL statement that adds that column; a statement is executed only if its column is not present.
-        """
-        existing_columns = self._column_names(table_name)
-        for column_name, statement in column_statements.items():
-            if column_name not in existing_columns:
-                self.conn.execute(statement)
-
-    def _migrate_service_state_columns(self) -> None:
-        """
-        Ensure the `service_state` table has recently added columns, adding any that are missing.
-
-        This migration adds the following columns when absent: `pid`, `runtime_mode` (default `'operation'`), `stop_requested`, `symbols_json`, `interval`, `lookback`, `max_cycles`, `background_mode`, `launch_count`, `restart_count`, `last_terminal_state`, `last_terminal_at`, `stdout_log_path`, and `stderr_log_path`.
-        """
-        self._add_missing_columns(
-            "service_state",
-            {
-                "pid": "alter table service_state add column pid bigint",
-                "runtime_mode": "alter table service_state add column runtime_mode varchar default 'operation'",
-                "stop_requested": "alter table service_state add column stop_requested boolean",
-                "symbols_json": "alter table service_state add column symbols_json varchar",
-                "interval": "alter table service_state add column interval varchar",
-                "lookback": "alter table service_state add column lookback varchar",
-                "max_cycles": "alter table service_state add column max_cycles integer",
-                "background_mode": "alter table service_state add column background_mode boolean",
-                "launch_count": "alter table service_state add column launch_count integer",
-                "restart_count": "alter table service_state add column restart_count integer",
-                "last_terminal_state": "alter table service_state add column last_terminal_state varchar",
-                "last_terminal_at": "alter table service_state add column last_terminal_at varchar",
-                "stdout_log_path": "alter table service_state add column stdout_log_path varchar",
-                "stderr_log_path": "alter table service_state add column stderr_log_path varchar",
-            },
-        )
-
-    def _create_memory_tables(self) -> None:
-        """
-        Ensure the `memory_vectors` table exists in the database with schema for storing run embeddings and associated document text.
-
-        The table columns:
-        - `run_id`: primary key identifying the run.
-        - `created_at`: timestamp string when the embedding was created.
-        - `symbol`: market symbol associated with the run.
-        - `embedding_provider`, `embedding_model`, `embedding_version`, `embedding_dimensions`: metadata describing the embedding.
-        - `embedding_json`: serialized embedding vector.
-        - `document_text`: textual content used to generate the embedding.
-        """
-        self.conn.execute("""
-            create table if not exists memory_vectors (
-                run_id varchar primary key,
-                created_at varchar not null,
-                symbol varchar not null,
-                embedding_provider varchar not null default 'local_hashing',
-                embedding_model varchar not null default 'agentic-hash-v1',
-                embedding_version varchar not null default '1',
-                embedding_dimensions integer not null default 64,
-                embedding_json varchar not null,
-                document_text varchar not null
-            )
-            """)
-
-    def _migrate_memory_vector_columns(self) -> None:
-        """
-        Add embedding-related columns to the `memory_vectors` table if they are missing.
-
-        Ensures the following columns exist with specified defaults:
-        - `embedding_provider` (varchar) default `'local_hashing'`
-        - `embedding_model` (varchar) default `'agentic-hash-v1'`
-        - `embedding_version` (varchar) default `'1'`
-        - `embedding_dimensions` (integer) default `64`
-        """
-        self._add_missing_columns(
-            "memory_vectors",
-            {
-                "embedding_provider": "alter table memory_vectors add column embedding_provider varchar default 'local_hashing'",
-                "embedding_model": "alter table memory_vectors add column embedding_model varchar default 'agentic-hash-v1'",
-                "embedding_version": "alter table memory_vectors add column embedding_version varchar default '1'",
-                "embedding_dimensions": "alter table memory_vectors add column embedding_dimensions integer default 64",
-            },
-        )
-
-    def _migrate_trade_proposal_columns(self) -> None:
-        """
-        Ensure the `trade_proposals` table contains a `limit_price` column.
-
-        Adds the `limit_price` column to the `trade_proposals` table when it is not already present.
-        """
-        self._add_missing_columns(
-            "trade_proposals",
-            {
-                "limit_price": "alter table trade_proposals add column limit_price double",
-            },
-        )
-
-    def _migrate_trade_journal_constraints(self) -> None:
-        self.conn.execute("""
-            delete from trade_journal
-            where trade_id in (
-                select trade_id
-                from (
-                    select
-                        trade_id,
-                        row_number() over (
-                            partition by entry_order_id
-                            order by opened_at desc, trade_id desc
-                        ) as duplicate_rank
-                    from trade_journal
-                )
-                where duplicate_rank > 1
-            )
-            """)
-        self.conn.execute("""
-            create unique index if not exists trade_journal_entry_order_id_idx
-            on trade_journal(entry_order_id)
-            """)
 
     def repair_trade_journal_constraints(self) -> None:
         """Deduplicate trade-journal entry order IDs and recreate the unique index."""
-        self._migrate_trade_journal_constraints()
-
-    def _ensure_default_account(self) -> None:
-        """
-        Ensure a default "paper" account row exists in the account_state table.
-
-        If no row with account_id 'paper' is present, insert one with updated_at set to the current UTC time, cash set to self.settings.default_cash, and realized_pnl set to 0.
-        """
-        existing = self.conn.execute(
-            "select count(*) from account_state where account_id = 'paper'"
-        ).fetchone()
-        if existing and int(existing[0]) == 0:
-            self.conn.execute(
-                """
-                insert into account_state (account_id, updated_at, cash, realized_pnl)
-                values ('paper', ?, ?, 0)
-                """,
-                [
-                    datetime.now(timezone.utc).isoformat(),
-                    self.settings.default_cash,
-                ],
-            )
+        migrate_trade_journal_constraints(self.conn)
 
     def _ensure_default_preferences(self) -> None:
-        pref_existing = self.conn.execute(
-            "select count(*) from preferences where profile_id = 'default'"
-        ).fetchone()
-        if pref_existing and int(pref_existing[0]) == 0:
-            self.save_preferences(InvestmentPreferences())
+        preference_store.ensure_default_preferences(self.conn)
 
     def close(self) -> None:
         self.conn.close()
 
     def insert_run(self, run_id: str, artifacts: RunArtifacts) -> None:
-        created_at = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            insert into runs (run_id, created_at, symbol, interval, approved, payload_json)
-            values (?, ?, ?, ?, ?, ?)
-            """,
-            [
-                run_id,
-                created_at,
-                artifacts.snapshot.symbol,
-                artifacts.snapshot.interval,
-                artifacts.execution.approved,
-                artifacts.model_dump_json(indent=2),
-            ],
-        )
-        self.upsert_memory_vector(
-            run_id,
-            artifacts,
-            created_at=created_at,
-            actor="system_runtime",
-        )
+        run_store.insert_run(self.conn, run_id, artifacts)
 
     def insert_order(self, order: dict[str, Any]) -> None:
-        """
-        Persist an order record into the `orders` table.
-
-        Parameters:
-            order (dict[str, Any]): Mapping containing order fields to persist. Required keys:
-                - order_id (str): Unique order identifier.
-                - created_at (str): ISO-8601 timestamp when the order was created.
-                - symbol (str): Market symbol for the order.
-                - side (str): Order side, e.g., "buy" or "sell".
-                - approved (bool): Whether the order was approved.
-                - entry_price (float | None): Entry price for the order, if applicable.
-                - stop_loss (float | None): Stop-loss price, if applicable.
-                - take_profit (float | None): Take-profit price, if applicable.
-                - position_size_pct (float | None): Position size as a percentage of portfolio.
-                - confidence (float | None): Model confidence score for the order.
-                - rationale (str | None): Human- or model-readable rationale for the order.
-        """
-        self.conn.execute(
-            """
-            insert into orders (
-                order_id, created_at, symbol, side, approved, entry_price,
-                stop_loss, take_profit, position_size_pct, confidence, rationale
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                order["order_id"],
-                order["created_at"],
-                order["symbol"],
-                order["side"],
-                order["approved"],
-                order["entry_price"],
-                order["stop_loss"],
-                order["take_profit"],
-                order["position_size_pct"],
-                order["confidence"],
-                order["rationale"],
-            ],
-        )
+        order_store.insert_order(self.conn, order)
 
     def latest_order(self) -> OrderRow | None:
-        """
-        Fetch the most recent order row from the orders table.
-
-        Returns:
-            OrderRow | None: `OrderRow` tuple with fields (order_id, created_at, symbol, side, approved, entry_price, stop_loss, take_profit, position_size_pct, confidence), or `None` if no order row exists.
-        """
-        result = self.conn.execute("""
-            select order_id, created_at, symbol, side, approved, entry_price,
-                   stop_loss, take_profit, position_size_pct, confidence
-            from orders
-            order by created_at desc
-            limit 1
-            """).fetchone()
-        if result is None:
-            return None
-
-        return (
-            str(result[0]),
-            str(result[1]),
-            str(result[2]),
-            str(result[3]),
-            bool(result[4]),
-            float(result[5]),
-            float(result[6]),
-            float(result[7]),
-            float(result[8]),
-            float(result[9]),
-        )
+        return order_store.latest_order(self.conn)
 
     def insert_trade_proposal(self, proposal: TradeProposalRecord) -> None:
-        """
-        Insert a trade proposal record into the database.
-
-        Parameters:
-            proposal (TradeProposalRecord): Trade proposal data to persist (includes identifiers, market details, pricing/size, status/review fields, and any execution linkage metadata).
-        """
-        self._execute_trade_proposal_insert(proposal)
-
-    def _execute_trade_proposal_insert(self, proposal: TradeProposalRecord) -> None:
-        """
-        Insert the given trade proposal into the `trade_proposals` database table.
-
-        Parameters:
-            proposal (TradeProposalRecord): The proposal to persist; its fields (including identifiers, timestamps,
-                market/order details, execution linkage fields, status/review metadata, and `limit_price`) are stored
-                as a new row in the `trade_proposals` table.
-        """
-        self.conn.execute(
-            """
-            insert into trade_proposals (
-                proposal_id, created_at, updated_at, symbol, side, order_type,
-                quantity, notional, reference_price, confidence, thesis, stop_loss,
-                take_profit, invalidation_condition, source, status, review_notes,
-                rejection_reason, execution_intent_id, execution_order_id,
-                execution_outcome_status, limit_price
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                proposal.proposal_id,
-                proposal.created_at,
-                proposal.updated_at,
-                proposal.symbol,
-                proposal.side,
-                proposal.order_type,
-                proposal.quantity,
-                proposal.notional,
-                proposal.reference_price,
-                proposal.confidence,
-                proposal.thesis,
-                proposal.stop_loss,
-                proposal.take_profit,
-                proposal.invalidation_condition,
-                proposal.source,
-                proposal.status,
-                proposal.review_notes,
-                proposal.rejection_reason,
-                proposal.execution_intent_id,
-                proposal.execution_order_id,
-                proposal.execution_outcome_status,
-                proposal.limit_price,
-            ],
-        )
+        proposal_store.insert_trade_proposal(self.conn, proposal)
 
     def insert_proposal_candidate(self, candidate: ProposalCandidateRecord) -> None:
-        """
-        Insert a proposal candidate record into the proposal_candidates table.
-
-        The candidate's fields are persisted as a new row; the `evidence` field is JSON-serialized into the `evidence_json` column.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): The proposal candidate record to persist.
-        """
-        self.conn.execute(
-            """
-            insert into proposal_candidates (
-                candidate_id, created_at, updated_at, symbol, preset, signal, side,
-                score, reference_price, confidence, quantity, notional, thesis,
-                stop_loss, take_profit, invalidation_condition, source, status,
-                materiality, freshness, liquidity, spread_pct, risk_notes,
-                evidence_json, proposal_id
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                candidate.candidate_id,
-                candidate.created_at,
-                candidate.updated_at,
-                candidate.symbol,
-                candidate.preset,
-                candidate.signal,
-                candidate.side,
-                candidate.score,
-                candidate.reference_price,
-                candidate.confidence,
-                candidate.quantity,
-                candidate.notional,
-                candidate.thesis,
-                candidate.stop_loss,
-                candidate.take_profit,
-                candidate.invalidation_condition,
-                candidate.source,
-                candidate.status,
-                candidate.materiality,
-                candidate.freshness,
-                candidate.liquidity,
-                candidate.spread_pct,
-                candidate.risk_notes,
-                json.dumps(candidate.evidence),
-                candidate.proposal_id,
-            ],
-        )
+        proposal_store.insert_proposal_candidate(self.conn, candidate)
 
     def get_proposal_candidate(
         self, candidate_id: str
     ) -> ProposalCandidateRecord | None:
-        """
-        Retrieve a proposal candidate by its unique identifier.
-
-        Parameters:
-            candidate_id (str): Identifier of the proposal candidate to fetch.
-
-        Returns:
-            ProposalCandidateRecord | None: The matching candidate record, or `None` if no matching row exists or the `proposal_candidates` table is absent.
-        """
-        if not self._table_exists("proposal_candidates"):
-            return None
-        rows = self._proposal_candidate_rows(
-            """
-            select *
-            from proposal_candidates
-            where candidate_id = ?
-            """,
-            [candidate_id],
-        )
-        return rows[0] if rows else None
+        return proposal_store.get_proposal_candidate(self.conn, candidate_id)
 
     def list_proposal_candidates(
         self, *, status: ProposalCandidateStatus | None = None, limit: int = 50
     ) -> list[ProposalCandidateRecord]:
-        """
-        List proposal candidates from the database, optionally filtered by their status.
-
-        Parameters:
-            status (ProposalCandidateStatus | None): If provided, only return candidates with this status; if `None`, return candidates of any status.
-            limit (int): Maximum number of candidates to return, ordered by `created_at` descending.
-
-        Returns:
-            list[ProposalCandidateRecord]: Candidate records ordered by `created_at` (newest first); returns an empty list if the `proposal_candidates` table does not exist or no rows match.
-        """
-        if not self._table_exists("proposal_candidates"):
-            return []
-        if status is None:
-            return self._proposal_candidate_rows(
-                """
-                select *
-                from proposal_candidates
-                order by created_at desc
-                limit ?
-                """,
-                [limit],
-            )
-        return self._proposal_candidate_rows(
-            """
-            select *
-            from proposal_candidates
-            where status = ?
-            order by created_at desc
-            limit ?
-            """,
-            [status, limit],
+        return proposal_store.list_proposal_candidates(
+            self.conn,
+            status=status,
+            limit=limit,
         )
 
     def update_proposal_candidate(self, candidate: ProposalCandidateRecord) -> bool:
-        """
-        Update an existing proposal candidate row in the database.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): The candidate record carrying the updated fields; its `candidate_id` identifies which row to update.
-
-        Returns:
-            bool: `True` if the update was performed, `False` if the `proposal_candidates` table does not exist.
-        """
-        if not self._table_exists("proposal_candidates"):
-            return False
-        self._execute_proposal_candidate_update(candidate)
-        return True
+        return proposal_store.update_proposal_candidate(self.conn, candidate)
 
     def promote_proposal_candidate_with_proposal(
         self,
@@ -1216,106 +137,23 @@ class TradingDatabase:
         proposal: TradeProposalRecord,
         expected_status: ProposalCandidateStatus = "candidate",
     ) -> bool:
-        """
-        Atomically promote a proposal candidate by inserting the given trade proposal and updating the candidate only when the candidate's current status matches `expected_status`.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): The candidate record to be updated.
-            proposal (TradeProposalRecord): The trade proposal to insert when promoting the candidate.
-            expected_status (ProposalCandidateStatus): The required current status of the candidate for promotion (default: "candidate").
-
-        Returns:
-            bool: `True` if the proposal was inserted and the candidate updated (promotion committed), `False` if the required tables are missing or the candidate's current status did not match `expected_status`.
-        """
-        if not self._table_exists("proposal_candidates") or not self._table_exists(
-            "trade_proposals"
-        ):
-            return False
-        self.conn.execute("begin transaction")
-        try:
-            current = self.conn.execute(
-                """
-                select status
-                from proposal_candidates
-                where candidate_id = ?
-                """,
-                [candidate.candidate_id],
-            ).fetchone()
-            if current is None or str(current[0]) != expected_status:
-                self.conn.execute("commit")
-                return False
-            self._execute_trade_proposal_insert(proposal)
-            self._execute_proposal_candidate_update(candidate)
-            self.conn.execute("commit")
-            return True
-        except Exception:
-            self.conn.execute("rollback")
-            raise
-
-    def _execute_proposal_candidate_update(
-        self, candidate: ProposalCandidateRecord
-    ) -> None:
-        """
-        Update an existing proposal candidate row in the database with fields from `candidate`.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): Record whose `candidate_id` identifies the row to update; its `updated_at`, `status`, `evidence`, and `proposal_id` fields are written to the database.
-        """
-        self.conn.execute(
-            """
-            update proposal_candidates
-            set updated_at = ?,
-                status = ?,
-                evidence_json = ?,
-                proposal_id = ?
-            where candidate_id = ?
-            """,
-            [
-                candidate.updated_at,
-                candidate.status,
-                json.dumps(candidate.evidence),
-                candidate.proposal_id,
-                candidate.candidate_id,
-            ],
+        return proposal_store.promote_proposal_candidate_with_proposal(
+            self.conn,
+            candidate=candidate,
+            proposal=proposal,
+            expected_status=expected_status,
         )
 
     def get_trade_proposal(self, proposal_id: str) -> TradeProposalRecord | None:
-        if not self._table_exists("trade_proposals"):
-            return None
-        rows = self._trade_proposal_rows(
-            """
-            select *
-            from trade_proposals
-            where proposal_id = ?
-            """,
-            [proposal_id],
-        )
-        return rows[0] if rows else None
+        return proposal_store.get_trade_proposal(self.conn, proposal_id)
 
     def list_trade_proposals(
         self, *, status: TradeProposalStatus | None = None, limit: int = 50
     ) -> list[TradeProposalRecord]:
-        if not self._table_exists("trade_proposals"):
-            return []
-        if status is None:
-            return self._trade_proposal_rows(
-                """
-                select *
-                from trade_proposals
-                order by created_at desc
-                limit ?
-                """,
-                [limit],
-            )
-        return self._trade_proposal_rows(
-            """
-            select *
-            from trade_proposals
-            where status = ?
-            order by created_at desc
-            limit ?
-            """,
-            [status, limit],
+        return proposal_store.list_trade_proposals(
+            self.conn,
+            status=status,
+            limit=limit,
         )
 
     def update_trade_proposal(
@@ -1324,283 +162,31 @@ class TradingDatabase:
         *,
         expected_status: TradeProposalStatus | None = None,
     ) -> bool:
-        if not self._table_exists("trade_proposals"):
-            return False
-        if expected_status is not None:
-            self.conn.execute("begin transaction")
-            try:
-                current = self.conn.execute(
-                    """
-                    select status
-                    from trade_proposals
-                    where proposal_id = ?
-                    """,
-                    [proposal.proposal_id],
-                ).fetchone()
-                if current is None or str(current[0]) != expected_status:
-                    self.conn.execute("commit")
-                    return False
-                self._execute_trade_proposal_update(proposal)
-                self.conn.execute("commit")
-                return True
-            except Exception:
-                self.conn.execute("rollback")
-                raise
-        self._execute_trade_proposal_update(proposal)
-        return True
-
-    def _execute_trade_proposal_update(self, proposal: TradeProposalRecord) -> None:
-        self.conn.execute(
-            """
-            update trade_proposals
-            set updated_at = ?,
-                status = ?,
-                review_notes = ?,
-                rejection_reason = ?,
-                execution_intent_id = ?,
-                execution_order_id = ?,
-                execution_outcome_status = ?
-            where proposal_id = ?
-            """,
-            [
-                proposal.updated_at,
-                proposal.status,
-                proposal.review_notes,
-                proposal.rejection_reason,
-                proposal.execution_intent_id,
-                proposal.execution_order_id,
-                proposal.execution_outcome_status,
-                proposal.proposal_id,
-            ],
+        return proposal_store.update_trade_proposal(
+            self.conn,
+            proposal,
+            expected_status=expected_status,
         )
-
-    def _trade_proposal_rows(
-        self, query: str, params: list[object]
-    ) -> list[TradeProposalRecord]:
-        """
-        Execute the given SQL query and map each result row to a TradeProposalRecord.
-
-        Parameters:
-                query (str): SQL query to execute. May contain parameter placeholders.
-                params (list[object]): Parameters to bind to the query placeholders.
-
-        Returns:
-                records (list[TradeProposalRecord]): List of mapped trade proposal records, one per result row.
-        """
-        rows = self.conn.execute(query, params).fetchall()
-        return [self._trade_proposal_record_from_row(row) for row in rows]
-
-    @staticmethod
-    def _trade_proposal_record_from_row(row: object) -> TradeProposalRecord:
-        """
-        Convert a database row (sequence/tuple) into a TradeProposalRecord.
-
-        Parameters:
-            row (Sequence[object] | object): A database row (typically a tuple) from a trade_proposals query; elements may be None for optional columns.
-
-        Returns:
-            TradeProposalRecord: A record populated from the row. Optional numeric and string columns are converted to Python types (None-preserved). If present, the `limit_price` is read from column index 21; other fields are mapped by their positional indices as expected by the trade_proposals schema.
-        """
-        values = list(cast(Sequence[Any], row))
-        return TradeProposalRecord(
-            proposal_id=str(values[0]),
-            created_at=str(values[1]),
-            updated_at=str(values[2]),
-            symbol=str(values[3]),
-            side=cast(TradeSide, str(values[4])),
-            order_type=cast(Literal["market", "limit"], str(values[5])),
-            quantity=float(values[6]) if values[6] is not None else None,
-            notional=float(values[7]) if values[7] is not None else None,
-            limit_price=(
-                float(values[21])
-                if len(values) > 21 and values[21] is not None
-                else None
-            ),
-            reference_price=float(values[8]),
-            confidence=float(values[9]),
-            thesis=str(values[10]),
-            stop_loss=float(values[11]) if values[11] is not None else None,
-            take_profit=float(values[12]) if values[12] is not None else None,
-            invalidation_condition=_str_or_none(values[13]),
-            source=str(values[14]),
-            status=cast(TradeProposalStatus, str(values[15])),
-            review_notes=str(values[16]),
-            rejection_reason=_str_or_none(values[17]),
-            execution_intent_id=_str_or_none(values[18]),
-            execution_order_id=_str_or_none(values[19]),
-            execution_outcome_status=_str_or_none(values[20]),
-        )
-
-    def _proposal_candidate_rows(
-        self, query: str, params: list[object]
-    ) -> list[ProposalCandidateRecord]:
-        """
-        Map database rows from the provided query into a list of ProposalCandidateRecord objects.
-
-        Parameters:
-            query (str): SQL query that returns candidate rows in the exact column order expected by this mapper (columns 0..24 correspond to: candidate_id, created_at, updated_at, symbol, preset, signal, side, score, reference_price, confidence, quantity, notional, thesis, stop_loss, take_profit, invalidation_condition, source, status, materiality, freshness, liquidity, spread_pct, risk_notes, evidence_json, proposal_id).
-            params (list[object]): Parameters for the SQL query.
-
-        Returns:
-            list[ProposalCandidateRecord]: A list of ProposalCandidateRecord values constructed from each row. Optional numeric and string columns are converted to Python types with NULL mapped to None. The `evidence_json` column is parsed into a dict (returns an empty dict on invalid or non-dict JSON).
-        """
-        rows = self.conn.execute(query, params).fetchall()
-        return [
-            ProposalCandidateRecord(
-                candidate_id=str(row[0]),
-                created_at=str(row[1]),
-                updated_at=str(row[2]),
-                symbol=str(row[3]),
-                preset=str(row[4]),
-                signal=cast(Literal["buy", "sell", "watch"], str(row[5])),
-                side=cast(TradeSide, str(row[6])) if row[6] is not None else None,
-                score=float(row[7]),
-                reference_price=float(row[8]),
-                confidence=float(row[9]),
-                quantity=float(row[10]) if row[10] is not None else None,
-                notional=float(row[11]) if row[11] is not None else None,
-                thesis=str(row[12]),
-                stop_loss=float(row[13]) if row[13] is not None else None,
-                take_profit=float(row[14]) if row[14] is not None else None,
-                invalidation_condition=_str_or_none(row[15]),
-                source=str(row[16]),
-                status=cast(ProposalCandidateStatus, str(row[17])),
-                materiality=str(row[18]),
-                freshness=str(row[19]),
-                liquidity=str(row[20]),
-                spread_pct=float(row[21]),
-                risk_notes=str(row[22]),
-                evidence=_decode_object_payload(row[23]),
-                proposal_id=_str_or_none(row[24]),
-            )
-            for row in rows
-        ]
 
     def save_preferences(self, preferences: InvestmentPreferences) -> None:
-        """
-        Upserts the default preferences profile into the database.
-
-        Stores the given InvestmentPreferences as JSON in the `preferences` table under profile_id `"default"`, updating the `updated_at` timestamp on conflict.
-
-        Parameters:
-            preferences (InvestmentPreferences): Preferences to persist; will be serialized to JSON.
-        """
-        now = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            insert into preferences (profile_id, updated_at, payload_json)
-            values ('default', ?, ?)
-            on conflict(profile_id) do update set
-                updated_at = excluded.updated_at,
-                payload_json = excluded.payload_json
-            """,
-            [now, preferences.model_dump_json(indent=2)],
-        )
+        preference_store.save_preferences(self.conn, preferences)
 
     def load_preferences(self) -> InvestmentPreferences:
-        """
-        Load the default investment preferences from the database, creating and persisting a new default if none exists.
-
-        Reads the row where profile_id is 'default' and parses its stored JSON into an InvestmentPreferences instance. If no row is found, creates a new InvestmentPreferences, saves it to the database, and returns it.
-
-        Returns:
-            preferences (InvestmentPreferences): The loaded or newly created default investment preferences.
-        """
-        row = self.conn.execute("""
-            select payload_json
-            from preferences
-            where profile_id = 'default'
-            """).fetchone()
-        if row is None:
-            preferences = InvestmentPreferences()
-            self.save_preferences(preferences)
-            return preferences
-        return InvestmentPreferences.model_validate_json(str(row[0]))
+        return preference_store.load_preferences(self.conn)
 
     def list_recent_runs(
         self, limit: int = 10
     ) -> list[tuple[str, str, str, str, bool]]:
-        rows = self.conn.execute(
-            """
-            select run_id, created_at, symbol, interval, approved
-            from runs
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        recent: list[tuple[str, str, str, str, bool]] = []
-        for row in rows:
-            recent.append(
-                (
-                    str(row[0]),
-                    str(row[1]),
-                    str(row[2]),
-                    str(row[3]),
-                    bool(row[4]),
-                )
-            )
-        return recent
+        return run_store.list_recent_runs(self.conn, limit=limit)
 
     def get_run(self, run_id: str) -> RunRecord | None:
-        """
-        Fetches a persisted run by its ID and returns a parsed RunRecord.
-
-        Returns:
-            A RunRecord built from the stored row (with `artifacts` validated/parsed from `payload_json`), or `None` if no run with the given `run_id` exists.
-        """
-        row = self.conn.execute(
-            """
-            select run_id, created_at, symbol, interval, approved, payload_json
-            from runs
-            where run_id = ?
-            """,
-            [run_id],
-        ).fetchone()
-        if row is None:
-            return None
-        return RunRecord(
-            run_id=str(row[0]),
-            created_at=str(row[1]),
-            symbol=str(row[2]),
-            interval=str(row[3]),
-            approved=bool(row[4]),
-            artifacts=RunArtifacts.model_validate_json(str(row[5])),
-        )
+        return run_store.get_run(self.conn, run_id)
 
     def latest_run(self) -> RunRecord | None:
-        """
-        Fetches the most recent run record.
-
-        Returns:
-            The `RunRecord` for the latest run ordered by creation time, or `None` if no run exists.
-        """
-        row = self.conn.execute("""
-            select run_id
-            from runs
-            order by created_at desc
-            limit 1
-            """).fetchone()
-        if row is None:
-            return None
-        return self.get_run(str(row[0]))
+        return run_store.latest_run(self.conn)
 
     def list_run_records(self, limit: int = 200) -> list[RunRecord]:
-        rows = self.conn.execute(
-            """
-            select run_id
-            from runs
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        records: list[RunRecord] = []
-        for row in rows:
-            record = self.get_run(str(row[0]))
-            if record is not None:
-                records.append(record)
-        return records
+        return run_store.list_run_records(self.conn, limit=limit)
 
     def upsert_memory_vector(
         self,
@@ -1610,73 +196,18 @@ class TradingDatabase:
         created_at: str | None = None,
         actor: MemoryActor = "system_runtime",
     ) -> None:
-        """
-        Persist embedding and document data for a run into the memory_vectors table, inserting a new row or updating an existing one by run_id.
-
-        This call enforces memory write authorization, computes embedding metadata and artifact embeddings, and stores provider/model metadata, embedding dimensions, embedding JSON, and a plain-text document for the given run. If created_at is not provided, the current UTC ISO timestamp is used.
-
-        Parameters:
-            run_id (str): Unique identifier for the run whose memory vector is being stored.
-            artifacts (RunArtifacts): Run artifacts used to build the embedding and document payloads.
-            created_at (str | None): ISO-formatted timestamp to record for the vector; defaults to current UTC time when None.
-            actor (MemoryActor): Actor name used for authorization checks (e.g., "system_runtime").
-        """
-        assert_memory_write_allowed("trade_memory", actor)
-        metadata = embedding_metadata()
-        self.conn.execute(
-            """
-            insert into memory_vectors (
-                run_id, created_at, symbol, embedding_provider, embedding_model,
-                embedding_version, embedding_dimensions, embedding_json, document_text
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(run_id) do update set
-                created_at = excluded.created_at,
-                symbol = excluded.symbol,
-                embedding_provider = excluded.embedding_provider,
-                embedding_model = excluded.embedding_model,
-                embedding_version = excluded.embedding_version,
-                embedding_dimensions = excluded.embedding_dimensions,
-                embedding_json = excluded.embedding_json,
-                document_text = excluded.document_text
-            """,
-            [
-                run_id,
-                created_at or datetime.now(timezone.utc).isoformat(),
-                artifacts.snapshot.symbol,
-                metadata["provider"],
-                metadata["model_name"],
-                metadata["model_version"],
-                metadata["dimensions"],
-                json.dumps(embed_artifacts(artifacts)),
-                build_memory_document(artifacts),
-            ],
+        run_store.upsert_memory_vector(
+            self.conn,
+            run_id,
+            artifacts,
+            created_at=created_at,
+            actor=actor,
         )
 
     def list_memory_vectors(
         self, limit: int = 200
     ) -> list[tuple[str, str, str, list[float], str]]:
-        rows = self.conn.execute(
-            """
-            select run_id, created_at, symbol, embedding_json, document_text
-            from memory_vectors
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        vectors: list[tuple[str, str, str, list[float], str]] = []
-        for row in rows:
-            vectors.append(
-                (
-                    str(row[0]),
-                    str(row[1]),
-                    str(row[2]),
-                    [float(value) for value in json.loads(str(row[3]))],
-                    str(row[4]),
-                )
-            )
-        return vectors
+        return memory_vector_store.list_memory_vectors(self.conn, limit=limit)
 
     def insert_chat_history(
         self,
@@ -1686,54 +217,16 @@ class TradingDatabase:
         response_text: str,
         actor: MemoryActor = "operator_chat",
     ) -> str:
-        assert_memory_write_allowed("chat_memory", actor)
-        entry_id = f"chat-{uuid4().hex[:12]}"
-        self.conn.execute(
-            """
-            insert into operator_chat_history (
-                entry_id, created_at, persona, user_message, response_text
-            )
-            values (?, ?, ?, ?, ?)
-            """,
-            [
-                entry_id,
-                datetime.now(timezone.utc).isoformat(),
-                persona,
-                user_message,
-                response_text,
-            ],
+        return operator_chat_store.insert_chat_history(
+            self.conn,
+            persona=persona,
+            user_message=user_message,
+            response_text=response_text,
+            actor=actor,
         )
-        return entry_id
 
     def list_chat_history(self, limit: int = 20) -> list[ChatHistoryEntry]:
-        """
-        Return the most recent operator chat history entries, ordered newest first.
-
-        Returns:
-            list[ChatHistoryEntry]: A list of chat history entries (most recent first), each containing
-            `entry_id`, `created_at`, `persona`, `user_message`, and `response_text`.
-        """
-        rows = self.conn.execute(
-            """
-            select entry_id, created_at, persona, user_message, response_text
-            from operator_chat_history
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        history: list[ChatHistoryEntry] = []
-        for row in rows:
-            history.append(
-                ChatHistoryEntry(
-                    entry_id=str(row[0]),
-                    created_at=str(row[1]),
-                    persona=cast(ChatPersona, str(row[2])),
-                    user_message=str(row[3]),
-                    response_text=str(row[4]),
-                )
-            )
-        return history
+        return operator_chat_store.list_chat_history(self.conn, limit=limit)
 
     def record_account_mark(
         self,
@@ -1743,87 +236,22 @@ class TradingDatabase:
         cycle_count: int | None = None,
         symbol: str | None = None,
     ) -> str:
-        snapshot = self.get_account_snapshot()
-        mark_id = f"mark-{uuid4().hex[:12]}"
-        self.conn.execute(
-            """
-            insert into account_marks (
-                mark_id, created_at, source, note, cycle_count, symbol,
-                cash, market_value, equity, realized_pnl, unrealized_pnl, open_positions
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                mark_id,
-                datetime.now(timezone.utc).isoformat(),
-                source,
-                note,
-                cycle_count,
-                symbol,
-                snapshot.cash,
-                snapshot.market_value,
-                snapshot.equity,
-                snapshot.realized_pnl,
-                snapshot.unrealized_pnl,
-                snapshot.open_positions,
-            ],
+        return portfolio_store.record_account_mark(
+            self.conn,
+            source=source,
+            note=note,
+            cycle_count=cycle_count,
+            symbol=symbol,
         )
-        return mark_id
 
     def list_account_marks(self, limit: int = 20) -> list[AccountMark]:
-        rows = self.conn.execute(
-            """
-            select mark_id, created_at, source, note, cycle_count, symbol,
-                   cash, market_value, equity, realized_pnl, unrealized_pnl, open_positions
-            from account_marks
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        marks: list[AccountMark] = []
-        for row in rows:
-            marks.append(
-                AccountMark(
-                    mark_id=str(row[0]),
-                    created_at=str(row[1]),
-                    source=str(row[2]),
-                    note=str(row[3]),
-                    cycle_count=int(row[4]) if row[4] is not None else None,
-                    symbol=str(row[5]) if row[5] is not None else None,
-                    cash=float(row[6]),
-                    market_value=float(row[7]),
-                    equity=float(row[8]),
-                    realized_pnl=float(row[9]),
-                    unrealized_pnl=float(row[10]),
-                    open_positions=int(row[11]),
-                )
-            )
-        return marks
+        return portfolio_store.list_account_marks(self.conn, limit=limit)
 
     def order_has_fill(self, order_id: str) -> bool:
-        row = self.conn.execute(
-            """
-            select count(*)
-            from fills
-            where order_id = ?
-            """,
-            [order_id],
-        ).fetchone()
-        return bool(row and int(row[0]) > 0)
+        return trade_store.order_has_fill(self.conn, order_id)
 
     def order_realized_pnl(self, order_id: str) -> float:
-        row = self.conn.execute(
-            """
-            select coalesce(sum(realized_pnl_delta), 0)
-            from fills
-            where order_id = ?
-            """,
-            [order_id],
-        ).fetchone()
-        if row is None:
-            return 0.0
-        return float(row[0])
+        return trade_store.order_realized_pnl(self.conn, order_id)
 
     def create_trade_journal(
         self,
@@ -1834,72 +262,14 @@ class TradingDatabase:
         journal_status: str,
         notes: str = "",
     ) -> str:
-        """
-        Create a new trade journal row from the provided run/order artifacts and return the generated trade id.
-
-        Parameters:
-            run_id (str | None): Associated run identifier, or `None` if not applicable.
-            order_id (str): Entry order id used to link the journal to the executed order.
-            artifacts (RunArtifacts): Execution and context artifacts containing snapshot, execution, coordinator, strategy, manager, and review fields used to populate the journal.
-            journal_status (str): Initial journal status (e.g., "open", "closed").
-            notes (str): Optional freeform notes to store with the journal entry.
-
-        Returns:
-            str: The generated `trade_id` string for the created trade journal entry (e.g., "trade-...").
-        """
-        trade_id = f"trade-{uuid4().hex[:12]}"
-        self.conn.execute(
-            """
-            insert into trade_journal (
-                trade_id, opened_at, symbol, run_id, entry_order_id, planned_side,
-                approved, journal_status, entry_price, stop_loss, take_profit,
-                position_size_pct, confidence, coordinator_focus, strategy_family,
-                manager_bias, review_summary, notes
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(entry_order_id) do update set
-                journal_status = excluded.journal_status,
-                entry_price = excluded.entry_price,
-                stop_loss = excluded.stop_loss,
-                take_profit = excluded.take_profit,
-                position_size_pct = excluded.position_size_pct,
-                confidence = excluded.confidence,
-                coordinator_focus = excluded.coordinator_focus,
-                strategy_family = excluded.strategy_family,
-                manager_bias = excluded.manager_bias,
-                review_summary = excluded.review_summary,
-                notes = excluded.notes
-            """,
-            [
-                trade_id,
-                datetime.now(timezone.utc).isoformat(),
-                artifacts.snapshot.symbol,
-                run_id,
-                order_id,
-                artifacts.execution.side,
-                artifacts.execution.approved,
-                journal_status,
-                artifacts.execution.entry_price,
-                artifacts.execution.stop_loss,
-                artifacts.execution.take_profit,
-                artifacts.execution.position_size_pct,
-                artifacts.execution.confidence,
-                artifacts.coordinator.market_focus,
-                artifacts.strategy.strategy_family,
-                artifacts.manager.action_bias,
-                artifacts.review.summary,
-                notes,
-            ],
+        return trade_store.create_trade_journal(
+            self.conn,
+            run_id=run_id,
+            order_id=order_id,
+            artifacts=artifacts,
+            journal_status=journal_status,
+            notes=notes,
         )
-        stored = self.conn.execute(
-            """
-            select trade_id
-            from trade_journal
-            where entry_order_id = ?
-            """,
-            [order_id],
-        ).fetchone()
-        return str(stored[0]) if stored is not None else trade_id
 
     def create_trade_journal_from_proposal(
         self,
@@ -1907,97 +277,11 @@ class TradingDatabase:
         proposal: TradeProposalRecord,
         outcome: ExecutionOutcome,
     ) -> str | None:
-        """
-        Create or update an operator-visible trade journal entry for a proposal-driven execution.
-
-        If a journal row already exists for the execution's order id, update that row with the proposal/outcome details; otherwise insert a new journal row. If the execution outcome has no associated order id, no journal is created.
-
-        Returns:
-            The `trade_id` of the created or updated journal entry, or `None` when no journal was created because `outcome.order_id` is `None`.
-        """
-
-        if outcome.order_id is None:
-            return None
-        journal_status = self._proposal_journal_status(outcome)
-        entry_price = outcome.average_fill_price or proposal.reference_price
-        stop_loss = proposal.stop_loss or proposal.reference_price
-        take_profit = proposal.take_profit or proposal.reference_price
-        note_parts = [
-            f"proposal_id={proposal.proposal_id}",
-            f"source={proposal.source}",
-            f"outcome_status={outcome.status}",
-        ]
-        if proposal.review_notes:
-            note_parts.append(f"review_notes={proposal.review_notes}")
-        notes = " | ".join(note_parts)
-        trade_id = f"trade-{uuid4().hex[:12]}"
-        self.conn.execute(
-            """
-            insert into trade_journal (
-                trade_id, opened_at, symbol, run_id, entry_order_id, planned_side,
-                approved, journal_status, entry_price, stop_loss, take_profit,
-                position_size_pct, confidence, coordinator_focus, strategy_family,
-                manager_bias, review_summary, notes
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(entry_order_id) do update set
-                journal_status = excluded.journal_status,
-                entry_price = excluded.entry_price,
-                stop_loss = excluded.stop_loss,
-                take_profit = excluded.take_profit,
-                confidence = excluded.confidence,
-                review_summary = excluded.review_summary,
-                notes = excluded.notes
-            """,
-            [
-                trade_id,
-                datetime.now(timezone.utc).isoformat(),
-                proposal.symbol,
-                None,
-                outcome.order_id,
-                proposal.side,
-                True,
-                journal_status,
-                entry_price,
-                stop_loss,
-                take_profit,
-                0.0,
-                proposal.confidence,
-                "capital_preservation",
-                "manual_proposal",
-                proposal.side,
-                proposal.thesis,
-                notes,
-            ],
+        return trade_store.create_trade_journal_from_proposal(
+            self.conn,
+            proposal=proposal,
+            outcome=outcome,
         )
-        stored = self.conn.execute(
-            """
-            select trade_id
-            from trade_journal
-            where entry_order_id = ?
-            """,
-            [outcome.order_id],
-        ).fetchone()
-        return str(stored[0]) if stored is not None else trade_id
-
-    @staticmethod
-    def _proposal_journal_status(outcome: ExecutionOutcome) -> JournalStatus:
-        """
-        Map an execution outcome's status to the corresponding journal status.
-
-        Maps outcome.status to 'open' for accepted/filled/partially_filled, to 'no_fill' for cancelled/no_fill, and to 'rejected' for any other status.
-
-        Parameters:
-                outcome (ExecutionOutcome): Execution outcome whose `status` field is inspected.
-
-        Returns:
-                JournalStatus: `'open'` if the status is one of `{'accepted', 'filled', 'partially_filled'}`, `'no_fill'` if the status is one of `{'cancelled', 'no_fill'}`, ` 'rejected'` otherwise.
-        """
-        if outcome.status in {"accepted", "filled", "partially_filled"}:
-            return "open"
-        if outcome.status in {"cancelled", "no_fill"}:
-            return "no_fill"
-        return "rejected"
 
     def persist_trade_context(
         self,
@@ -2008,96 +292,13 @@ class TradingDatabase:
         execution_intent: ExecutionIntent | None = None,
         execution_outcome: ExecutionOutcome | None = None,
     ) -> None:
-        """
-        Upsert a consolidated trade context record for `trade_id` into the `trade_contexts` table.
-
-        Builds a TradeContextRecord from the provided `artifacts` and optional `execution_intent` / `execution_outcome` (including trace summaries, routed model names, market snapshot, decision/review/manager/execution metadata, and simulated-fill metadata when present) and stores the serialized JSON payload keyed by `trade_id`.
-
-        Parameters:
-            trade_id (str): Identifier used as the upsert key for the persisted trade context.
-            run_id (str | None): Optional run identifier associated with this context.
-            artifacts (RunArtifacts): Run artifacts containing snapshot, agent traces, decision features, review/manager/execution rationale, and summaries.
-            execution_intent (ExecutionIntent | None): Optional execution intent; included in the record when provided.
-            execution_outcome (ExecutionOutcome | None): Optional execution outcome; included in the record when provided.
-        """
-        trace_summaries = _summarize_trace_contexts(artifacts.agent_traces)
-
-        record = TradeContextRecord(
+        trade_store.persist_trade_context(
+            self.conn,
             trade_id=trade_id,
-            created_at=datetime.now(timezone.utc).isoformat(),
             run_id=run_id,
-            symbol=artifacts.snapshot.symbol,
-            market_snapshot=artifacts.snapshot,
-            market_context_pack=artifacts.snapshot.context_pack,
-            canonical_snapshot=artifacts.canonical_snapshot,
-            decision_features=artifacts.decision_features,
-            routed_models=trace_summaries.routed_models,
-            retrieved_memory_summary=trace_summaries.retrieved_memory_summary,
-            retrieval_explanation_summary=(
-                trace_summaries.retrieval_explanation_summary
-            ),
-            tool_outputs=trace_summaries.tool_outputs,
-            shared_memory_summary=trace_summaries.shared_memory_summary,
-            consensus=artifacts.consensus,
-            fundamental_assessment=artifacts.fundamental,
-            fundamental_summary=artifacts.fundamental.summary,
-            macro_summary=artifacts.macro.summary,
-            manager_rationale=artifacts.manager.rationale,
-            manager_conflicts=artifacts.manager.conflicts,
-            manager_resolution_notes=artifacts.manager.resolution_notes,
-            execution_rationale=artifacts.execution.rationale,
-            execution_backend=(
-                execution_intent.execution_backend
-                if execution_intent is not None
-                else None
-            ),
-            execution_adapter=_execution_adapter_name(
-                execution_intent,
-                execution_outcome,
-            ),
-            execution_intent=(
-                execution_intent.model_dump(mode="json")
-                if execution_intent is not None
-                else None
-            ),
-            execution_outcome_status=(
-                execution_outcome.status if execution_outcome is not None else None
-            ),
-            execution_rejection_reason=(
-                execution_outcome.rejection_reason
-                if execution_outcome is not None
-                else None
-            ),
-            execution_outcome=(
-                execution_outcome.model_dump(mode="json")
-                if execution_outcome is not None
-                else None
-            ),
-            simulated_fill_metadata=(
-                execution_outcome.simulated_metadata
-                if execution_outcome is not None
-                else {}
-            ),
-            review_summary=artifacts.review.summary,
-            review_warnings=artifacts.review.warnings,
-        )
-        self.conn.execute(
-            """
-            insert into trade_contexts (trade_id, created_at, run_id, symbol, payload_json)
-            values (?, ?, ?, ?, ?)
-            on conflict(trade_id) do update set
-                created_at = excluded.created_at,
-                run_id = excluded.run_id,
-                symbol = excluded.symbol,
-                payload_json = excluded.payload_json
-            """,
-            [
-                trade_id,
-                record.created_at,
-                run_id,
-                artifacts.snapshot.symbol,
-                record.model_dump_json(indent=2),
-            ],
+            artifacts=artifacts,
+            execution_intent=execution_intent,
+            execution_outcome=execution_outcome,
         )
 
     def record_execution_outcome(
@@ -2107,137 +308,18 @@ class TradingDatabase:
         intent: ExecutionIntent,
         outcome: ExecutionOutcome,
     ) -> None:
-        """
-        Persist the broker-facing execution intent and its adapter outcome.
-
-        The table is intentionally append/update by intent id so future live
-        adapters can replay exactly what was requested, which backend handled it,
-        and why the adapter filled, rejected, or blocked the order.
-        """
-        self.conn.execute(
-            """
-            insert into execution_records (
-                intent_id, created_at, run_id, order_id, symbol, execution_backend,
-                adapter_name, status, rejection_reason, intent_json, outcome_json
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(intent_id) do update set
-                created_at = excluded.created_at,
-                run_id = excluded.run_id,
-                order_id = excluded.order_id,
-                symbol = excluded.symbol,
-                execution_backend = excluded.execution_backend,
-                adapter_name = excluded.adapter_name,
-                status = excluded.status,
-                rejection_reason = excluded.rejection_reason,
-                intent_json = excluded.intent_json,
-                outcome_json = excluded.outcome_json
-            """,
-            [
-                intent.intent_id,
-                outcome.created_at,
-                run_id,
-                outcome.order_id,
-                intent.symbol,
-                outcome.execution_backend,
-                outcome.adapter_name,
-                outcome.status,
-                outcome.rejection_reason,
-                intent.model_dump_json(indent=2),
-                outcome.model_dump_json(indent=2),
-            ],
+        trade_store.record_execution_outcome(
+            self.conn,
+            run_id=run_id,
+            intent=intent,
+            outcome=outcome,
         )
 
     def latest_execution_record(self) -> dict[str, object] | None:
-        """
-        Fetches the most recent execution record from the database.
-
-        Returns:
-            dict: A mapping of execution record fields (including parsed `intent` and `outcome` objects and other metadata such as `intent_id`, `created_at`, `run_id`, `order_id`, `symbol`, `execution_backend`, `adapter_name`, `status`, and `rejection_reason`) if a record exists, `None` otherwise.
-        """
-        row = self.conn.execute("""
-            select intent_id, created_at, run_id, order_id, symbol, execution_backend,
-                   adapter_name, status, rejection_reason, intent_json, outcome_json
-            from execution_records
-            order by created_at desc
-            limit 1
-            """).fetchone()
-        return self._execution_record_from_row(row)
+        return trade_store.latest_execution_record(self.conn)
 
     def get_execution_record(self, intent_id: str) -> dict[str, object] | None:
-        """
-        Retrieve a stored execution record by its intent identifier.
-
-        Parameters:
-            intent_id (str): Unique identifier of the execution intent to retrieve.
-
-        Returns:
-            dict[str, object] | None: A dictionary containing the execution record fields:
-                - "intent_id": str
-                - "created_at": str (ISO timestamp)
-                - "run_id": str | None
-                - "order_id": str | None
-                - "symbol": str | None
-                - "execution_backend": str | None
-                - "adapter_name": str | None
-                - "status": str | None
-                - "rejection_reason": str | None
-                - "intent": dict | None (parsed JSON of the stored intent)
-                - "outcome": dict | None (parsed JSON of the stored outcome)
-            Returns `None` if no record exists for the given `intent_id`.
-        """
-        row = self.conn.execute(
-            """
-            select intent_id, created_at, run_id, order_id, symbol, execution_backend,
-                   adapter_name, status, rejection_reason, intent_json, outcome_json
-            from execution_records
-            where intent_id = ?
-            """,
-            [intent_id],
-        ).fetchone()
-        return self._execution_record_from_row(row)
-
-    def _execution_record_from_row(
-        self, row: object | None
-    ) -> dict[str, object] | None:
-        """
-        Builds a dictionary representing an execution record from a database row.
-
-        Parameters:
-            row (object | None): A database row tuple as returned by a query (or `None`).
-
-        Returns:
-            dict[str, object] | None: A mapping with keys:
-                - `intent_id`: string identifier of the execution intent.
-                - `created_at`: creation timestamp string.
-                - `run_id`: run identifier string or `None`.
-                - `order_id`: order identifier string or `None`.
-                - `symbol`: symbol string.
-                - `execution_backend`: backend name string used for execution.
-                - `adapter_name`: adapter name string (may be `None`-like string).
-                - `status`: status string.
-                - `rejection_reason`: rejection reason string or `None`.
-                - `intent`: parsed JSON object from the stored intent payload.
-                - `outcome`: parsed JSON object from the stored outcome payload.
-
-            Returns `None` when `row` is `None`.
-        """
-        if row is None:
-            return None
-        values = cast(tuple[object, ...], row)
-        return {
-            "intent_id": str(values[0]),
-            "created_at": str(values[1]),
-            "run_id": str(values[2]) if values[2] is not None else None,
-            "order_id": str(values[3]) if values[3] is not None else None,
-            "symbol": str(values[4]),
-            "execution_backend": str(values[5]),
-            "adapter_name": str(values[6]),
-            "status": str(values[7]),
-            "rejection_reason": str(values[8]) if values[8] is not None else None,
-            "intent": json.loads(str(values[9])),
-            "outcome": json.loads(str(values[10])),
-        }
+        return trade_store.get_execution_record(self.conn, intent_id)
 
     def close_trade_journal(
         self,
@@ -2249,415 +331,32 @@ class TradingDatabase:
         realized_pnl: float,
         notes: str = "",
     ) -> None:
-        row = self.conn.execute(
-            """
-            select trade_id
-            from trade_journal
-            where symbol = ? and journal_status = 'open'
-            order by opened_at desc
-            limit 1
-            """,
-            [symbol],
-        ).fetchone()
-        if row is None:
-            return
-        self.conn.execute(
-            """
-            update trade_journal
-            set closed_at = ?,
-                exit_order_id = ?,
-                journal_status = 'closed',
-                exit_price = ?,
-                exit_reason = ?,
-                realized_pnl = ?,
-                notes = case
-                    when notes = '' then ?
-                    else notes || ' ' || ?
-                end
-            where trade_id = ?
-            """,
-            [
-                datetime.now(timezone.utc).isoformat(),
-                exit_order_id,
-                exit_price,
-                exit_reason,
-                realized_pnl,
-                notes,
-                notes,
-                str(row[0]),
-            ],
+        trade_store.close_trade_journal(
+            self.conn,
+            symbol=symbol,
+            exit_order_id=exit_order_id,
+            exit_reason=exit_reason,
+            exit_price=exit_price,
+            realized_pnl=realized_pnl,
+            notes=notes,
         )
 
     def list_trade_journal(self, limit: int = 20) -> list[TradeJournalEntry]:
-        """
-        List recent trade journal entries ordered by most recent opening time.
-
-        Parameters:
-            limit (int): Maximum number of entries to return (default 20).
-
-        Returns:
-            list[TradeJournalEntry]: Entries ordered by `opened_at` descending, up to `limit` records.
-        """
-        rows = self.conn.execute(
-            """
-            select trade_id, opened_at, closed_at, symbol, run_id, entry_order_id, exit_order_id,
-                   planned_side, approved, journal_status, entry_price, exit_price, stop_loss,
-                   take_profit, position_size_pct, confidence, coordinator_focus, strategy_family,
-                   manager_bias, review_summary, exit_reason, realized_pnl, notes
-            from trade_journal
-            order by opened_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        entries: list[TradeJournalEntry] = []
-        for row in rows:
-            entries.append(
-                TradeJournalEntry(
-                    trade_id=str(row[0]),
-                    opened_at=str(row[1]),
-                    closed_at=str(row[2]) if row[2] is not None else None,
-                    symbol=str(row[3]),
-                    run_id=str(row[4]) if row[4] is not None else None,
-                    entry_order_id=str(row[5]),
-                    exit_order_id=str(row[6]) if row[6] is not None else None,
-                    planned_side=cast(ExecutionSide, str(row[7])),
-                    approved=bool(row[8]),
-                    journal_status=cast(JournalStatus, str(row[9])),
-                    entry_price=float(row[10]),
-                    exit_price=float(row[11]) if row[11] is not None else None,
-                    stop_loss=float(row[12]),
-                    take_profit=float(row[13]),
-                    position_size_pct=float(row[14]),
-                    confidence=float(row[15]),
-                    coordinator_focus=cast(CoordinatorFocus, str(row[16])),
-                    strategy_family=str(row[17]),
-                    manager_bias=cast(ExecutionSide, str(row[18])),
-                    review_summary=str(row[19]),
-                    exit_reason=str(row[20]) if row[20] is not None else None,
-                    realized_pnl=float(row[21]) if row[21] is not None else None,
-                    notes=str(row[22]),
-                )
-            )
-        return entries
+        return trade_store.list_trade_journal(self.conn, limit=limit)
 
     def get_trade_context(self, trade_id: str) -> TradeContextRecord | None:
-        """
-        Retrieve the persisted trade context for a given trade id.
-
-        Parameters:
-            trade_id (str): Identifier of the trade whose context is stored.
-
-        Returns:
-            TradeContextRecord | None: The TradeContextRecord parsed from the stored JSON, or `None` if no context exists for the given trade id.
-        """
-        row = self.conn.execute(
-            """
-            select payload_json
-            from trade_contexts
-            where trade_id = ?
-            """,
-            [trade_id],
-        ).fetchone()
-        if row is None:
-            return None
-        return TradeContextRecord.model_validate_json(str(row[0]))
+        return trade_store.get_trade_context(self.conn, trade_id)
 
     def latest_trade_context(self) -> TradeContextRecord | None:
-        """
-        Fetches the most recent trade context payload from the database and parses it.
-
-        Parses the `payload_json` field of the latest `trade_contexts` row into a `TradeContextRecord`.
-
-        Returns:
-            A `TradeContextRecord` parsed from the most recent `payload_json`, or `None` if no trade context exists.
-        """
-        row = self.conn.execute("""
-            select payload_json
-            from trade_contexts
-            order by created_at desc
-            limit 1
-            """).fetchone()
-        if row is None:
-            return None
-        return TradeContextRecord.model_validate_json(str(row[0]))
+        return trade_store.latest_trade_context(self.conn)
 
     def build_daily_risk_report(
         self, report_date: str | None = None
     ) -> DailyRiskReport:
-        """
-        Builds a daily risk report summarizing portfolio and account metrics for a given date.
-
-        Parameters:
-            report_date (str | None): Optional ISO date string ("YYYY-MM-DD") to generate the report for. If omitted, the current UTC date is used.
-
-        Returns:
-            DailyRiskReport: Aggregated metrics for the report date including cash, market value, equity, realized and unrealized P&L, open position count, today's fills and realized P&L, gross exposure and largest position as percentages of equity, portfolio Herfindahl–Hirschman Index (HHI), up to five largest position symbols, drawdown from all-time peak, and any generated warnings when configured thresholds are exceeded.
-        """
-        resolved_date = report_date or datetime.now(timezone.utc).date().isoformat()
-        snapshot = self.get_account_snapshot()
-        positions = self.list_positions()
-        fills_row = self.conn.execute(
-            """
-            select count(*), coalesce(sum(realized_pnl_delta), 0)
-            from fills
-            where created_at like ?
-            """,
-            [f"{resolved_date}%"],
-        ).fetchone()
-        marks_row = self.conn.execute(
-            """
-            select count(*), coalesce(max(equity), 0)
-            from account_marks
-            where created_at like ?
-            """,
-            [f"{resolved_date}%"],
-        ).fetchone()
-        peak_row = self.conn.execute("""
-            select coalesce(max(equity), 0)
-            from account_marks
-            """).fetchone()
-        fills_today = int(fills_row[0]) if fills_row is not None else 0
-        daily_realized_pnl = float(fills_row[1]) if fills_row is not None else 0.0
-        marks_recorded = int(marks_row[0]) if marks_row is not None else 0
-        all_time_peak = float(peak_row[0]) if peak_row is not None else snapshot.equity
-        gross_exposure = sum(abs(position.market_value) for position in positions)
-        largest_position = max(
-            (abs(position.market_value) for position in positions), default=0.0
-        )
-        top_positions = sorted(
-            positions, key=lambda position: abs(position.market_value), reverse=True
-        )
-        equity = snapshot.equity if snapshot.equity != 0 else 1.0
-        portfolio_hhi = (
-            sum(
-                (abs(position.market_value) / gross_exposure) ** 2
-                for position in positions
-            )
-            if gross_exposure > 0
-            else 0.0
-        )
-        drawdown_from_peak_pct = (
-            max(0.0, (all_time_peak - snapshot.equity) / all_time_peak)
-            if all_time_peak > 0
-            else 0.0
-        )
-
-        warnings: list[str] = []
-        if snapshot.open_positions >= self.settings.max_open_positions:
-            warnings.append("Open position count is elevated.")
-        if gross_exposure / equity > self.settings.max_gross_exposure_pct:
-            warnings.append(
-                f"Gross exposure is above {self.settings.max_gross_exposure_pct:.0%} of equity."
-            )
-        if largest_position / equity > self.settings.max_position_pct:
-            warnings.append(
-                f"Largest position is above {self.settings.max_position_pct:.0%} of equity."
-            )
-        if portfolio_hhi > 0.25:
-            warnings.append(
-                f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}."
-            )
-        if drawdown_from_peak_pct > 0.1:
-            warnings.append("Portfolio drawdown from peak is above 10%.")
-
-        return DailyRiskReport(
-            report_date=resolved_date,
-            generated_at=datetime.now(timezone.utc).isoformat(),
-            cash=snapshot.cash,
-            market_value=snapshot.market_value,
-            equity=snapshot.equity,
-            realized_pnl=snapshot.realized_pnl,
-            unrealized_pnl=snapshot.unrealized_pnl,
-            open_positions=snapshot.open_positions,
-            fills_today=fills_today,
-            marks_recorded=marks_recorded,
-            daily_realized_pnl=daily_realized_pnl,
-            gross_exposure_pct=gross_exposure / equity,
-            largest_position_pct=largest_position / equity,
-            portfolio_hhi=portfolio_hhi,
-            top_position_symbols=[position.symbol for position in top_positions[:5]],
-            drawdown_from_peak_pct=drawdown_from_peak_pct,
-            warnings=warnings,
-        )
-
-    def _resolve_service_state_values(
-        self,
-        *,
-        update: ServiceStateUpdate,
-        existing: ServiceStateSnapshot | None,
-        now: str,
-    ) -> _ResolvedServiceStateValues:
-        resolved_runtime_mode = cast(
-            RuntimeMode,
-            _resolve_value(
-                update.runtime_mode,
-                cast(RuntimeMode | None, _existing_value(existing, "runtime_mode")),
-                self.settings.runtime_mode,
-            ),
-        )
-        last_terminal_state, last_terminal_at = _resolve_terminal_state(
-            state=update.state, existing=existing, now=now
-        )
-        return _ResolvedServiceStateValues(
-            runtime_mode=resolved_runtime_mode,
-            started_at=_resolve_started_at(
-                update=update,
-                existing=existing,
-                now=now,
-            ),
-            pid=_resolve_service_pid(update, existing),
-            stop_requested=_resolve_value(
-                update.stop_requested,
-                _existing_value(existing, "stop_requested"),
-                False,
-            ),
-            symbols=_resolve_symbols(update.symbols, existing),
-            interval=_resolve_optional_value(
-                update.interval, _existing_value(existing, "interval")
-            ),
-            lookback=_resolve_optional_value(
-                update.lookback, _existing_value(existing, "lookback")
-            ),
-            max_cycles=_resolve_optional_value(
-                update.max_cycles,
-                _existing_value(existing, "max_cycles"),
-            ),
-            background_mode=_resolve_value(
-                update.background_mode,
-                _existing_value(existing, "background_mode"),
-                False,
-            ),
-            launch_count=_resolve_value(
-                update.launch_count,
-                _existing_value(existing, "launch_count"),
-                0,
-            ),
-            restart_count=_resolve_value(
-                update.restart_count,
-                _existing_value(existing, "restart_count"),
-                0,
-            ),
-            last_terminal_state=last_terminal_state,
-            last_terminal_at=last_terminal_at,
-            stdout_log_path=_resolve_optional_value(
-                update.stdout_log_path,
-                _existing_value(existing, "stdout_log_path"),
-            ),
-            stderr_log_path=_resolve_optional_value(
-                update.stderr_log_path,
-                _existing_value(existing, "stderr_log_path"),
-            ),
-        )
-
-    def _upsert_service_state_row(
-        self,
-        *,
-        update: ServiceStateUpdate,
-        resolved: _ResolvedServiceStateValues,
-        now: str,
-    ) -> None:
-        self.conn.execute(
-            """
-            insert into service_state (
-                service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at,
-                continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
-                current_symbol, last_error, pid, stop_requested, background_mode,
-                launch_count, restart_count, last_terminal_state, last_terminal_at,
-                stdout_log_path, stderr_log_path, message
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(service_name) do update set
-                state = excluded.state,
-                runtime_mode = excluded.runtime_mode,
-                updated_at = excluded.updated_at,
-                started_at = excluded.started_at,
-                last_heartbeat_at = excluded.last_heartbeat_at,
-                continuous = excluded.continuous,
-                poll_seconds = excluded.poll_seconds,
-                cycle_count = excluded.cycle_count,
-                symbols_json = excluded.symbols_json,
-                interval = excluded.interval,
-                lookback = excluded.lookback,
-                max_cycles = excluded.max_cycles,
-                current_symbol = excluded.current_symbol,
-                last_error = excluded.last_error,
-                pid = excluded.pid,
-                stop_requested = excluded.stop_requested,
-                background_mode = excluded.background_mode,
-                launch_count = excluded.launch_count,
-                restart_count = excluded.restart_count,
-                last_terminal_state = excluded.last_terminal_state,
-                last_terminal_at = excluded.last_terminal_at,
-                stdout_log_path = excluded.stdout_log_path,
-                stderr_log_path = excluded.stderr_log_path,
-                message = excluded.message
-            """,
-            [
-                update.service_name,
-                update.state,
-                resolved.runtime_mode,
-                now,
-                resolved.started_at,
-                now,
-                update.continuous,
-                update.poll_seconds,
-                update.cycle_count,
-                json.dumps(resolved.symbols),
-                resolved.interval,
-                resolved.lookback,
-                resolved.max_cycles,
-                update.current_symbol,
-                update.last_error,
-                resolved.pid,
-                resolved.stop_requested,
-                resolved.background_mode,
-                resolved.launch_count,
-                resolved.restart_count,
-                resolved.last_terminal_state,
-                resolved.last_terminal_at,
-                resolved.stdout_log_path,
-                resolved.stderr_log_path,
-                update.message,
-            ],
-        )
-
-    def _write_service_state_snapshot(
-        self,
-        *,
-        update: ServiceStateUpdate,
-        resolved: _ResolvedServiceStateValues,
-        now: str,
-    ) -> None:
-        write_service_state(
+        return portfolio_store.build_daily_risk_report(
+            self.conn,
             self.settings,
-            ServiceStateSnapshot(
-                service_name=update.service_name,
-                state=cast(ServiceState, update.state),
-                runtime_mode=resolved.runtime_mode,
-                updated_at=now,
-                started_at=resolved.started_at,
-                last_heartbeat_at=now,
-                continuous=update.continuous,
-                poll_seconds=update.poll_seconds,
-                cycle_count=update.cycle_count,
-                symbols=resolved.symbols,
-                interval=resolved.interval,
-                lookback=resolved.lookback,
-                max_cycles=resolved.max_cycles,
-                current_symbol=update.current_symbol,
-                last_error=update.last_error,
-                pid=resolved.pid,
-                stop_requested=resolved.stop_requested,
-                background_mode=resolved.background_mode,
-                launch_count=resolved.launch_count,
-                restart_count=resolved.restart_count,
-                last_terminal_state=resolved.last_terminal_state,
-                last_terminal_at=resolved.last_terminal_at,
-                stdout_log_path=resolved.stdout_log_path,
-                stderr_log_path=resolved.stderr_log_path,
-                message=update.message,
-            ),
+            report_date=report_date,
         )
 
     def upsert_service_state(
@@ -2665,99 +364,23 @@ class TradingDatabase:
         update: ServiceStateUpdate | None = None,
         **fields: Any,
     ) -> None:
-        """
-        Update or insert the persisted runtime snapshot for a named service.
-
-        Merges provided fields with any existing stored snapshot (preserving omitted values), resolves runtime-mode and other defaults, updates terminal-state markers when the new state is terminal, ensures `started_at` is set when appropriate, writes the resolved row into the database, and emits a mirrored ServiceStateSnapshot via write_service_state.
-
-        Parameters:
-            runtime_mode: If provided, sets the service's runtime mode; if `None`, preserves the existing runtime mode or falls back to settings.
-            symbols: If provided, replaces the stored symbol list; if `None`, preserves existing symbols (or `[]` when no existing snapshot).
-            stop_requested: If provided, sets the explicit stop request flag; if `None`, preserves the existing flag.
-        """
-        if update is None:
-            update = ServiceStateUpdate(**fields)
-        elif fields:
-            raise TypeError(
-                "Pass either ServiceStateUpdate or keyword fields, not both."
-            )
-
-        now = datetime.now(timezone.utc).isoformat()
-        existing = self.get_service_state(update.service_name)
-        resolved = self._resolve_service_state_values(
+        service_store.upsert_service_state(
+            self.conn,
+            self.settings,
             update=update,
-            existing=existing,
-            now=now,
+            **fields,
         )
-        self._upsert_service_state_row(update=update, resolved=resolved, now=now)
-        self._write_service_state_snapshot(update=update, resolved=resolved, now=now)
 
     def get_service_state(
         self, service_name: str = "orchestrator"
     ) -> ServiceStateSnapshot | None:
-        """
-        Retrieve the persisted service state snapshot for the named service.
-
-        Parameters:
-            service_name (str): Service identifier to fetch (defaults to "orchestrator").
-
-        Returns:
-            ServiceStateSnapshot | None: The service's snapshot if present, or `None` when no persisted state exists.
-        """
-        row = self.conn.execute(
-            """
-            select service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at,
-                   continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
-                   current_symbol, last_error, pid, stop_requested, background_mode,
-                   launch_count, restart_count, last_terminal_state, last_terminal_at,
-                   stdout_log_path, stderr_log_path, message
-            from service_state
-            where service_name = ?
-            """,
-            [service_name],
-        ).fetchone()
-        if row is None:
-            return None
-        return _service_state_from_row(row)
+        return service_store.get_service_state(self.conn, service_name)
 
     def request_stop_service(self, service_name: str = "orchestrator") -> None:
-        """
-        Mark the named service as stopping and persist the updated service snapshot.
-
-        Updates the service record to request a stop (sets stop_requested to true, sets state to "stopping", updates timestamps and message) and, if a service snapshot exists after the update, writes that snapshot via write_service_state.
-
-        Parameters:
-            service_name (str): The service to request stop for (defaults to "orchestrator").
-        """
-        now = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            update service_state
-            set stop_requested = true,
-                state = 'stopping',
-                updated_at = ?,
-                last_heartbeat_at = ?,
-                message = 'Stop requested by operator.'
-            where service_name = ?
-            """,
-            [now, now, service_name],
-        )
-        state = self.get_service_state(service_name)
-        if state is not None:
-            write_service_state(self.settings, state)
+        service_store.request_stop_service(self.conn, self.settings, service_name)
 
     def clear_stop_request(self, service_name: str = "orchestrator") -> None:
-        self.conn.execute(
-            """
-            update service_state
-            set stop_requested = false
-            where service_name = ?
-            """,
-            [service_name],
-        )
-        state = self.get_service_state(service_name)
-        if state is not None:
-            write_service_state(self.settings, state)
+        service_store.clear_stop_request(self.conn, self.settings, service_name)
 
     def insert_service_event(
         self,
@@ -2769,184 +392,34 @@ class TradingDatabase:
         cycle_count: int | None = None,
         symbol: str | None = None,
     ) -> str:
-        event_id = f"evt-{uuid4().hex[:12]}"
-        created_at = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            insert into service_events (
-                event_id, created_at, service_name, level, event_type, message, cycle_count, symbol
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                event_id,
-                created_at,
-                service_name,
-                level,
-                event_type,
-                message,
-                cycle_count,
-                symbol,
-            ],
-        )
-        append_service_event(
+        return service_store.insert_service_event(
+            self.conn,
             self.settings,
-            ServiceEvent(
-                event_id=event_id,
-                created_at=created_at,
-                level=level,
-                event_type=event_type,
-                message=message,
-                cycle_count=cycle_count,
-                symbol=symbol,
-            ),
+            service_name=service_name,
+            level=level,
+            event_type=event_type,
+            message=message,
+            cycle_count=cycle_count,
+            symbol=symbol,
         )
-        return event_id
 
     def list_service_events(
         self, limit: int = 20, service_name: str = "orchestrator"
     ) -> list[ServiceEvent]:
-        """
-        Fetch recent service events for the given service, ordered newest first.
-
-        Parameters:
-            limit (int): Maximum number of events to return.
-            service_name (str): Service name to filter events by.
-
-        Returns:
-            list[ServiceEvent]: List of service events for the service, ordered by created_at descending and limited by `limit`.
-        """
-        rows = self.conn.execute(
-            """
-            select event_id, created_at, level, event_type, message, cycle_count, symbol
-            from service_events
-            where service_name = ?
-            order by created_at desc
-            limit ?
-            """,
-            [service_name, limit],
-        ).fetchall()
-        events: list[ServiceEvent] = []
-        for row in rows:
-            events.append(
-                ServiceEvent(
-                    event_id=str(row[0]),
-                    created_at=str(row[1]),
-                    level=cast(ServiceEventLevel, str(row[2])),
-                    event_type=str(row[3]),
-                    message=str(row[4]),
-                    cycle_count=int(row[5]) if row[5] is not None else None,
-                    symbol=str(row[6]) if row[6] is not None else None,
-                )
-            )
-        return events
+        return service_store.list_service_events(
+            self.conn,
+            limit=limit,
+            service_name=service_name,
+        )
 
     def get_account_snapshot(self) -> PortfolioSnapshot:
-        """
-        Compute a portfolio snapshot for the 'paper' account.
-
-        Raises:
-            RuntimeError: If the 'paper' account state is missing from the database.
-
-        Returns:
-            PortfolioSnapshot: Snapshot with fields:
-                - cash: current cash balance
-                - market_value: total market value of open positions (quantity * market_price)
-                - equity: cash + market_value
-                - realized_pnl: accumulated realized P&L
-                - unrealized_pnl: sum of unrealized P&L across open positions
-                - open_positions: number of open positions
-        """
-        row = self.conn.execute("""
-            select cash, realized_pnl
-            from account_state
-            where account_id = 'paper'
-            """).fetchone()
-        if row is None:
-            raise RuntimeError("Paper account state is missing")
-
-        positions = self.list_positions()
-        market_value = sum(
-            position.quantity * position.market_price for position in positions
-        )
-        unrealized_pnl = sum(position.unrealized_pnl for position in positions)
-        cash = float(row[0])
-        realized_pnl = float(row[1])
-        equity = cash + market_value
-        return PortfolioSnapshot(
-            cash=cash,
-            market_value=market_value,
-            equity=equity,
-            realized_pnl=realized_pnl,
-            unrealized_pnl=unrealized_pnl,
-            open_positions=len(positions),
-        )
+        return portfolio_store.get_account_snapshot(self.conn)
 
     def get_position(self, symbol: str) -> PositionSnapshot | None:
-        """
-        Return the position snapshot for the given symbol, or None if no position exists.
-
-        Returns:
-            PositionSnapshot: Snapshot containing symbol, quantity, average_price, market_price, market_value, and unrealized_pnl; or `None` if the symbol is not found.
-        """
-        row = self.conn.execute(
-            """
-            select symbol, quantity, average_price, market_price
-            from positions
-            where symbol = ?
-            """,
-            [symbol],
-        ).fetchone()
-        if row is None:
-            return None
-
-        quantity = float(row[1])
-        average_price = float(row[2])
-        market_price = float(row[3])
-        market_value = quantity * market_price
-        unrealized_pnl = (market_price - average_price) * quantity
-        return PositionSnapshot(
-            symbol=str(row[0]),
-            quantity=quantity,
-            average_price=average_price,
-            market_price=market_price,
-            market_value=market_value,
-            unrealized_pnl=unrealized_pnl,
-        )
+        return portfolio_store.get_position(self.conn, symbol)
 
     def list_positions(self) -> list[PositionSnapshot]:
-        """
-        Return snapshots for all positions that have a non-zero quantity, ordered by symbol.
-
-        Each returned PositionSnapshot includes computed `market_value` (quantity * market_price) and
-        `unrealized_pnl` ((market_price - average_price) * quantity).
-
-        Returns:
-            list[PositionSnapshot]: List of position snapshots with fields:
-                symbol, quantity, average_price, market_price, market_value, unrealized_pnl.
-        """
-        rows = self.conn.execute("""
-            select symbol, quantity, average_price, market_price
-            from positions
-            where abs(quantity) > 0
-            order by symbol
-            """).fetchall()
-        positions: list[PositionSnapshot] = []
-        for row in rows:
-            quantity = float(row[1])
-            average_price = float(row[2])
-            market_price = float(row[3])
-            positions.append(
-                PositionSnapshot(
-                    symbol=str(row[0]),
-                    quantity=quantity,
-                    average_price=average_price,
-                    market_price=market_price,
-                    market_value=quantity * market_price,
-                    unrealized_pnl=(market_price - average_price) * quantity,
-                )
-            )
-        return positions
+        return portfolio_store.list_positions(self.conn)
 
     def save_position_plan(
         self,
@@ -2960,117 +433,29 @@ class TradingDatabase:
         holding_bars: int,
         invalidation_logic: str,
     ) -> None:
-        now = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            insert into position_plans (
-                symbol, side, entry_price, stop_loss, take_profit,
-                max_holding_bars, holding_bars, invalidation_logic, updated_at
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(symbol) do update set
-                side = excluded.side,
-                entry_price = excluded.entry_price,
-                stop_loss = excluded.stop_loss,
-                take_profit = excluded.take_profit,
-                max_holding_bars = excluded.max_holding_bars,
-                holding_bars = excluded.holding_bars,
-                invalidation_logic = excluded.invalidation_logic,
-                updated_at = excluded.updated_at
-            """,
-            [
-                symbol,
-                side,
-                entry_price,
-                stop_loss,
-                take_profit,
-                max_holding_bars,
-                holding_bars,
-                invalidation_logic,
-                now,
-            ],
+        portfolio_store.save_position_plan(
+            self.conn,
+            symbol=symbol,
+            side=side,
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            max_holding_bars=max_holding_bars,
+            holding_bars=holding_bars,
+            invalidation_logic=invalidation_logic,
         )
 
     def get_position_plan(self, symbol: str) -> PositionPlanSnapshot | None:
-        """
-        Retrieve the stored position plan for the given trading symbol.
-
-        Numeric fields are converted to floats/ints and timestamp fields to strings when constructing the returned snapshot.
-
-        Returns:
-            PositionPlanSnapshot for the symbol, or `None` if no plan exists.
-        """
-        row = self.conn.execute(
-            """
-            select symbol, side, entry_price, stop_loss, take_profit,
-                   max_holding_bars, holding_bars, invalidation_logic, updated_at
-            from position_plans
-            where symbol = ?
-            """,
-            [symbol],
-        ).fetchone()
-        if row is None:
-            return None
-        return PositionPlanSnapshot(
-            symbol=str(row[0]),
-            side=cast(TradeSide, str(row[1])),
-            entry_price=float(row[2]),
-            stop_loss=float(row[3]),
-            take_profit=float(row[4]),
-            max_holding_bars=int(row[5]),
-            holding_bars=int(row[6]),
-            invalidation_logic=str(row[7]),
-            updated_at=str(row[8]),
-        )
+        return portfolio_store.get_position_plan(self.conn, symbol)
 
     def list_position_plans(self) -> list[PositionPlanSnapshot]:
-        """
-        List saved position plans ordered by symbol.
-
-        Each entry is a PositionPlanSnapshot containing symbol, side, entry_price, stop_loss, take_profit,
-        max_holding_bars, holding_bars, invalidation_logic, and updated_at.
-
-        Returns:
-            list[PositionPlanSnapshot]: Position plans ordered by symbol.
-        """
-        rows = self.conn.execute("""
-            select symbol, side, entry_price, stop_loss, take_profit,
-                   max_holding_bars, holding_bars, invalidation_logic, updated_at
-            from position_plans
-            order by symbol
-            """).fetchall()
-        plans: list[PositionPlanSnapshot] = []
-        for row in rows:
-            plans.append(
-                PositionPlanSnapshot(
-                    symbol=str(row[0]),
-                    side=cast(TradeSide, str(row[1])),
-                    entry_price=float(row[2]),
-                    stop_loss=float(row[3]),
-                    take_profit=float(row[4]),
-                    max_holding_bars=int(row[5]),
-                    holding_bars=int(row[6]),
-                    invalidation_logic=str(row[7]),
-                    updated_at=str(row[8]),
-                )
-            )
-        return plans
+        return portfolio_store.list_position_plans(self.conn)
 
     def update_position_plan_holding(self, symbol: str, holding_bars: int) -> None:
-        self.conn.execute(
-            """
-            update position_plans
-            set holding_bars = ?, updated_at = ?
-            where symbol = ?
-            """,
-            [holding_bars, datetime.now(timezone.utc).isoformat(), symbol],
-        )
+        portfolio_store.update_position_plan_holding(self.conn, symbol, holding_bars)
 
     def delete_position_plan(self, symbol: str) -> None:
-        self.conn.execute(
-            "delete from position_plans where symbol = ?",
-            [symbol],
-        )
+        portfolio_store.delete_position_plan(self.conn, symbol)
 
     def apply_fill(
         self,
@@ -3086,54 +471,19 @@ class TradingDatabase:
         new_quantity: float,
         new_average_price: float,
     ) -> None:
-        now = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            insert into fills (
-                fill_id, order_id, created_at, symbol, side, quantity, price,
-                cash_delta, realized_pnl_delta
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                fill_id,
-                order_id,
-                now,
-                symbol,
-                side,
-                quantity,
-                price,
-                cash_delta,
-                realized_pnl_delta,
-            ],
-        )
-        self.conn.execute(
-            """
-            update account_state
-            set updated_at = ?, cash = cash + ?, realized_pnl = realized_pnl + ?
-            where account_id = 'paper'
-            """,
-            [now, cash_delta, realized_pnl_delta],
-        )
-        self.conn.execute(
-            """
-            insert into positions (symbol, quantity, average_price, market_price, updated_at)
-            values (?, ?, ?, ?, ?)
-            on conflict(symbol) do update set
-                quantity = excluded.quantity,
-                average_price = excluded.average_price,
-                market_price = excluded.market_price,
-                updated_at = excluded.updated_at
-            """,
-            [symbol, new_quantity, new_average_price, price, now],
+        portfolio_store.apply_fill(
+            self.conn,
+            fill_id=fill_id,
+            order_id=order_id,
+            symbol=symbol,
+            side=side,
+            quantity=quantity,
+            price=price,
+            cash_delta=cash_delta,
+            realized_pnl_delta=realized_pnl_delta,
+            new_quantity=new_quantity,
+            new_average_price=new_average_price,
         )
 
     def mark_price(self, symbol: str, market_price: float) -> None:
-        self.conn.execute(
-            """
-            update positions
-            set market_price = ?, updated_at = ?
-            where symbol = ?
-            """,
-            [market_price, datetime.now(timezone.utc).isoformat(), symbol],
-        )
+        portfolio_store.mark_price(self.conn, symbol, market_price)

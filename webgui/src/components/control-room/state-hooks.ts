@@ -1,34 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import {
-  initialControlRoomLocale,
-  storeControlRoomLocale,
-  type ControlRoomLocale,
-} from './labels';
+import { useWebguiLocale } from '@/i18n/ControlRoomIntlProvider';
+import type { WebguiLocale } from '@/i18n/locales';
 
 export function useControlRoomLocaleState(): readonly [
-  ControlRoomLocale,
-  (nextLocale: ControlRoomLocale) => void,
+  WebguiLocale,
+  (nextLocale: WebguiLocale) => void,
 ] {
-  const [locale, setLocale] = useState<ControlRoomLocale>('en');
-
-  useEffect(() => {
-    const localeTimer = globalThis.setTimeout(() => {
-      setLocale(initialControlRoomLocale());
-    }, 0);
-    return () => globalThis.clearTimeout(localeTimer);
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
-
-  const selectLocale = useCallback((nextLocale: ControlRoomLocale): void => {
-    setLocale(nextLocale);
-    storeControlRoomLocale(nextLocale);
-  }, []);
-
-  return [locale, selectLocale] as const;
+  return useWebguiLocale();
 }
 
 export function useLoadingSeconds(loading: boolean): number {

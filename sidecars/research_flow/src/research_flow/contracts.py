@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import sys
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 CONTRACT_VERSION = "research-flow.v1"
 JsonRecord = dict[str, Any]
+TaskTemplate = dict[str, str]
 
 
 def _empty_string_list() -> list[str]:
@@ -58,6 +59,60 @@ def _empty_provider_outputs() -> list[ResearchProviderOutputInput]:
     return []
 
 
+SYMBOL_TASK_TEMPLATES: tuple[TaskTemplate, ...] = (
+    {
+        "id_prefix": "company-dossier",
+        "kind": "company_dossier",
+        "description": (
+            "Build a source-attributed company dossier from normalized "
+            "provider packets, separating direct evidence, inference, "
+            "unknowns, and contradictions."
+        ),
+        "expected_output": (
+            "Entity dossier with timeline, current thesis, key findings, "
+            "contradiction file, source diversity score, and watch-next list."
+        ),
+    },
+    {
+        "id_prefix": "timeline-reconstruction",
+        "kind": "timeline_reconstruction",
+        "description": (
+            "Reconstruct the recent event timeline from normalized evidence "
+            "records without using raw provider text in trading prompts."
+        ),
+        "expected_output": (
+            "Chronological event list with observed_at timestamps, source "
+            "attribution, staleness, and uncertainty markers."
+        ),
+    },
+    {
+        "id_prefix": "contradiction-check",
+        "kind": "contradiction_check",
+        "description": (
+            "Compare evidence packets for conflicting claims, stale data, "
+            "missing sources, and unsupported inferences."
+        ),
+        "expected_output": (
+            "Contradiction report with verified facts, conflicts, unknowns, "
+            "and confidence impact."
+        ),
+    },
+    {
+        "id_prefix": "watch-next",
+        "kind": "watch_next",
+        "description": (
+            "Identify the next official disclosures, macro releases, news "
+            "events, or social-watchlist changes that would materially alter "
+            "the dossier."
+        ),
+        "expected_output": (
+            "Prioritized watch-next checklist with source names, freshness "
+            "requirements, and trigger rationale."
+        ),
+    },
+)
+
+
 class ResearchFlowRequest(BaseModel):
     """Input contract sent by the root runtime to the tracked CrewAI Flow."""
 
@@ -91,106 +146,83 @@ class ResearchFlowContractOutput(BaseModel):
     errors: list[str] = Field(default_factory=_empty_string_list)
 
 
+def _provider_ids(request: ResearchFlowRequest) -> list[str]:
+    return [output.metadata.provider_id for output in request.provider_outputs]
+
+
+def _watch_symbols(request: ResearchFlowRequest) -> list[str]:
+    return request.symbols or ["WATCHLIST"]
+
+
+def _planned_task_base(
+    *,
+    task_id: str,
+    kind: str,
+    subject: str,
+    description: str,
+    expected_output: str,
+    provider_ids: list[str],
+) -> dict[str, Any]:
+    return {
+        "task_id": task_id,
+        "kind": kind,
+        "subject": subject,
+        "description": description,
+        "expected_output": expected_output,
+        "requires_llm": True,
+        "requires_network": False,
+        "input_provider_ids": provider_ids,
+        "status": "planned",
+    }
+
+
+def _symbol_task(
+    template: TaskTemplate, subject: str, provider_ids: list[str]
+) -> dict[str, Any]:
+    return _planned_task_base(
+        task_id=f"{template['id_prefix']}:{subject}",
+        kind=template["kind"],
+        subject=subject,
+        description=template["description"],
+        expected_output=template["expected_output"],
+        provider_ids=provider_ids,
+    )
+
+
+def _symbol_tasks(subject: str, provider_ids: list[str]) -> list[dict[str, Any]]:
+    return [
+        _symbol_task(template, subject, provider_ids)
+        for template in SYMBOL_TASK_TEMPLATES
+    ]
+
+
+def _sector_brief_task(symbols: list[str], provider_ids: list[str]) -> dict[str, Any]:
+    return _planned_task_base(
+        task_id="sector-brief:watchlist",
+        kind="sector_brief",
+        subject=",".join(symbols),
+        description=(
+            "Synthesize cross-symbol sector and macro context only from normalized "
+            "provider packets and explicit missing-source states."
+        ),
+        expected_output=(
+            "Sector brief with source diversity, macro channels, shared risks, "
+            "contradictions, and unresolved evidence gaps."
+        ),
+        provider_ids=provider_ids,
+    )
+
+
 def build_task_plan(request: ResearchFlowRequest) -> list[dict[str, Any]]:
     """Return deterministic future CrewAI Flow task definitions for the request."""
-    symbols = request.symbols or ["WATCHLIST"]
-    provider_ids = [output.metadata.provider_id for output in request.provider_outputs]
-    tasks: list[dict[str, Any]] = []
-    for symbol in symbols:
-        subject = symbol.upper()
-        tasks.extend(
-            [
-                {
-                    "task_id": f"company-dossier:{subject}",
-                    "kind": "company_dossier",
-                    "subject": subject,
-                    "description": (
-                        "Build a source-attributed company dossier from normalized "
-                        "provider packets, separating direct evidence, inference, "
-                        "unknowns, and contradictions."
-                    ),
-                    "expected_output": (
-                        "Entity dossier with timeline, current thesis, key findings, "
-                        "contradiction file, source diversity score, and watch-next list."
-                    ),
-                    "requires_llm": True,
-                    "requires_network": False,
-                    "input_provider_ids": provider_ids,
-                    "status": "planned",
-                },
-                {
-                    "task_id": f"timeline-reconstruction:{subject}",
-                    "kind": "timeline_reconstruction",
-                    "subject": subject,
-                    "description": (
-                        "Reconstruct the recent event timeline from normalized evidence "
-                        "records without using raw provider text in trading prompts."
-                    ),
-                    "expected_output": (
-                        "Chronological event list with observed_at timestamps, source "
-                        "attribution, staleness, and uncertainty markers."
-                    ),
-                    "requires_llm": True,
-                    "requires_network": False,
-                    "input_provider_ids": provider_ids,
-                    "status": "planned",
-                },
-                {
-                    "task_id": f"contradiction-check:{subject}",
-                    "kind": "contradiction_check",
-                    "subject": subject,
-                    "description": (
-                        "Compare evidence packets for conflicting claims, stale data, "
-                        "missing sources, and unsupported inferences."
-                    ),
-                    "expected_output": (
-                        "Contradiction report with verified facts, conflicts, unknowns, "
-                        "and confidence impact."
-                    ),
-                    "requires_llm": True,
-                    "requires_network": False,
-                    "input_provider_ids": provider_ids,
-                    "status": "planned",
-                },
-                {
-                    "task_id": f"watch-next:{subject}",
-                    "kind": "watch_next",
-                    "subject": subject,
-                    "description": (
-                        "Identify the next official disclosures, macro releases, news "
-                        "events, or social-watchlist changes that would materially alter "
-                        "the dossier."
-                    ),
-                    "expected_output": (
-                        "Prioritized watch-next checklist with source names, freshness "
-                        "requirements, and trigger rationale."
-                    ),
-                    "requires_llm": True,
-                    "requires_network": False,
-                    "input_provider_ids": provider_ids,
-                    "status": "planned",
-                },
-            ]
-        )
-    tasks.append(
-        {
-            "task_id": "sector-brief:watchlist",
-            "kind": "sector_brief",
-            "subject": ",".join(symbols),
-            "description": (
-                "Synthesize cross-symbol sector and macro context only from normalized "
-                "provider packets and explicit missing-source states."
-            ),
-            "expected_output": (
-                "Sector brief with source diversity, macro channels, shared risks, "
-                "contradictions, and unresolved evidence gaps."
-            ),
-            "requires_llm": True,
-            "requires_network": False,
-            "input_provider_ids": provider_ids,
-            "status": "planned",
-        }
-    )
+    symbols = _watch_symbols(request)
+    provider_ids = _provider_ids(request)
+    tasks = [
+        task
+        for symbol in symbols
+        for task in _symbol_tasks(symbol.upper(), provider_ids)
+    ]
+    tasks.append(_sector_brief_task(symbols, provider_ids))
     return tasks
 
 

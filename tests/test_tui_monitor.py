@@ -19,6 +19,7 @@ from agentic_trader.tui import (
     agent_activity_lines,
     agent_activity_table,
     broker_gate_lines,
+    build_monitor_renderable,
     last_outcome_lines,
     main_menu_actions,
     main_menu_table,
@@ -30,8 +31,8 @@ from agentic_trader.tui import (
     split_csv,
     style_key,
     system_status_table,
-    build_monitor_renderable,
 )
+from agentic_trader.ui_text import get_ui_text
 
 
 def test_build_monitor_renderable_contains_core_sections(tmp_path: Path) -> None:
@@ -190,6 +191,7 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
     assert broker_gate_lines(
         broker={"backend": "paper", "state": "ready", "kill_switch_active": False},
         paper_operations={"allowed": True},
+        copy=get_ui_text("en"),
     ) == [
         "Broker Backend: paper",
         "Broker State: ready",
@@ -219,6 +221,11 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
 
 
 def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
+    """
+    Exercise TUI table rendering and main-menu action dispatch for terminal UI helpers.
+
+    Renders runtime, system, memory explorer, and menu tables to a recorded Console and asserts presence and absence of expected output fragments. Also verifies that run_main_menu_action invokes the correct action callbacks and that it signals whether the menu loop should continue.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -281,7 +288,7 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
     console.print(main_menu_table(actions))
     output = console.export_text()
 
-    assert "no runtime state recorded yet" in output
+    assert "No runtime state recorded yet." in output
     assert "Runtime active" not in output
     assert "System Status" in output
     assert "Base URL" in output

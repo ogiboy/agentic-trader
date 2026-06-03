@@ -10,14 +10,11 @@ from __future__ import annotations
 import os
 import shutil
 import signal
-import socket
 import subprocess
-import sys
 import time
 from pathlib import Path
 
 import httpx
-from pydantic import BaseModel, Field
 
 from agentic_trader.config import Settings
 from agentic_trader.runtime_status import is_process_alive
@@ -26,65 +23,35 @@ from agentic_trader.security import (
     is_loopback_host,
     open_private_append_binary,
     redact_sensitive_text,
-    write_private_text,
 )
+from agentic_trader.system import webgui_service_process as _process_helpers
+from agentic_trader.system import webgui_service_status as _status_helpers
+from agentic_trader.system.webgui_service_state import (
+    WebGUIServiceState,
+    WebGUIServiceStatus,
+)
+from agentic_trader.system.webgui_service_state import (
+    read_webgui_service_state as _state_read_webgui_service_state,
+)
+from agentic_trader.system.webgui_service_state import (
+    remove_webgui_service_state as _state_remove_webgui_service_state,
+)
+from agentic_trader.system.webgui_service_state import (
+    tail_webgui_service_text,
+    webgui_service_dir,
+    webgui_service_state_path,
+)
+from agentic_trader.system.webgui_service_state import (
+    write_webgui_service_state as _state_write_webgui_service_state,
+)
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_WEBGUI_HOST = "127.0.0.1"
 DEFAULT_WEBGUI_PORT = 3210
 WEBGUI_PORT_CANDIDATES = (3210, *range(3211, 3221))
 LOCAL_HTTP_SCHEME = "http"
-LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
-MINIMAL_WEBGUI_ENV_KEYS = (
-    "PATH",
-    "HOME",
-    "TMPDIR",
-    "USER",
-    "LOGNAME",
-    "SHELL",
-    "USERPROFILE",
-    "APPDATA",
-    "LOCALAPPDATA",
-    "SYSTEMROOT",
-    "WINDIR",
-    "VIRTUAL_ENV",
-)
-
-
-class WebGUIServiceState(BaseModel):
-    """Persisted state for an app-owned Web GUI process."""
-
-    pid: int
-    launcher_pid: int | None = None
-    host: str
-    port: int
-    url: str
-    started_at: str
-    stdout_log_path: str
-    stderr_log_path: str
-    command: list[str]
-    app_owned: bool = True
-
-
-class WebGUIServiceStatus(BaseModel):
-    """Operator-facing Web GUI service status."""
-
-    command_available: bool
-    command_path: str | None = None
-    package_available: bool
-    dependency_available: bool = False
-    dependency_path: str | None = None
-    app_owned: bool = False
-    pid: int | None = None
-    host: str | None = None
-    port: int | None = None
-    url: str | None = None
-    service_reachable: bool
-    stdout_log_path: str | None = None
-    stderr_log_path: str | None = None
-    stdout_tail: list[str] = Field(default_factory=list)
-    stderr_tail: list[str] = Field(default_factory=list)
-    state_path: str
-    message: str
+LSOF_LISTEN_FILTER = _process_helpers.LSOF_LISTEN_FILTER
+MINIMAL_WEBGUI_ENV_KEYS = _process_helpers.MINIMAL_WEBGUI_ENV_KEYS
 
 
 def _repo_root() -> Path:
@@ -95,42 +62,16 @@ def webgui_dir() -> Path:
     return _repo_root() / "webgui"
 
 
-def webgui_service_dir(settings: Settings) -> Path:
-    return settings.runtime_dir / "webgui_service"
-
-
-def webgui_service_state_path(settings: Settings) -> Path:
-    return webgui_service_dir(settings) / "webgui_service.json"
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _read_state(settings: Settings) -> WebGUIServiceState | None:
-    path = webgui_service_state_path(settings)
-    if not path.exists():
-        return None
-    try:
-        return WebGUIServiceState.model_validate_json(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    return _state_read_webgui_service_state(settings)
 
 
 def _write_state(settings: Settings, state: WebGUIServiceState) -> None:
-    write_private_text(
-        webgui_service_state_path(settings),
-        state.model_dump_json(indent=2),
-    )
+    _state_write_webgui_service_state(settings, state)
 
 
 def _remove_state(settings: Settings) -> None:
-    try:
-        webgui_service_state_path(settings).unlink()
-    except FileNotFoundError:
-        return
+    _state_remove_webgui_service_state(settings)
 
 
 def read_webgui_service_state(settings: Settings) -> WebGUIServiceState | None:
@@ -146,22 +87,11 @@ def remove_webgui_service_state(settings: Settings) -> None:
 
 
 def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
-    if not path:
-        return []
-    log_path = Path(path)
-    if not log_path.exists():
-        return []
-    try:
-        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    return [redact_sensitive_text(line, max_length=300) for line in lines[-limit:]]
+    return tail_webgui_service_text(path, limit=limit)
 
 
 def _is_port_available(host: str, port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.2)
-        return sock.connect_ex((host, port)) != 0
+    return _process_helpers.is_port_available(host, port)
 
 
 def choose_webgui_port(host: str, preferred_port: int = DEFAULT_WEBGUI_PORT) -> int:
@@ -234,32 +164,11 @@ def _webgui_reachable(url: str) -> tuple[bool, str]:
 def _webgui_env() -> dict[str, str]:
     """Return the subprocess env for the local Web GUI dev server."""
 
-    env = {key: os.environ[key] for key in MINIMAL_WEBGUI_ENV_KEYS if key in os.environ}
-    env["AGENTIC_TRADER_PYTHON"] = os.environ.get(
-        "AGENTIC_TRADER_PYTHON", sys.executable
-    )
-    env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] = "1"
-    env["WATCHPACK_POLLING"] = os.environ.get("WATCHPACK_POLLING", "true")
-    for key, value in os.environ.items():
-        if key.startswith("AGENTIC_TRADER_"):
-            env.setdefault(key, value)
-    return env
+    return _process_helpers.webgui_env()
 
 
 def _process_command_line(pid: int) -> str | None:
-    try:
-        completed = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
+    return _process_helpers.process_command_line(pid)
 
 
 def webgui_process_command_line(pid: int) -> str | None:
@@ -267,36 +176,7 @@ def webgui_process_command_line(pid: int) -> str | None:
 
 
 def _listen_port_owner_pid(host: str, port: int) -> int | None:
-    """Return the PID listening on a local TCP port when lsof is available."""
-
-    query_host = "127.0.0.1" if host == "localhost" else host.strip("[]")
-    try:
-        completed = subprocess.run(
-            [
-                "lsof",
-                "-nP",
-                "-a",
-                f"-iTCP@{query_host}:{port}",
-                LSOF_LISTEN_FILTER,
-                "-Fp",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    pids = {
-        int(line[1:])
-        for line in completed.stdout.splitlines()
-        if line.startswith("p") and line[1:].isdigit()
-    }
-    if len(pids) != 1:
-        return None
-    return next(iter(pids))
+    return _process_helpers.listen_port_owner_pid(host, port)
 
 
 def webgui_listen_port_owner_pid(host: str, port: int) -> int | None:
@@ -304,22 +184,7 @@ def webgui_listen_port_owner_pid(host: str, port: int) -> int | None:
 
 
 def _process_cwd(pid: int) -> Path | None:
-    try:
-        completed = subprocess.run(
-            ["lsof", "-nP", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    for line in completed.stdout.splitlines():
-        if line.startswith("n"):
-            return Path(line[1:]).resolve()
-    return None
+    return _process_helpers.process_cwd(pid)
 
 
 def _command_line_matches_webgui(command_line: str, state: WebGUIServiceState) -> bool:
@@ -491,11 +356,11 @@ def _status_url(
     app_state: WebGUIServiceState | None,
     state: WebGUIServiceState | None,
 ) -> str:
-    if app_state is not None:
-        return app_state.url
-    if state is not None:
-        return state.url
-    return _webgui_url(DEFAULT_WEBGUI_HOST, DEFAULT_WEBGUI_PORT)
+    return _status_helpers.status_url(
+        app_state=app_state,
+        state=state,
+        default_url=_webgui_url(DEFAULT_WEBGUI_HOST, DEFAULT_WEBGUI_PORT),
+    )
 
 
 def _webgui_status_message(
@@ -508,17 +373,15 @@ def _webgui_status_message(
     reachable: bool,
     reachability_message: str,
 ) -> str:
-    if not package_available:
-        return "Web GUI package is missing."
-    if command_path is None:
-        return "node is not installed or not on PATH."
-    if dependency_path is None:
-        return "Web GUI dependencies are missing. Run pnpm install first."
-    if app_state is not None and reachable:
-        return "App-owned Web GUI is running."
-    if state is not None and app_state is None:
-        return "Recorded Web GUI state is stale or process ownership could not be verified."
-    return reachability_message
+    return _status_helpers.status_message(
+        package_available=package_available,
+        command_path=command_path,
+        dependency_path=dependency_path,
+        app_state=app_state,
+        state=state,
+        reachable=reachable,
+        reachability_message=reachability_message,
+    )
 
 
 def build_webgui_service_status(
@@ -544,30 +407,15 @@ def build_webgui_service_status(
         reachable=reachable,
         reachability_message=reachability_message,
     )
-    return WebGUIServiceStatus(
-        command_available=command_path is not None,
-        command_path=command_path,
-        package_available=package_available,
-        dependency_available=dependency_path is not None,
-        dependency_path=str(dependency_path) if dependency_path is not None else None,
-        app_owned=app_state is not None,
-        pid=app_state.pid if app_state is not None else None,
-        host=app_state.host if app_state is not None else None,
-        port=app_state.port if app_state is not None else None,
+    return _status_helpers.state_status(
+        app_state=app_state,
         url=url,
-        service_reachable=reachable,
-        stdout_log_path=app_state.stdout_log_path if app_state is not None else None,
-        stderr_log_path=app_state.stderr_log_path if app_state is not None else None,
-        stdout_tail=_tail_text(
-            app_state.stdout_log_path if app_state is not None else None,
-            limit=tail_limit,
-        ),
-        stderr_tail=_tail_text(
-            app_state.stderr_log_path if app_state is not None else None,
-            limit=tail_limit,
-        ),
-        state_path=str(webgui_service_state_path(settings)),
+        reachable=reachable,
+        runtime_fields=(command_path, dependency_path, package_available),
+        state_path=webgui_service_state_path(settings),
         message=message,
+        tail_reader=lambda path, limit: _tail_text(path, limit=limit),
+        tail_limit=tail_limit,
     )
 
 
@@ -580,60 +428,101 @@ def _build_unverified_start_status(
     tail_limit: int = 12,
 ) -> WebGUIServiceStatus:
     command_path, dependency_path, package_available = _webgui_runtime_status_fields()
-    return WebGUIServiceStatus(
-        command_available=command_path is not None,
-        command_path=command_path,
-        package_available=package_available,
-        dependency_available=dependency_path is not None,
-        dependency_path=str(dependency_path) if dependency_path is not None else None,
-        app_owned=False,
-        pid=None,
-        host=state.host,
-        port=state.port,
-        url=state.url,
+    return _status_helpers.unverified_start_status(
+        state=state,
         service_reachable=service_reachable,
-        stdout_log_path=state.stdout_log_path,
-        stderr_log_path=state.stderr_log_path,
-        stdout_tail=_tail_text(state.stdout_log_path, limit=tail_limit),
-        stderr_tail=_tail_text(state.stderr_log_path, limit=tail_limit),
-        state_path=str(webgui_service_state_path(settings)),
+        runtime_fields=(command_path, dependency_path, package_available),
+        state_path=webgui_service_state_path(settings),
         message=message,
+        tail_reader=lambda path, limit: _tail_text(path, limit=limit),
+        tail_limit=tail_limit,
     )
 
 
 def _external_webgui_status(settings: Settings) -> WebGUIServiceStatus | None:
     command_path, dependency_path, package_available = _webgui_runtime_status_fields()
-    for port in WEBGUI_PORT_CANDIDATES:
-        owner_pid = _listen_port_owner_pid(DEFAULT_WEBGUI_HOST, port)
-        if owner_pid is None or not _process_looks_like_webgui(owner_pid):
-            continue
-        url = _webgui_url(DEFAULT_WEBGUI_HOST, port)
-        reachable, message = _webgui_reachable(url)
-        if not reachable:
-            continue
-        return WebGUIServiceStatus(
-            command_available=command_path is not None,
-            command_path=command_path,
-            package_available=package_available,
-            dependency_available=dependency_path is not None,
-            dependency_path=(
-                str(dependency_path) if dependency_path is not None else None
-            ),
-            app_owned=False,
-            pid=None,
-            host=DEFAULT_WEBGUI_HOST,
-            port=port,
-            url=url,
-            service_reachable=True,
-            state_path=str(webgui_service_state_path(settings)),
-            message=(
-                "A Web GUI dev server is already reachable, but it was not "
-                "started by webgui-service and will not be stopped by the app."
-                if message == "Web GUI is reachable."
-                else message
-            ),
+    return _status_helpers.external_status(
+        default_host=DEFAULT_WEBGUI_HOST,
+        ports=WEBGUI_PORT_CANDIDATES,
+        runtime_fields=(command_path, dependency_path, package_available),
+        state_path=webgui_service_state_path(settings),
+        listen_port_owner_pid=_listen_port_owner_pid,
+        process_looks_like_webgui=_process_looks_like_webgui,
+        url_for=_webgui_url,
+        reachability_probe=_webgui_reachable,
+    )
+
+
+def _spawn_webgui_process(
+    settings: Settings,
+    *,
+    host: str,
+    port: int,
+) -> WebGUIServiceState:
+    url = _webgui_url(host, port)
+    ensure_private_directory(webgui_service_dir(settings))
+    stdout_path = webgui_service_dir(settings) / "webgui.out.log"
+    stderr_path = webgui_service_dir(settings) / "webgui.err.log"
+    command = _webgui_runtime_command(host, port)
+    with (
+        open_private_append_binary(stdout_path) as stdout_handle,
+        open_private_append_binary(stderr_path) as stderr_handle,
+    ):
+        process = subprocess.Popen(
+            command,
+            cwd=webgui_dir(),
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+            env=_webgui_env(),
+            start_new_session=True,
         )
-    return None
+    state = WebGUIServiceState(
+        pid=process.pid,
+        launcher_pid=process.pid,
+        host=host,
+        port=port,
+        url=url,
+        started_at=_utc_now_iso(),
+        stdout_log_path=str(stdout_path),
+        stderr_log_path=str(stderr_path),
+        command=command,
+    )
+    _write_state(settings, state)
+    return state
+
+
+def _wait_for_webgui_start(
+    settings: Settings,
+    state: WebGUIServiceState,
+) -> WebGUIServiceStatus:
+    deadline = time.monotonic() + 15
+    last_reachable = False
+    last_message = "Web GUI did not become reachable before the startup timeout."
+    while time.monotonic() < deadline:
+        listener_pid = _listen_port_owner_pid(state.host, state.port)
+        if listener_pid is not None and listener_pid != state.pid:
+            state = state.model_copy(
+                update={
+                    "pid": listener_pid,
+                    "launcher_pid": state.launcher_pid,
+                }
+            )
+            _write_state(settings, state)
+        last_reachable, last_message = _webgui_reachable(state.url)
+        status = build_webgui_service_status(settings)
+        if status.app_owned and status.service_reachable and status.url == state.url:
+            return status
+        time.sleep(0.4)
+    return _build_unverified_start_status(
+        settings,
+        state,
+        service_reachable=last_reachable,
+        message=(
+            "Web GUI is reachable, but process ownership could not be verified."
+            if last_reachable
+            else last_message
+        ),
+    )
 
 
 def start_webgui_service(
@@ -659,62 +548,10 @@ def start_webgui_service(
         return external_status
 
     chosen_port = choose_webgui_port(host, port)
-    url = _webgui_url(host, chosen_port)
-    ensure_private_directory(webgui_service_dir(settings))
-    stdout_path = webgui_service_dir(settings) / "webgui.out.log"
-    stderr_path = webgui_service_dir(settings) / "webgui.err.log"
-    command = _webgui_runtime_command(host, chosen_port)
-    with (
-        open_private_append_binary(stdout_path) as stdout_handle,
-        open_private_append_binary(stderr_path) as stderr_handle,
-    ):
-        process = subprocess.Popen(
-            command,
-            cwd=webgui_dir(),
-            stdout=stdout_handle,
-            stderr=stderr_handle,
-            env=_webgui_env(),
-            start_new_session=True,
-        )
-    state = WebGUIServiceState(
-        pid=process.pid,
-        launcher_pid=process.pid,
-        host=host,
-        port=chosen_port,
-        url=url,
-        started_at=_utc_now_iso(),
-        stdout_log_path=str(stdout_path),
-        stderr_log_path=str(stderr_path),
-        command=command,
-    )
-    _write_state(settings, state)
-    deadline = time.monotonic() + 15
-    last_reachable = False
-    last_message = "Web GUI did not become reachable before the startup timeout."
-    while time.monotonic() < deadline:
-        listener_pid = _listen_port_owner_pid(host, chosen_port)
-        if listener_pid is not None and listener_pid != state.pid:
-            state = state.model_copy(
-                update={
-                    "pid": listener_pid,
-                    "launcher_pid": process.pid,
-                }
-            )
-            _write_state(settings, state)
-        last_reachable, last_message = _webgui_reachable(url)
-        status = build_webgui_service_status(settings)
-        if status.app_owned and status.service_reachable and status.url == url:
-            return status
-        time.sleep(0.4)
-    return _build_unverified_start_status(
+    state = _spawn_webgui_process(settings, host=host, port=chosen_port)
+    return _wait_for_webgui_start(
         settings,
         state,
-        service_reachable=last_reachable,
-        message=(
-            "Web GUI is reachable, but process ownership could not be verified."
-            if last_reachable
-            else last_message
-        ),
     )
 
 

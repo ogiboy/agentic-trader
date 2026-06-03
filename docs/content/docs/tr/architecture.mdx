@@ -69,6 +69,14 @@ modüler dosyalar gerçekten faydalı:
 - frontend kabuğu data access, copy ve rendering'i gereğinden fazla birbirine
   bağlıyorsa
 
+## Operatör copy ve i18n
+
+Makine-okunur JSON, observer, dashboard ve API anahtarları stabil İngilizce
+contract olarak kalır. Operatöre görünen terminal copy ise yeni command, Rich ya
+da TUI modüllerine büyük label tabloları import etmek yerine ortak Python UI
+text catalog'unu `ui_text.t("namespace.key")` veya geçirilmiş bir `UITextCatalog`
+üzerinden kullanmalı.
+
 ## Mimari drift sayılan örnekler
 
 Kaçınmak istediğimiz drift örnekleri:

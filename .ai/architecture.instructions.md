@@ -75,9 +75,17 @@ Current runtime stages:
 
 - `webgui/`
   Next.js App Router local operator shell. It must stay thin, local-first, and delegated to the existing dashboard/runtime/chat/instruction contracts rather than becoming a second runtime.
+  Component, hook, style, constant, helper, and copy modules should stay
+  screen-owned or feature-owned. Components should be clearly identifiable by
+  filename, normally PascalCase, while utilities and hooks use role-specific
+  names. Operator copy should move toward a namespaced translation accessor
+  rather than broad label-object imports.
 
 - `docs/`
   Fumadocs-based Next.js developer docs site. It documents the existing repository truth through curated MDX pages and should share the same frontend baseline without importing runtime logic.
+  Locale routing and message organization should stay compatible with the
+  WebGUI i18n direction so both Next.js apps can share patterns without sharing
+  runtime code.
 
 - `.ai/qa/`
   Product-specific QA workflow, checklist, runbook, scenarios, and optional evidence artifacts for validating operator-facing behavior
@@ -144,6 +152,17 @@ Good changes fit into one of these buckets:
 - keep V1 scoped to Alpaca-ready US active trading through explicit paper/external-paper/manual-approval gates; defer Turkey-specific market, KAP/CBRT, TRY/FX, and broker expansion to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite
+- keep frontend i18n access lightweight: WebGUI now uses `next-intl` for the
+  App Router provider/request/routing layer, so new WebGUI copy should flow
+  through message namespaces and accessors instead of broad per-component label
+  imports; docs should stay compatible with this pattern through its Fumadocs
+  locale routing
+- keep Python i18n as a first-class surface too: CLI, Rich, Ink/TUI, docs
+  generation, and operator-facing errors should consume locale-aware text
+  accessors while stable JSON/API contract keys remain English and schema-owned
+- keep large-file modularity work enterprise-grade: split by ownership into
+  commands, services, schemas, constants, helpers, view models, styles, copy,
+  assets, and tests instead of only moving code into arbitrary new modules
 - improve replay and backtest fidelity
 
 ## Architectural Anti-Goals

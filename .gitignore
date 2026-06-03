@@ -118,3 +118,5 @@ htmlcov/
 /.playwright-cli/
 agentdb.rvf.lock
 agentdb.rvf
+.gh-cache/
+.uv-cache/

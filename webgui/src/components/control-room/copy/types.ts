@@ -1,6 +1,14 @@
 import type { TabId } from '../../control-room.helpers';
+import type { ControlRoomDiagnosticsCopy } from './diagnostics-types';
+import {
+  WEBGUI_LOCALE_OPTIONS,
+  type WebguiLocale,
+} from '@/i18n/locales';
 
-export type ControlRoomLocale = 'en' | 'tr';
+export type ControlRoomLocale = WebguiLocale;
+export {
+  WEBGUI_LOCALE_STORAGE_KEY as CONTROL_ROOM_LOCALE_STORAGE_KEY,
+} from '@/i18n/locales';
 
 export type ControlRoomCopy = {
   common: {
@@ -10,100 +18,7 @@ export type ControlRoomCopy = {
     yes: string;
     working: string;
   };
-  diagnostics: {
-    values: {
-      active: string;
-      available: string;
-      clear: string;
-      configured: string;
-      disabledByOwnership: string;
-      enabled: string;
-      inactive: string;
-      missing: string;
-      no: string;
-      requested: string;
-      yes: string;
-    };
-    labels: {
-      alpacaKey: string;
-      backend: string;
-      baseUrl: string;
-      brokerBackend: string;
-      brokerHealth: string;
-      brokerState: string;
-      camofox: string;
-      camofoxAccessKey: string;
-      camofoxBlocker: string;
-      camofoxOwned: string;
-      camofoxOwnership: string;
-      camofoxReachable: string;
-      camofoxService: string;
-      camofoxUrl: string;
-      canRunLocalPaperCycle: string;
-      canUseAlpacaPaper: string;
-      executionMode: string;
-      externalPaperModeActive: string;
-      finnhubKey: string;
-      firecrawlOwnership: string;
-      firecrawlRuntime: string;
-      fmpKey: string;
-      freshSources: string;
-      killSwitch: string;
-      llmReachable: string;
-      llmRuntime: string;
-      marketProvider: string;
-      marketRole: string;
-      marketSession: string;
-      model: string;
-      modelAdapter: string;
-      modelAvailable: string;
-      modelService: string;
-      modelServiceOwned: string;
-      modelServiceReachable: string;
-      modelServiceUrl: string;
-      newsMode: string;
-      ollamaOwnership: string;
-      ollamaReachable: string;
-      provider: string;
-      research: string;
-      researchControl: string;
-      researchDigestReplay: string;
-      researchSources: string;
-      researchTrigger: string;
-      sourceMissing: string;
-      sourceUnknown: string;
-      webGui: string;
-      webGuiOwned: string;
-      webGuiService: string;
-      webGuiUrl: string;
-      whyAlpacaPaperBlocked: string;
-      whyPaperCycleBlocked: string;
-    };
-    messages: {
-      appOwnedRuntime: string;
-      camofoxAccessKeyMissing: string;
-      firecrawlRuntime: string;
-      internalFirstRuntime: string;
-      noProviderWarnings: string;
-      status: {
-        alpacaPaperReady: string;
-        camofoxReachable: string;
-        modelServiceHostDefault: string;
-        noRuntimeState: string;
-        webGuiStateStale: string;
-      };
-    };
-    actions: {
-      camofoxAccessKeyMissing: string;
-      camofoxAppManagedNotRunning: string;
-      camofoxHostManagedUnreachable: string;
-      camofoxOwnershipUndecided: string;
-      ollamaAppManagedNotRunning: string;
-      ollamaHostManagedUnreachable: string;
-      ollamaModelMissing: (model: unknown) => string;
-      ollamaOwnershipUndecided: string;
-    };
-  };
+  diagnostics: ControlRoomDiagnosticsCopy;
   auth: {
     body: string;
     eyebrow: string;
@@ -364,12 +279,7 @@ export type ControlRoomCopy = {
   tabs: Record<TabId, string>;
 };
 
-export const CONTROL_ROOM_LOCALE_STORAGE_KEY = 'agentic-trader-webgui-locale';
-
 export const CONTROL_ROOM_LOCALES: Array<{
   id: ControlRoomLocale;
   label: string;
-}> = [
-  { id: 'en', label: 'English' },
-  { id: 'tr', label: 'Türkçe' },
-];
+}> = WEBGUI_LOCALE_OPTIONS;

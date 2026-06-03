@@ -8,7 +8,7 @@ import {
 export { CONTROL_ROOM_LOCALE_STORAGE_KEY, CONTROL_ROOM_LOCALES } from './copy';
 export type { ControlRoomCopy, ControlRoomLocale } from './copy';
 
-const TAB_IDS: TabId[] = [
+export const CONTROL_ROOM_TAB_IDS: TabId[] = [
   'overview',
   'runtime',
   'portfolio',
@@ -81,5 +81,5 @@ export function getControlRoomCopy(locale: ControlRoomLocale): ControlRoomCopy {
  * @returns Stable tab id/label pairs for navigation.
  */
 export function controlRoomTabs(copy: ControlRoomCopy) {
-  return TAB_IDS.map((id) => ({ id, label: copy.tabs[id] }));
+  return CONTROL_ROOM_TAB_IDS.map((id) => ({ id, label: copy.tabs[id] }));
 }

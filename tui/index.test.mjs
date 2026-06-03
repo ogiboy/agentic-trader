@@ -28,6 +28,7 @@ import {
   getTraceLines,
   getTradeContextLines,
   handleChatInput,
+  handleDashboardInput,
   handleGlobalInput,
   handleSettingsInput,
   normalizeChatHistory,
@@ -224,6 +225,52 @@ describe('Ink TUI dashboard helpers', () => {
       'restart',
       'memory',
     ]);
+  });
+
+  it('routes interactive dashboard input through page-aware handlers', () => {
+    const actions = [];
+    let chatDraft = '';
+    let instructionDraft = '';
+    let instructionMode = 'preview';
+    const handlers = {
+      exit: () => actions.push('exit'),
+      nextPage: () => actions.push('next'),
+      page: 'overview',
+      prevPage: () => actions.push('prev'),
+      refreshNow: () => actions.push('refresh'),
+      runAction: (kind) => actions.push(kind),
+      sendChat: () => actions.push('chat'),
+      sendInstruction: () => actions.push('instruction'),
+      setChatDraft: (updater) => {
+        chatDraft = updater(chatDraft);
+      },
+      setChatPersona: (updater) => actions.push(updater('operator_liaison')),
+      setInstructionDraft: (updater) => {
+        instructionDraft = updater(instructionDraft);
+      },
+      setInstructionMode: (updater) => {
+        instructionMode = updater(instructionMode);
+      },
+      setPage: (page) => actions.push(page),
+    };
+
+    expect(handleDashboardInput('', { rightArrow: true }, handlers)).toBe(true);
+    expect(handleDashboardInput('', { leftArrow: true }, handlers)).toBe(true);
+    expect(handleDashboardInput('2', {}, handlers)).toBe(true);
+    expect(handleDashboardInput('r', {}, handlers)).toBe(true);
+
+    handlers.page = 'chat';
+    expect(handleDashboardInput('2', {}, handlers)).toBe(true);
+    expect(handleDashboardInput('x', {}, handlers)).toBe(true);
+    expect(chatDraft).toBe('2x');
+
+    handlers.page = 'settings';
+    expect(handleDashboardInput(']', {}, handlers)).toBe(true);
+    expect(instructionMode).toBe('apply');
+    expect(handleDashboardInput('!', {}, handlers)).toBe(true);
+    expect(instructionDraft).toBe('!');
+
+    expect(actions).toEqual(['next', 'prev', 'runtime', 'refresh']);
   });
 
   it('formats review, replay, memory, journal, and instruction panels', () => {

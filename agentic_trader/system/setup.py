@@ -416,9 +416,34 @@ def build_setup_status(settings: Settings) -> SetupStatus:
 
     root = _repo_root()
     ownership = read_tool_ownership_payload(settings)
+    tools = _setup_tools(settings, ownership)
+    core_ready = all(tool.available for tool in tools if tool.required_for_core)
+    model_service = build_model_service_status(settings).model_dump(mode="json")
+    camofox_service = build_camofox_service_status(settings).model_dump(mode="json")
+    webgui_service = build_webgui_service_status(settings).model_dump(mode="json")
+    optional_ready = _model_service_ready(
+        settings, ownership, model_service
+    ) and _camofox_service_ready(ownership, camofox_service)
+    return SetupStatus(
+        platform=platform.system(),
+        workspace_root=str(root),
+        core_ready=core_ready,
+        optional_ready=optional_ready,
+        tools=tools,
+        tool_ownership=ownership,
+        model_service=model_service,
+        camofox_service=camofox_service,
+        recommended_commands=_recommended_setup_commands(),
+        webgui_service=webgui_service,
+    )
+
+
+def _setup_tools(
+    settings: Settings, ownership: ToolOwnershipPayload
+) -> list[ToolStatus]:
     crewai = crewai_setup_status(settings)
     crewai_notes = _string_list(crewai.get("notes"))
-    tools = [
+    return [
         _command_tool(
             tool_id="uv",
             label="uv",
@@ -476,33 +501,18 @@ def build_setup_status(settings: Settings) -> SetupStatus:
             install_hint="Install Docker only for optional Sonar/Camofox container workflows.",
         ),
     ]
-    core_ready = all(tool.available for tool in tools if tool.required_for_core)
-    model_service = build_model_service_status(settings).model_dump(mode="json")
-    camofox_service = build_camofox_service_status(settings).model_dump(mode="json")
-    webgui_service = build_webgui_service_status(settings).model_dump(mode="json")
-    optional_ready = _model_service_ready(
-        settings, ownership, model_service
-    ) and _camofox_service_ready(ownership, camofox_service)
-    return SetupStatus(
-        platform=platform.system(),
-        workspace_root=str(root),
-        core_ready=core_ready,
-        optional_ready=optional_ready,
-        tools=tools,
-        tool_ownership=ownership,
-        model_service=model_service,
-        camofox_service=camofox_service,
-        recommended_commands=[
-            "make bootstrap",
-            "make setup",
-            "agentic-trader setup-status --json",
-            "agentic-trader model-service status --json",
-            "agentic-trader model-service start",
-            "agentic-trader model-service pull qwen3:8b",
-            "agentic-trader camofox-service status --json",
-            "agentic-trader camofox-service start",
-            "agentic-trader webgui-service status --json",
-            "agentic-trader webgui-service start",
-        ],
-        webgui_service=webgui_service,
-    )
+
+
+def _recommended_setup_commands() -> list[str]:
+    return [
+        "make bootstrap",
+        "make setup",
+        "agentic-trader setup-status --json",
+        "agentic-trader model-service status --json",
+        "agentic-trader model-service start",
+        "agentic-trader model-service pull qwen3:8b",
+        "agentic-trader camofox-service status --json",
+        "agentic-trader camofox-service start",
+        "agentic-trader webgui-service status --json",
+        "agentic-trader webgui-service start",
+    ]

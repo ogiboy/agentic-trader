@@ -1,52 +1,65 @@
-import {
-  localizedStatusText,
-  systemStatusItems,
-  type DashboardData,
-  type KeyValueItems,
-} from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
+import
+  {
+    asRecord,
+    asString,
+    localizedStatusText,
+    systemStatusItems,
+    type DashboardData,
+    type KeyValueItems,
+  } from '../control-room.helpers';
+import type {
+  ControlRoomDiagnosticsCopySource,
+} from './diagnostics-formatting';
+import type { ControlRoomCurrentCycleCopy } from './intl-copy';
 
 export function currentCycleItems(
   dashboard: DashboardData | null,
-  copy: ControlRoomCopy,
+  copy: ControlRoomCurrentCycleCopy,
+  diagnostics?: ControlRoomDiagnosticsCopySource,
 ): KeyValueItems {
+  const status = asRecord(dashboard?.status);
+  const state = asRecord(status.state);
+  const doctor = asRecord(dashboard?.doctor);
+  const agentActivity = asRecord(dashboard?.agentActivity);
   return [
-    [copy.currentCycle.runtime, dashboard?.status?.runtime_state ?? '-'],
+    [copy.runtime, asString(status.runtime_state)],
     [
-      copy.currentCycle.mode,
-      dashboard?.status?.runtime_mode ?? dashboard?.doctor?.runtime_mode ?? '-',
+      copy.mode,
+      asString(status.runtime_mode, asString(doctor.runtime_mode)),
     ],
     [
-      copy.currentCycle.currentSymbol,
-      dashboard?.status?.state?.current_symbol ?? '-',
+      copy.currentSymbol,
+      asString(state.current_symbol),
     ],
     [
-      copy.currentCycle.cycleCount,
-      String(dashboard?.status?.state?.cycle_count ?? '-'),
+      copy.cycleCount,
+      asString(state.cycle_count),
     ],
     [
-      copy.currentCycle.status,
-      localizedStatusText(dashboard?.status?.status_message, copy),
+      copy.status,
+      localizedStatusText(status.status_message, diagnostics),
     ],
     [
-      copy.currentCycle.currentStage,
-      dashboard?.agentActivity?.current_stage ?? '-',
+      copy.currentStage,
+      asString(agentActivity.current_stage),
     ],
     [
-      copy.currentCycle.stageStatus,
-      dashboard?.agentActivity?.current_stage_status ?? '-',
+      copy.stageStatus,
+      asString(agentActivity.current_stage_status),
     ],
     [
-      copy.currentCycle.lastOutcome,
-      dashboard?.agentActivity?.last_outcome_message ??
-        copy.currentCycle.waitingOutcome,
+      copy.lastOutcome,
+      asString(
+        agentActivity.last_outcome_message,
+        copy.waitingOutcome,
+      ),
     ],
   ];
 }
 
 export function systemStatusViewItems(
   dashboard: DashboardData | null,
-  copy: ControlRoomCopy,
+  diagnostics?: ControlRoomDiagnosticsCopySource,
 ): KeyValueItems {
-  return systemStatusItems(dashboard, copy);
+  return systemStatusItems(dashboard, diagnostics);
 }

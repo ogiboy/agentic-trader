@@ -1,0 +1,207 @@
+export const uiLocaleEnv = "AGENTIC_TRADER_UI_LOCALE";
+
+export const dashboardPages = Object.freeze([
+  "overview",
+  "runtime",
+  "portfolio",
+  "review",
+  "memory",
+  "chat",
+  "settings",
+]);
+
+export const chatPersonas = Object.freeze([
+  "operator_liaison",
+  "regime_analyst",
+  "strategy_selector",
+  "risk_steward",
+  "portfolio_manager",
+]);
+
+export const instructionModes = Object.freeze(["preview", "apply"]);
+
+const enCopy = Object.freeze({
+  chatSending: "Sending message to the operator surface...",
+  cliExecutableLabel: "CLI executable",
+  cliExecutionUnavailable: "No CLI command could be executed.",
+  connectingTo: "Connecting to {executable}...",
+  dashboardTitle: "AGENTIC TRADER // INK CONTROL ROOM",
+  emptyValue: "-",
+  errorLabel: "Error",
+  globalShortcutHelp:
+    "r refresh  o one-shot  s start  x stop  R restart  q quit",
+  instructionApplied: "Operator instruction applied to preferences.",
+  instructionFailed: "Instruction failed.",
+  instructionParsed: "Operator instruction parsed.",
+  pageLabels: {
+    overview: "Overview",
+    runtime: "Runtime",
+    portfolio: "Portfolio",
+    review: "Review",
+    memory: "Decision Evidence",
+    chat: "Chat",
+    settings: "Settings",
+  },
+  personaLabels: {
+    operator_liaison: "Operator Assistant",
+    regime_analyst: "Market Regime Analyst",
+    strategy_selector: "Strategy Selector",
+    risk_steward: "Risk Steward",
+    portfolio_manager: "Portfolio Manager",
+  },
+  ready: "Ready.",
+  unknown: "Unknown",
+  working: "working...",
+});
+
+const trCopy = Object.freeze({
+  chatSending: "Operator yuzeyine mesaj gonderiliyor...",
+  cliExecutableLabel: "CLI calistirici",
+  cliExecutionUnavailable: "CLI komutu calistirilamadi.",
+  connectingTo: "{executable} baglantisi kuruluyor...",
+  dashboardTitle: "AGENTIC TRADER // INK KONTROL ODASI",
+  emptyValue: "-",
+  errorLabel: "Hata",
+  globalShortcutHelp:
+    "r yenile  o tek-sefer  s baslat  x durdur  R yeniden baslat  q cik",
+  instructionApplied: "Operator talimati tercihlere uygulandi.",
+  instructionFailed: "Talimat basarisiz oldu.",
+  instructionParsed: "Operator talimati cozumlendi.",
+  pageLabels: {
+    overview: "Genel Bakis",
+    runtime: "Calisma",
+    portfolio: "Portfoy",
+    review: "Inceleme",
+    memory: "Karar Kaniti",
+    chat: "Sohbet",
+    settings: "Ayarlar",
+  },
+  personaLabels: {
+    operator_liaison: "Operator Asistani",
+    regime_analyst: "Piyasa Rejimi Analisti",
+    strategy_selector: "Strateji Secici",
+    risk_steward: "Risk Sorumlusu",
+    portfolio_manager: "Portfoy Yoneticisi",
+  },
+  ready: "Hazir.",
+  unknown: "Bilinmiyor",
+  working: "calisiyor...",
+});
+
+export const tuiCopyByLocale = Object.freeze({
+  en: enCopy,
+  tr: trCopy,
+});
+
+export function normalizeTuiLocale(locale) {
+  if (typeof locale !== "string") {
+    return "en";
+  }
+  const normalized = locale.toLowerCase();
+  return normalized === "tr" || normalized.startsWith("tr-") ? "tr" : "en";
+}
+
+export function getTuiCopy(locale = process.env[uiLocaleEnv]) {
+  return tuiCopyByLocale[normalizeTuiLocale(locale)];
+}
+
+export const tuiCopy = getTuiCopy();
+export const dashboardTitle = tuiCopy.dashboardTitle;
+export const pageLabels = tuiCopy.pageLabels;
+export const personaLabels = tuiCopy.personaLabels;
+export const globalShortcutHelp = tuiCopy.globalShortcutHelp;
+export const cliExecutionUnavailable = tuiCopy.cliExecutionUnavailable;
+
+/**
+ * Format a persona key into its human-readable label.
+ * @param {string} value - Persona key to format (may be falsy).
+ * @returns {string} `personaLabels[value]` if present; otherwise `value` if truthy; otherwise `'-'`.
+ */
+export function formatPersona(value, copy = tuiCopy) {
+  return copy.personaLabels[value] || value || copy.emptyValue;
+}
+
+/**
+ * Resolve a human-readable label for a dashboard page key.
+ * @param {string} page - Page key to resolve (e.g., "overview", "runtime").
+ * @returns {string} The display label for the page, or `'Unknown'` if the key is not recognized.
+ */
+export function getPageLabel(page, copy = tuiCopy) {
+  return copy.pageLabels[page] || copy.unknown;
+}
+
+/**
+ * Map a numeric page shortcut to its dashboard page key.
+ * @param {string|number} input - The numeric shortcut (e.g., "1" or 1) representing a 1-based page index.
+ * @returns {string|undefined} The page key for the given shortcut, or `undefined` if the input is not a valid 1-based index.
+ */
+export function getPageForShortcut(input) {
+  const pageNumber = Number.parseInt(input, 10);
+  if (
+    !Number.isInteger(pageNumber) ||
+    pageNumber < 1 ||
+    pageNumber > dashboardPages.length
+  ) {
+    return undefined;
+  }
+  return dashboardPages[pageNumber - 1];
+}
+
+/**
+ * Build a help string that maps each dashboard page to its 1-based numeric shortcut.
+ *
+ * @returns {string} A string of pairs in the form `"index pageKey"` for each dashboard page, with pairs separated by two spaces (e.g. `"1 overview  2 runtime"`).
+ */
+export function getPageShortcutHelp() {
+  return dashboardPages.map((page, index) => `${index + 1} ${page}`).join("  ");
+}
+
+/**
+ * Selects an element from an array by rotating the index of a given current value by an offset with wraparound.
+ * @param {Array} values - Ordered list of values to rotate within.
+ * @param {*} current - The current value whose index is used as the rotation base. If not found, behaves as if index is -1.
+ * @param {number} offset - Number of positions to move from the current index; may be negative.
+ * @returns {*} The value at the rotated index within `values`.
+ */
+function rotateValue(values, current, offset) {
+  return values[
+    (values.indexOf(current) + offset + values.length) % values.length
+  ];
+}
+
+/**
+ * Move the current chat persona by the given offset within the ordered persona list, wrapping around.
+ *
+ * @param {string} current - The current persona key.
+ * @param {number} offset - Number of positions to move (positive or negative).
+ * @returns {string|undefined} The persona key at the new position, or `undefined` if `current` is not in the persona list.
+ */
+export function rotatePersona(current, offset) {
+  return rotateValue(chatPersonas, current, offset);
+}
+
+/**
+ * Cycle the current instruction mode by a given offset within the available modes.
+ *
+ * @param {string} current - The currently active instruction mode.
+ * @param {number} offset - The signed number of positions to move (positive or negative).
+ * @returns {string} The instruction mode at the resulting position, wrapping around the available modes.
+ */
+export function rotateInstructionMode(current, offset) {
+  return rotateValue(instructionModes, current, offset);
+}
+
+/**
+ * Build a single-line dashboard status string showing the current page, shortcut help, and an optional working indicator.
+ * @param {{busy?: boolean, page?: string}} params
+ * @param {boolean} [params.busy=false] - If true, append "  |  working..." to the end of the status line.
+ * @param {string} [params.page] - Current page key (one of the values in dashboardPages); used to compute the 1-based page index and label.
+ * @returns {string} A status line like "page {index}/{total}: {label}  |  {pageShortcuts}  |  {globalShortcutHelp}" with "  |  working..." appended when `busy` is true.
+ */
+export function dashboardStatusLine({ busy = false, page, copy = tuiCopy }) {
+  const pageIndex = dashboardPages.indexOf(page) + 1;
+  const pageLabel = getPageLabel(page, copy);
+  const workingSuffix = busy ? `  |  ${copy.working}` : "";
+
+  return `page ${pageIndex}/${dashboardPages.length}: ${pageLabel}  |  ${getPageShortcutHelp()}  |  ${copy.globalShortcutHelp}${workingSuffix}`;
+}

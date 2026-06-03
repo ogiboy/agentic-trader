@@ -1,0 +1,30 @@
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/primitives/Alert';
+import type { DocLanguage } from '@/lib/i18n/config';
+import { ShieldCheck } from 'lucide-react';
+
+type RepoGuardrailAlertProps = {
+  locale: DocLanguage;
+  text: string;
+};
+
+const titles: Record<DocLanguage, string> = {
+  en: 'Repo guardrail',
+  tr: 'Depo koruma sınırı',
+};
+
+export function RepoGuardrailAlert({
+  locale,
+  text,
+}: Readonly<RepoGuardrailAlertProps>) {
+  return (
+    <Alert className='docs-home-panel'>
+      <ShieldCheck className='size-4' />
+      <AlertTitle>{titles[locale]}</AlertTitle>
+      <AlertDescription>{text}</AlertDescription>
+    </Alert>
+  );
+}

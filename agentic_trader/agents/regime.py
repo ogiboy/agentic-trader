@@ -1,7 +1,93 @@
+from typing import Literal
+
 from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment
+from agentic_trader.schemas import (
+    AgentContext,
+    MarketSnapshot,
+    RegimeAssessment,
+    RegimeName,
+)
+
+
+def _regime_mtf_adjustments(snapshot: MarketSnapshot) -> tuple[float, float]:
+    mtf_penalty = 0.1 if snapshot.mtf_alignment == "mixed" else 0.0
+    mtf_bonus = min(0.1, snapshot.mtf_confidence * 0.1)
+    return mtf_penalty, mtf_bonus
+
+
+def _regime_confidence(snapshot: MarketSnapshot) -> float:
+    mtf_penalty, mtf_bonus = _regime_mtf_adjustments(snapshot)
+    return max(0.55, min(0.85, 0.72 + mtf_bonus - mtf_penalty))
+
+
+def _trend_risks(snapshot: MarketSnapshot, base_risks: list[str]) -> list[str]:
+    if snapshot.mtf_alignment == "mixed":
+        return [*base_risks, "higher_timeframe_conflict"]
+    return base_risks
+
+
+def _high_volatility_regime() -> RegimeAssessment:
+    return RegimeAssessment(
+        regime="high_volatility",
+        direction_bias="flat",
+        confidence=0.6,
+        reasoning="Fallback regime: volatility is elevated, so trading should stay defensive.",
+        key_risks=["high_volatility", "unstable_conditions"],
+        source="fallback",
+        fallback_reason=LLM_FALLBACK_REASON,
+    )
+
+
+def _trend_regime(
+    snapshot: MarketSnapshot,
+    *,
+    regime: RegimeName,
+    direction_bias: Literal["long", "short"],
+    momentum_label: str,
+    risks: list[str],
+) -> RegimeAssessment:
+    return RegimeAssessment(
+        regime=regime,
+        direction_bias=direction_bias,
+        confidence=_regime_confidence(snapshot),
+        reasoning=(
+            f"Fallback regime: price is {momentum_label} both trend averages with "
+            f"{'positive' if direction_bias == 'long' else 'negative'} momentum. "
+            f"Higher timeframe alignment is {snapshot.mtf_alignment}."
+        ),
+        key_risks=_trend_risks(snapshot, risks),
+        source="fallback",
+        fallback_reason=LLM_FALLBACK_REASON,
+    )
+
+
+def _range_regime() -> RegimeAssessment:
+    return RegimeAssessment(
+        regime="range",
+        direction_bias="flat",
+        confidence=0.62,
+        reasoning="Fallback regime: moving averages are compressed, suggesting range behavior.",
+        key_risks=["false_breakout", "low_edge"],
+        source="fallback",
+        fallback_reason=LLM_FALLBACK_REASON,
+    )
+
+
+def _breakout_candidate_regime(
+    snapshot: MarketSnapshot,
+    mtf_penalty: float,
+) -> RegimeAssessment:
+    return RegimeAssessment(
+        regime="breakout_candidate",
+        direction_bias="long" if snapshot.return_5 >= 0 else "short",
+        confidence=max(0.5, 0.58 - mtf_penalty),
+        reasoning=f"Fallback regime: mixed trend signals with expansion potential and {snapshot.mtf_alignment} higher timeframe alignment.",
+        key_risks=["mixed_signals", "low_conviction"],
+        source="fallback",
+        fallback_reason=LLM_FALLBACK_REASON,
+    )
 
 
 def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
@@ -17,84 +103,39 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
         RegimeAssessment: A regime assessment object representing a conservative fallback classification with an appropriate direction_bias, confidence, reasoning, key_risks, source, and fallback_reason.
     """
     trend_gap = (snapshot.ema_20 - snapshot.ema_50) / snapshot.last_close
-    mtf_penalty = 0.1 if snapshot.mtf_alignment == "mixed" else 0.0
-    mtf_bonus = min(0.1, snapshot.mtf_confidence * 0.1)
+    mtf_penalty, _ = _regime_mtf_adjustments(snapshot)
 
     if snapshot.volatility_20 > 0.08:
-        return RegimeAssessment(
-            regime="high_volatility",
-            direction_bias="flat",
-            confidence=0.6,
-            reasoning="Fallback regime: volatility is elevated, so trading should stay defensive.",
-            key_risks=["high_volatility", "unstable_conditions"],
-            source="fallback",
-            fallback_reason=LLM_FALLBACK_REASON,
-        )
+        return _high_volatility_regime()
 
     if (
         snapshot.last_close > snapshot.ema_20 > snapshot.ema_50
         and snapshot.rsi_14 >= 52
     ):
-        return RegimeAssessment(
+        return _trend_regime(
+            snapshot,
             regime="trend_up",
             direction_bias="long",
-            confidence=max(0.55, min(0.85, 0.72 + mtf_bonus - mtf_penalty)),
-            reasoning=(
-                "Fallback regime: price is above both trend averages with positive momentum. "
-                f"Higher timeframe alignment is {snapshot.mtf_alignment}."
-            ),
-            key_risks=["trend_exhaustion", "pullback_risk"]
-            + (
-                ["higher_timeframe_conflict"]
-                if snapshot.mtf_alignment == "mixed"
-                else []
-            ),
-            source="fallback",
-            fallback_reason=LLM_FALLBACK_REASON,
+            momentum_label="above",
+            risks=["trend_exhaustion", "pullback_risk"],
         )
 
     if (
         snapshot.last_close < snapshot.ema_20 < snapshot.ema_50
         and snapshot.rsi_14 <= 48
     ):
-        return RegimeAssessment(
+        return _trend_regime(
+            snapshot,
             regime="trend_down",
             direction_bias="short",
-            confidence=max(0.55, min(0.85, 0.72 + mtf_bonus - mtf_penalty)),
-            reasoning=(
-                "Fallback regime: price is below both trend averages with negative momentum. "
-                f"Higher timeframe alignment is {snapshot.mtf_alignment}."
-            ),
-            key_risks=["short_squeeze", "news_reversal"]
-            + (
-                ["higher_timeframe_conflict"]
-                if snapshot.mtf_alignment == "mixed"
-                else []
-            ),
-            source="fallback",
-            fallback_reason=LLM_FALLBACK_REASON,
+            momentum_label="below",
+            risks=["short_squeeze", "news_reversal"],
         )
 
     if abs(trend_gap) < 0.01:
-        return RegimeAssessment(
-            regime="range",
-            direction_bias="flat",
-            confidence=0.62,
-            reasoning="Fallback regime: moving averages are compressed, suggesting range behavior.",
-            key_risks=["false_breakout", "low_edge"],
-            source="fallback",
-            fallback_reason=LLM_FALLBACK_REASON,
-        )
+        return _range_regime()
 
-    return RegimeAssessment(
-        regime="breakout_candidate",
-        direction_bias="long" if snapshot.return_5 >= 0 else "short",
-        confidence=max(0.5, 0.58 - mtf_penalty),
-        reasoning=f"Fallback regime: mixed trend signals with expansion potential and {snapshot.mtf_alignment} higher timeframe alignment.",
-        key_risks=["mixed_signals", "low_conviction"],
-        source="fallback",
-        fallback_reason=LLM_FALLBACK_REASON,
-    )
+    return _breakout_candidate_regime(snapshot, mtf_penalty)
 
 
 fallback_regime = _fallback_regime

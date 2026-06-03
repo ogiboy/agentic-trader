@@ -33,6 +33,22 @@ function timingSafeCompare(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+function isBearerSeparator(value) {
+  return value === ' ' || value === '\t';
+}
+
+/**
+ * Extract the bearer token from an Authorization header without a regex over user input.
+ */
+function extractBearerToken(headerValue) {
+  const auth = String(headerValue || '').trimStart();
+  if (auth.length <= 'Bearer '.length) return null;
+  if (auth.slice(0, 'Bearer'.length).toLowerCase() !== 'bearer') return null;
+  if (!isBearerSeparator(auth.charAt('Bearer'.length))) return null;
+  const token = auth.slice('Bearer'.length + 1).trim();
+  return token || null;
+}
+
 /**
  * Determine whether a host/address represents a loopback interface.
  *
@@ -76,9 +92,7 @@ export function requireAuth(config, options = {}) {
     'This endpoint requires CAMOFOX_API_KEY except for loopback requests in non-production environments.';
 
   return function requireAuthCheck(req, res, next) {
-    const auth = String(req.headers['authorization'] || '');
-    const match = auth.match(/^Bearer\s+(.+)$/i);
-    const token = match ? match[1]?.trim() : null;
+    const token = extractBearerToken(req.headers['authorization']);
 
     // Accept API key
     if (config.apiKey && token && timingSafeCompare(token, config.apiKey)) {
@@ -146,9 +160,7 @@ export function accessKeyMiddleware(config) {
     if (config.adminKey && req.method === 'POST' && req.path === '/stop')
       return next();
 
-    const auth = String(req.headers['authorization'] || '');
-    const match = auth.match(/^Bearer\s+(.+)$/i);
-    const token = match ? match[1]?.trim() : null;
+    const token = extractBearerToken(req.headers['authorization']);
     if (!token || !timingSafeCompare(token, config.accessKey)) {
       return res
         .status(401)
@@ -160,4 +172,4 @@ export function accessKeyMiddleware(config) {
 }
 
 // Re-export utilities so server.js can still use them directly
-export { isLoopbackAddress, timingSafeCompare };
+export { extractBearerToken, isLoopbackAddress, timingSafeCompare };

@@ -8,9 +8,7 @@ owner-only state/logs, and avoids inheriting trading/broker/provider secrets.
 from __future__ import annotations
 
 import os
-import shutil
 import signal
-import socket
 import subprocess
 import time
 from pathlib import Path
@@ -18,7 +16,6 @@ from typing import cast
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Field
 
 from agentic_trader.config import Settings
 from agentic_trader.runtime_status import is_process_alive
@@ -27,214 +24,70 @@ from agentic_trader.security import (
     is_loopback_host,
     open_private_append_binary,
     redact_sensitive_text,
-    write_private_text,
 )
-from agentic_trader.system.tool_roots import (
-    local_tool_status_payload,
-    resolve_configured_tool_path,
+from agentic_trader.system import camofox_service_process as _process_helpers
+from agentic_trader.system import camofox_service_state as _state_helpers
+from agentic_trader.system.camofox_service_state import (
+    CamofoxServiceState,
+    CamofoxServiceStatus,
 )
+from agentic_trader.system.tool_roots import local_tool_status_payload
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_CAMOFOX_HOST = "127.0.0.1"
 DEFAULT_CAMOFOX_PORT = 9377
 CAMOFOX_PORT_CANDIDATES = (9377, *range(9378, 9398))
 LOCAL_HTTP_SCHEME = "http"
-LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
-SERVER_SCRIPT_NAME = "server.js"
-MINIMAL_CAMOFOX_ENV_KEYS = (
-    "PATH",
-    "HOME",
-    "TMPDIR",
-    "USER",
-    "LOGNAME",
-    "SHELL",
-    "USERPROFILE",
-    "APPDATA",
-    "LOCALAPPDATA",
-    "SYSTEMROOT",
-    "WINDIR",
-)
-CAMOFOX_SECRET_KEYS = (
-    "CAMOFOX_ACCESS_KEY",
-    "CAMOFOX_API_KEY",
-    "CAMOFOX_ADMIN_KEY",
-)
-CAMOFOX_DATA_KEYS = (
-    "CAMOFOX_COOKIES_DIR",
-    "CAMOFOX_PROFILE_DIR",
-    "CAMOFOX_TRACES_DIR",
-    "CAMOFOX_TRACES_MAX_BYTES",
-    "CAMOFOX_TRACES_TTL_HOURS",
-)
-CAMOFOX_PROXY_KEYS = (
-    "PROXY_HOST",
-    "PROXY_PORT",
-    "PROXY_PORTS",
-    "PROXY_USER",
-    "PROXY_PASS",
-    "PROXY_BACKCONNECT_HOST",
-    "PROXY_BACKCONNECT_PORT",
-)
-
-
-class CamofoxServiceState(BaseModel):
-    """Persisted state for an app-owned Camofox process."""
-
-    owner: str | None = None
-    pid: int
-    host: str
-    port: int
-    base_url: str
-    started_at: str
-    stdout_log_path: str
-    stderr_log_path: str
-    command: list[str]
-    tool_dir: str
-    app_owned: bool = True
-
-
-class CamofoxServiceStatus(BaseModel):
-    """Operator-facing Camofox service status."""
-
-    tool_id: str = "camofox-browser"
-    tool_status_id: str = "camofox_browser"
-    tool_consumers: list[str] = Field(default_factory=list)
-    tool_fallback_order: list[str] = Field(default_factory=list)
-    tool_ownership_modes: list[str] = Field(default_factory=list)
-    install_hint: str = ""
-    notes: list[str] = Field(default_factory=list)
-    command_available: bool
-    command_path: str | None = None
-    package_available: bool
-    dependency_available: bool = False
-    dependency_path: str | None = None
-    access_key_configured: bool
-    app_owned: bool = False
-    owner: str | None = None
-    pid: int | None = None
-    host: str | None = None
-    port: int | None = None
-    base_url: str
-    service_reachable: bool
-    health_ok: bool
-    stdout_log_path: str | None = None
-    stderr_log_path: str | None = None
-    stdout_tail: list[str] = Field(default_factory=list)
-    stderr_tail: list[str] = Field(default_factory=list)
-    state_path: str
-    tool_dir: str
-    message: str
-
-    def is_owned_by_host(self, host_id: str) -> bool:
-        """
-        Determine whether this app-owned service status is owned by the specified host.
-
-        Parameters:
-            host_id (str): Host identifier to compare against the recorded owner.
-
-        Returns:
-            bool: `True` if `app_owned` is `True` and `owner` equals `host_id`, `False` otherwise.
-        """
-
-        return self.app_owned and self.owner == host_id
+LSOF_LISTEN_FILTER = _process_helpers.LSOF_LISTEN_FILTER
+SERVER_SCRIPT_NAME = _process_helpers.SERVER_SCRIPT_NAME
+MINIMAL_CAMOFOX_ENV_KEYS = _process_helpers.MINIMAL_CAMOFOX_ENV_KEYS
+CAMOFOX_SECRET_KEYS = _process_helpers.CAMOFOX_SECRET_KEYS
+CAMOFOX_DATA_KEYS = _process_helpers.CAMOFOX_DATA_KEYS
+CAMOFOX_PROXY_KEYS = _process_helpers.CAMOFOX_PROXY_KEYS
 
 
 def camofox_service_dir(settings: Settings) -> Path:
-    """
-    Get the runtime directory path where Camofox service state and artifacts are stored.
-
-    Parameters:
-        settings (Settings): Application settings containing the `runtime_dir` base path.
-
-    Returns:
-        Path: Path to the Camofox service runtime directory (runtime_dir / "camofox_service").
-    """
-    return settings.runtime_dir / "camofox_service"
+    return _state_helpers.camofox_service_dir(settings)
 
 
 def camofox_service_state_path(settings: Settings) -> Path:
-    return camofox_service_dir(settings) / "camofox_service.json"
+    return _state_helpers.camofox_service_state_path(settings)
 
 
 def camofox_tool_dir(settings: Settings) -> Path:
-    return resolve_configured_tool_path(
-        settings.research_camofox_tool_dir,
-        default_tool="camofox-browser",
-    )
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
+    return _state_helpers.camofox_tool_dir(settings)
 
 
 def _read_state(settings: Settings) -> CamofoxServiceState | None:
-    path = camofox_service_state_path(settings)
-    if not path.exists():
-        return None
-    try:
-        return CamofoxServiceState.model_validate_json(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    return _state_helpers.read_state(settings)
 
 
 def _write_state(settings: Settings, state: CamofoxServiceState) -> None:
-    write_private_text(
-        camofox_service_state_path(settings),
-        state.model_dump_json(indent=2),
-    )
+    _state_helpers.write_state(settings, state)
 
 
 def _remove_state(settings: Settings) -> None:
-    try:
-        camofox_service_state_path(settings).unlink()
-    except FileNotFoundError:
-        return
+    _state_helpers.remove_state(settings)
 
 
 def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
-    if not path:
-        return []
-    log_path = Path(path)
-    if not log_path.exists():
-        return []
-    try:
-        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    return [redact_sensitive_text(line, max_length=300) for line in lines[-limit:]]
+    return _state_helpers.tail_text(path, limit=limit)
 
 
 def _tail_contains_browser_launch_failure(state: CamofoxServiceState | None) -> bool:
-    if state is None:
-        return False
-    recent_lines = [
-        *_tail_text(state.stdout_log_path, limit=20),
-        *_tail_text(state.stderr_log_path, limit=20),
-    ]
-    failure_markers = (
-        "browser pre-warm failed",
-        "camoufox launch attempt failed",
-        "failed to launch the browser process",
-    )
-    return any(
-        any(marker in line.lower() for marker in failure_markers)
-        for line in recent_lines
-    )
+    return _state_helpers.tail_contains_browser_launch_failure(state)
 
 
 def _node_command_path() -> str | None:
-    return shutil.which("node")
+    return _process_helpers.node_command_path()
 
 
 def _package_available(tool_dir: Path) -> bool:
-    return (tool_dir / "package.json").exists() and (
-        tool_dir / SERVER_SCRIPT_NAME
-    ).exists()
+    return _process_helpers.package_available(tool_dir)
 
 
 def _dependency_available(tool_dir: Path) -> bool:
-    return (tool_dir / "node_modules").exists()
+    return _process_helpers.dependency_available(tool_dir)
 
 
 def _base_url(host: str, port: int) -> str:
@@ -255,9 +108,7 @@ def _configured_base_url(settings: Settings) -> str:
 
 
 def _is_port_available(host: str, port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.2)
-        return sock.connect_ex((host, port)) != 0
+    return _process_helpers.is_port_available(host, port)
 
 
 def choose_camofox_port(host: str, preferred_port: int = DEFAULT_CAMOFOX_PORT) -> int:
@@ -277,17 +128,10 @@ def choose_camofox_port(host: str, preferred_port: int = DEFAULT_CAMOFOX_PORT) -
 
 
 def _camofox_secret(settings: Settings, key: str) -> str | None:
-    configured = {
-        "CAMOFOX_ACCESS_KEY": settings.camofox_access_key,
-        "CAMOFOX_API_KEY": settings.camofox_api_key,
-        "CAMOFOX_ADMIN_KEY": settings.camofox_admin_key,
-    }.get(key)
-    return configured or os.environ.get(key)
+    return _process_helpers.camofox_secret(settings, key)
 
 
 def _camofox_access_token(settings: Settings) -> str | None:
-    """Return the token used to globally gate the app-owned helper."""
-
     return _camofox_secret(settings, "CAMOFOX_ACCESS_KEY") or _camofox_secret(
         settings,
         "CAMOFOX_API_KEY",
@@ -295,30 +139,7 @@ def _camofox_access_token(settings: Settings) -> str | None:
 
 
 def _camofox_env(settings: Settings, *, host: str, port: int) -> dict[str, str]:
-    """Return a narrowed Camofox subprocess env."""
-
-    env = {
-        key: os.environ[key] for key in MINIMAL_CAMOFOX_ENV_KEYS if key in os.environ
-    }
-    for key in CAMOFOX_SECRET_KEYS:
-        value = _camofox_secret(settings, key)
-        if value:
-            env[key] = value
-    if "CAMOFOX_ACCESS_KEY" not in env:
-        access_token = _camofox_access_token(settings)
-        if access_token:
-            env["CAMOFOX_ACCESS_KEY"] = access_token
-    for key in (*CAMOFOX_DATA_KEYS, *CAMOFOX_PROXY_KEYS):
-        if key in os.environ:
-            env[key] = os.environ[key]
-    env["CAMOFOX_HOST"] = host
-    env["CAMOFOX_PORT"] = str(port)
-    env["CAMOFOX_CRASH_REPORT_ENABLED"] = os.environ.get(
-        "CAMOFOX_CRASH_REPORT_ENABLED",
-        "false",
-    )
-    env["CAMOFOX_BROWSER_PREWARM"] = os.environ.get("CAMOFOX_BROWSER_PREWARM", "false")
-    return env
+    return _process_helpers.camofox_env(settings, host=host, port=port)
 
 
 def _runtime_command(tool_dir: Path) -> list[str]:
@@ -334,8 +155,7 @@ def _runtime_command(tool_dir: Path) -> list[str]:
     Raises:
         RuntimeError: If the `node` executable is not found on PATH.
         RuntimeError: If the Camofox tool package is missing at `tool_dir`.
-        RuntimeError: If Camofox dependencies are missing; suggests running
-            `pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`.
+        RuntimeError: If Camofox dependencies are missing.
     """
     node_path = _node_command_path()
     if node_path is None:
@@ -344,8 +164,7 @@ def _runtime_command(tool_dir: Path) -> list[str]:
         raise RuntimeError(f"Camofox browser helper is missing at {tool_dir}.")
     if not _dependency_available(tool_dir):
         raise RuntimeError(
-            "Camofox dependencies are missing. Run "
-            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
+            "Camofox dependencies are missing. Run `pnpm run setup:camofox`."
         )
     return [node_path, SERVER_SCRIPT_NAME]
 
@@ -375,69 +194,15 @@ def _health(base_url: str) -> tuple[bool, bool, str]:
 
 
 def _process_command_line(pid: int) -> str | None:
-    try:
-        completed = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
+    return _process_helpers.process_command_line(pid, run=subprocess.run)
 
 
 def _listen_port_owner_pid(host: str, port: int) -> int | None:
-    query_host = "127.0.0.1" if host == "localhost" else host.strip("[]")
-    try:
-        completed = subprocess.run(
-            [
-                "lsof",
-                "-nP",
-                "-a",
-                f"-iTCP@{query_host}:{port}",
-                LSOF_LISTEN_FILTER,
-                "-Fp",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    pids = {
-        int(line[1:])
-        for line in completed.stdout.splitlines()
-        if line.startswith("p") and line[1:].isdigit()
-    }
-    if len(pids) != 1:
-        return None
-    return next(iter(pids))
+    return _process_helpers.listen_port_owner_pid(host, port, run=subprocess.run)
 
 
 def _process_cwd(pid: int) -> Path | None:
-    try:
-        completed = subprocess.run(
-            ["lsof", "-nP", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    for line in completed.stdout.splitlines():
-        if line.startswith("n") and len(line) > 1:
-            return Path(line[1:]).resolve()
-    return None
+    return _process_helpers.process_cwd(pid, run=subprocess.run)
 
 
 def _process_matches_state(state: CamofoxServiceState) -> bool:
@@ -494,10 +259,7 @@ def _camofox_blocking_status_message(
     if command_path is None:
         return "node is not installed or not on PATH."
     if not dependency_available:
-        return (
-            "Camofox dependencies are missing. Run "
-            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
-        )
+        return "Camofox dependencies are missing. Run `pnpm run setup:camofox`."
     return None
 
 

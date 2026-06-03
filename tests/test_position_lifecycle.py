@@ -133,15 +133,15 @@ def test_service_closes_position_when_take_profit_is_hit(
         return "paper-new-order"
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ensure_llm_ready,
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.run_once",
+        "agentic_trader.workflows.service_loop.run_once",
         _run_once,
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_run,
     )
 

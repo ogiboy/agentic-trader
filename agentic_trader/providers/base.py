@@ -1,7 +1,5 @@
 """Small helpers shared by canonical data providers."""
 
-from datetime import UTC, datetime
-
 import pandas as pd
 
 from agentic_trader.schemas import (
@@ -14,11 +12,7 @@ from agentic_trader.schemas import (
     ProviderMetadata,
     SymbolIdentity,
 )
-
-
-def utc_now_iso() -> str:
-    """Return an ISO timestamp in UTC for provider fetch metadata."""
-    return datetime.now(UTC).isoformat()
+from agentic_trader.time_utils import utc_now_iso
 
 
 def source_attribution(
@@ -32,7 +26,18 @@ def source_attribution(
     completeness: float = 0.0,
     notes: list[str] | None = None,
 ) -> DataSourceAttribution:
-    """Build a bounded attribution object without leaking provider secrets."""
+    """
+    Create a DataSourceAttribution object from the provided provider metadata.
+
+    Notes:
+        If `notes` is None, an empty list will be used.
+
+    Parameters:
+        notes (list[str] | None): Optional freeform notes; None becomes an empty list.
+
+    Returns:
+        DataSourceAttribution: Instance populated with the provided fields (`source_name`, `provider_type`, `source_role`, `fetched_at`, `freshness`, `confidence`, `completeness`, and `notes`).
+    """
     return DataSourceAttribution(
         source_name=source_name,
         provider_type=provider_type,

@@ -317,6 +317,9 @@ The Web GUI runs on loopback, normally
 [http://localhost:3210](http://localhost:3210). The `webgui-service` commands
 record app-owned state and log tails under `runtime/webgui_service/`; `stop`
 only targets the recorded app-owned process.
+Web GUI UI copy is locale-aware through the local browser preference and the
+typed `next-intl` catalog under `webgui/src/i18n/`; API payload keys remain
+stable English runtime contracts.
 If `AGENTIC_TRADER_WEBGUI_TOKEN` is set for a token-protected or proxied local
 setup, the browser shell prompts for that token and exchanges it for a
 same-origin HttpOnly session cookie before dashboard, chat, or runtime API calls
@@ -333,7 +336,13 @@ pnpm dev:docs
 
 ```bash
 pnpm start:tui
+AGENTIC_TRADER_UI_LOCALE=tr pnpm start:tui
 ```
+
+Terminal UI locale also follows the Python-side setting:
+`agentic-trader --locale tr locale --json` previews a locale and
+`agentic-trader locale --set tr` persists `AGENTIC_TRADER_UI_LOCALE=tr` in the
+local environment file.
 
 ### Optional CrewAI Research Flow Sidecar
 

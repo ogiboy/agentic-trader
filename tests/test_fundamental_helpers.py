@@ -6,6 +6,7 @@ import pytest
 
 from agentic_trader.agents.fundamental import (
     FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON,
+    assess_fundamentals,
     business_quality,
     dedupe,
     fallback_fundamental,
@@ -18,7 +19,6 @@ from agentic_trader.agents.fundamental import (
     overall_bias,
     score_quality,
     validate_llm_evidence_contract,
-    assess_fundamentals,
 )
 from agentic_trader.config import Settings
 from agentic_trader.features import build_decision_feature_bundle
