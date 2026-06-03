@@ -5,6 +5,7 @@ import shlex
 import subprocess
 import time
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -14,6 +15,17 @@ from scripts.qa.smoke_qa_modules.common import (
     write_artifact,
 )
 from scripts.qa.smoke_qa_modules.models import CheckResult, SmokeContext
+
+
+def _empty_issues() -> list[str]:
+    return []
+
+
+@dataclass
+class InkNavigationCapture:
+    overview_capture: str = ""
+    settings_capture: str = ""
+    issues: list[str] = field(default_factory=_empty_issues)
 
 
 def ink_settings_capture_issues(output: str) -> list[str]:
@@ -44,54 +56,65 @@ def run_ink_settings_navigation(
 
     session_name = f"agentic-trader-ink-{int(time.time() * 1000)}-{uuid.uuid4().hex}"
     launch_command = f"cd {shlex.quote(str(repo_root))} && {shlex.quote(command)} tui"
-    overview_capture = ""
-    settings_capture = ""
-    issues: list[str] = []
+    capture = _run_tmux_navigation(
+        tmux_path,
+        session_name,
+        launch_command,
+        repo_root=repo_root,
+        subprocess_module=subprocess_module,
+        timeout=timeout,
+    )
+    _write_ink_navigation_artifact(
+        artifact,
+        command,
+        repo_root=repo_root,
+        capture=capture,
+    )
+    return _ink_navigation_result(name, artifact, capture.issues)
 
+
+def _run_tmux_navigation(
+    tmux_path: str,
+    session_name: str,
+    launch_command: str,
+    *,
+    repo_root: Path,
+    subprocess_module: Any,
+    timeout: int,
+) -> InkNavigationCapture:
+    capture = InkNavigationCapture()
     try:
         _start_tmux_session(
             tmux_path,
             session_name,
             launch_command,
             timeout,
-            issues,
+            capture.issues,
             repo_root=repo_root,
             subprocess_module=subprocess_module,
         )
-        overview_capture = _wait_for_ink_overview(
+        capture.overview_capture = _wait_for_ink_overview(
             tmux_path,
             session_name,
             timeout,
             repo_root=repo_root,
             subprocess_module=subprocess_module,
         )
-        if not _ink_overview_ready(overview_capture):
-            issues.append("ink overview did not render in tmux")
-        if not issues:
-            settings_capture = _open_and_capture_ink_settings(
-                tmux_path,
-                session_name,
-                timeout,
-                issues,
-                repo_root=repo_root,
-                subprocess_module=subprocess_module,
-            )
-            _send_tmux_key(
-                tmux_path,
-                session_name,
-                "q",
-                repo_root=repo_root,
-                subprocess_module=subprocess_module,
-                timeout=timeout,
-            )
-            time.sleep(1.0)
+        _capture_settings_page_if_ready(
+            capture,
+            tmux_path,
+            session_name,
+            repo_root=repo_root,
+            subprocess_module=subprocess_module,
+            timeout=timeout,
+        )
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else str(exc.stderr)
-        issues.append(
+        capture.issues.append(
             f"tmux new-session failed with code {exc.returncode}: {stderr or 'no stderr'}"
         )
     except Exception as exc:
-        issues.append(f"exception={exc}")
+        capture.issues.append(f"exception={exc}")
     finally:
         subprocess_module.run(
             [tmux_path, "kill-session", "-t", session_name],
@@ -101,15 +124,62 @@ def run_ink_settings_navigation(
             timeout=5,
             check=False,
         )
+    return capture
 
+
+def _capture_settings_page_if_ready(
+    capture: InkNavigationCapture,
+    tmux_path: str,
+    session_name: str,
+    *,
+    repo_root: Path,
+    subprocess_module: Any,
+    timeout: int,
+) -> None:
+    if not _ink_overview_ready(capture.overview_capture):
+        capture.issues.append("ink overview did not render in tmux")
+        return
+    if capture.issues:
+        return
+    capture.settings_capture = _open_and_capture_ink_settings(
+        tmux_path,
+        session_name,
+        timeout,
+        capture.issues,
+        repo_root=repo_root,
+        subprocess_module=subprocess_module,
+    )
+    _send_tmux_key(
+        tmux_path,
+        session_name,
+        "q",
+        repo_root=repo_root,
+        subprocess_module=subprocess_module,
+        timeout=timeout,
+    )
+    time.sleep(1.0)
+
+
+def _write_ink_navigation_artifact(
+    artifact: Path,
+    command: str,
+    *,
+    repo_root: Path,
+    capture: InkNavigationCapture,
+) -> None:
     write_artifact(
         artifact,
         f"$ {command} tui (tmux compact navigation)\n"
         f"cwd: {repo_root}\n"
-        f"issues: {json.dumps(issues, indent=2)}\n\n"
-        f"OVERVIEW_CAPTURE:\n{overview_capture}\n\n"
-        f"SETTINGS_CAPTURE:\n{settings_capture}\n",
+        f"issues: {json.dumps(capture.issues, indent=2)}\n\n"
+        f"OVERVIEW_CAPTURE:\n{capture.overview_capture}\n\n"
+        f"SETTINGS_CAPTURE:\n{capture.settings_capture}\n",
     )
+
+
+def _ink_navigation_result(
+    name: str, artifact: Path, issues: list[str]
+) -> CheckResult:
     return CheckResult(
         name=name,
         passed=not issues,
