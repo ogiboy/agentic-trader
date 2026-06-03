@@ -82,109 +82,6 @@
     }
   },
   "paths": {
-    "/tabs/{tabId}/snapshot": {
-      "get": {
-        "tags": [
-          "Content"
-        ],
-        "summary": "Accessibility snapshot",
-        "description": "Returns accessibility tree with element refs. Supports pagination via offset.",
-        "parameters": [
-          {
-            "name": "tabId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "text",
-                "json"
-              ],
-              "default": "text"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            },
-            "description": "Character offset for paginated retrieval."
-          },
-          {
-            "name": "includeScreenshot",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Snapshot.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "url": {
-                      "type": "string"
-                    },
-                    "snapshot": {
-                      "type": "string"
-                    },
-                    "refsCount": {
-                      "type": "integer"
-                    },
-                    "truncated": {
-                      "type": "boolean"
-                    },
-                    "totalChars": {
-                      "type": "integer"
-                    },
-                    "hasMore": {
-                      "type": "boolean"
-                    },
-                    "nextOffset": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tab not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/": {
       "get": {
         "tags": [
@@ -1083,6 +980,109 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tab not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tabs/{tabId}/snapshot": {
+      "get": {
+        "tags": [
+          "Content"
+        ],
+        "summary": "Accessibility snapshot",
+        "description": "Returns accessibility tree with element refs. Supports pagination via offset.",
+        "parameters": [
+          {
+            "name": "tabId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "text",
+                "json"
+              ],
+              "default": "text"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Character offset for paginated retrieval."
+          },
+          {
+            "name": "includeScreenshot",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "snapshot": {
+                      "type": "string"
+                    },
+                    "refsCount": {
+                      "type": "integer"
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "totalChars": {
+                      "type": "integer"
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    },
+                    "nextOffset": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }

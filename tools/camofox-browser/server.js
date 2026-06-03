@@ -51,6 +51,7 @@ import { mountTabHistoryRoutes } from './lib/routes/tabs-history.js';
 import { mountTabInteractionRoutes } from './lib/routes/tabs-interaction.js';
 import { mountTabLifecycleRoutes } from './lib/routes/tabs-lifecycle.js';
 import { mountTabNavigationRoutes } from './lib/routes/tabs-navigation.js';
+import { mountTabSnapshotRoutes } from './lib/routes/tabs-snapshot.js';
 import { mountTabTypingRoutes } from './lib/routes/tabs-typing.js';
 import { mountTraceRoutes } from './lib/routes/traces.js';
 import {
@@ -2210,278 +2211,29 @@ mountTabNavigationRoutes(app, {
   withUserLimit,
 });
 
-// Snapshot
-/**
- * @openapi
- * /tabs/{tabId}/snapshot:
- *   get:
- *     tags: [Content]
- *     summary: Accessibility snapshot
- *     description: Returns accessibility tree with element refs. Supports pagination via offset.
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *       - name: userId
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *       - name: format
- *         in: query
- *         schema:
- *           type: string
- *           enum: [text, json]
- *           default: text
- *       - name: offset
- *         in: query
- *         schema:
- *           type: integer
- *         description: Character offset for paginated retrieval.
- *       - name: includeScreenshot
- *         in: query
- *         schema:
- *           type: string
- *           enum: ['true', 'false']
- *     responses:
- *       200:
- *         description: Snapshot.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 url:
- *                   type: string
- *                 snapshot:
- *                   type: string
- *                 refsCount:
- *                   type: integer
- *                 truncated:
- *                   type: boolean
- *                 totalChars:
- *                   type: integer
- *                 hasMore:
- *                   type: boolean
- *                 nextOffset:
- *                   type: integer
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.get('/tabs/:tabId/snapshot', async (req, res) => {
-  try {
-    const userId = req.query.userId;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
-    const format = req.query.format || 'text';
-    const offset = parseInt(req.query.offset) || 0;
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-    tabState.consecutiveTimeouts = 0;
-    tabState.consecutiveFailures = 0;
-
-    // Cached chunk retrieval for offset>0 requests
-    if (offset > 0 && tabState.lastSnapshot) {
-      const win = windowSnapshot(tabState.lastSnapshot, offset);
-      const response = {
-        url: tabState.page.url(),
-        snapshot: win.text,
-        refsCount: tabState.refs.size,
-        truncated: win.truncated,
-        totalChars: win.totalChars,
-        hasMore: win.hasMore,
-        nextOffset: win.nextOffset,
-      };
-      if (req.query.includeScreenshot === 'true') {
-        const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-        response.screenshot = {
-          data: pngBuffer.toString('base64'),
-          mimeType: 'image/png',
-        };
-      }
-      log('info', 'snapshot (cached offset)', {
-        reqId: req.reqId,
-        tabId: req.params.tabId,
-        offset,
-        totalChars: win.totalChars,
-      });
-      return res.json(response);
-    }
-
-    const result = await withUserLimit(userId, () =>
-      withTimeout(
-        (async () => {
-          if (
-            proxyPool?.canRotateSessions &&
-            isGoogleSearchUrl(tabState.lastRequestedUrl || '')
-          ) {
-            const blocked = await isGoogleSearchBlocked(tabState.page);
-            const unavailable =
-              !blocked && (await isGoogleUnavailable(tabState.page));
-            if (blocked || unavailable) {
-              const rotated = await rotateGoogleTab(
-                userId,
-                found.listItemId,
-                req.params.tabId,
-                tabState,
-                blocked
-                  ? 'google_search_block_snapshot'
-                  : 'google_search_unavailable_snapshot',
-                req.reqId,
-              );
-              if (rotated) {
-                tabState.page = rotated.tabState.page;
-                tabState.refs = rotated.tabState.refs;
-                tabState.visitedUrls = rotated.tabState.visitedUrls;
-                tabState.downloads = rotated.tabState.downloads;
-                tabState.toolCalls = rotated.tabState.toolCalls;
-                tabState.consecutiveTimeouts =
-                  rotated.tabState.consecutiveTimeouts;
-                tabState.lastSnapshot = rotated.tabState.lastSnapshot;
-                tabState.lastRequestedUrl = rotated.tabState.lastRequestedUrl;
-                tabState.googleRetryCount = rotated.tabState.googleRetryCount;
-              }
-            }
-          }
-
-          const pageUrl = tabState.page.url();
-
-          // Google SERP fast path -- DOM extraction instead of ariaSnapshot
-          if (isGoogleSerp(pageUrl)) {
-            const { refs: googleRefs, snapshot: googleSnapshot } =
-              await extractGoogleSerp(tabState.page);
-            tabState.refs = googleRefs;
-            tabState.lastSnapshot = googleSnapshot;
-            snapshotBytes
-              .labels('google_serp')
-              .observe(Buffer.byteLength(googleSnapshot, 'utf8'));
-            const annotatedYaml = googleSnapshot;
-            const win = windowSnapshot(annotatedYaml, 0);
-            const response = {
-              url: pageUrl,
-              snapshot: win.text,
-              refsCount: tabState.refs.size,
-              truncated: win.truncated,
-              totalChars: win.totalChars,
-              hasMore: win.hasMore,
-              nextOffset: win.nextOffset,
-            };
-            if (req.query.includeScreenshot === 'true') {
-              const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-              response.screenshot = {
-                data: pngBuffer.toString('base64'),
-                mimeType: 'image/png',
-              };
-            }
-            return response;
-          }
-
-          tabState.refs = await refreshTabRefs(tabState, {
-            reason: 'snapshot',
-          });
-          const ariaYaml = await getAriaSnapshot(tabState.page);
-
-          let annotatedYaml = ariaYaml || '';
-          if (annotatedYaml && tabState.refs.size > 0) {
-            const refsByKey = new Map();
-            for (const [refId, info] of tabState.refs) {
-              const key = `${info.role}:${info.name}:${info.nth}`;
-              refsByKey.set(key, refId);
-            }
-
-            const annotationCounts = new Map();
-            const lines = annotatedYaml.split('\n');
-
-            annotatedYaml = lines
-              .map((line) => {
-                const match = line.match(/^(\s*-\s+)(\w+)(\s+"([^"]*)")?(.*)$/);
-                if (match) {
-                  const [, prefix, role, nameMatch, name, suffix] = match;
-                  const normalizedRole = role.toLowerCase();
-                  if (normalizedRole === 'combobox') return line;
-                  if (name && SKIP_PATTERNS.some((p) => p.test(name)))
-                    return line;
-                  if (INTERACTIVE_ROLES.includes(normalizedRole)) {
-                    const normalizedName = name || '';
-                    const countKey = `${normalizedRole}:${normalizedName}`;
-                    const nth = annotationCounts.get(countKey) || 0;
-                    annotationCounts.set(countKey, nth + 1);
-                    const key = `${normalizedRole}:${normalizedName}:${nth}`;
-                    const refId = refsByKey.get(key);
-                    if (refId) {
-                      return `${prefix}${role}${nameMatch || ''} [${refId}]${suffix}`;
-                    }
-                  }
-                }
-                return line;
-              })
-              .join('\n');
-          }
-
-          tabState.lastSnapshot = annotatedYaml;
-          if (annotatedYaml)
-            snapshotBytes
-              .labels('full')
-              .observe(Buffer.byteLength(annotatedYaml, 'utf8'));
-          const win = windowSnapshot(annotatedYaml, 0);
-
-          const response = {
-            url: tabState.page.url(),
-            snapshot: win.text,
-            refsCount: tabState.refs.size,
-            truncated: win.truncated,
-            totalChars: win.totalChars,
-            hasMore: win.hasMore,
-            nextOffset: win.nextOffset,
-          };
-
-          if (req.query.includeScreenshot === 'true') {
-            const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-            response.screenshot = {
-              data: pngBuffer.toString('base64'),
-              mimeType: 'image/png',
-            };
-          }
-
-          return response;
-        })(),
-        requestTimeoutMs(),
-        'snapshot',
-      ),
-    );
-
-    pluginEvents.emit('tab:snapshot', {
-      userId: req.query.userId,
-      tabId: req.params.tabId,
-      snapshot: result.snapshot,
-    });
-    log('info', 'snapshot', {
-      reqId: req.reqId,
-      tabId: req.params.tabId,
-      url: result.url,
-      snapshotLen: result.snapshot?.length,
-      refsCount: result.refsCount,
-      hasScreenshot: !!result.screenshot,
-      truncated: result.truncated,
-    });
-    res.json(result);
-  } catch (err) {
-    log('error', 'snapshot failed', {
-      reqId: req.reqId,
-      tabId: req.params.tabId,
-      error: err.message,
-    });
-    handleRouteError(err, req, res);
-  }
+mountTabSnapshotRoutes(app, {
+  extractGoogleSerp,
+  findTab,
+  getAriaSnapshot,
+  handleRouteError,
+  interactiveRoles: INTERACTIVE_ROLES,
+  isGoogleSearchBlocked,
+  isGoogleSearchUrl,
+  isGoogleSerp,
+  isGoogleUnavailable,
+  log,
+  normalizeUserId,
+  pluginEvents,
+  proxyPool,
+  refreshTabRefs,
+  requestTimeoutMs,
+  rotateGoogleTab,
+  sessions,
+  skipPatterns: SKIP_PATTERNS,
+  snapshotBytes,
+  windowSnapshot,
+  withTimeout,
+  withUserLimit,
 });
 
 mountTabInteractionRoutes(app, {
