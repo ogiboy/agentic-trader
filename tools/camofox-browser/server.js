@@ -55,6 +55,7 @@ import { mountTabNavigationRoutes } from './lib/routes/tabs-navigation.js';
 import { mountTabSnapshotRoutes } from './lib/routes/tabs-snapshot.js';
 import { mountTabTypingRoutes } from './lib/routes/tabs-typing.js';
 import { mountTraceRoutes } from './lib/routes/traces.js';
+import { mountLegacySnapshotRoutes } from './lib/routes/legacy-snapshot.js';
 import {
   classifyProxyError,
   createReporter,
@@ -2474,204 +2475,18 @@ mountLegacyCoreRoutes(app, {
   withTabLock,
 });
 
-// GET /snapshot - Snapshot (OpenClaw format with query params)
-/**
- * @openapi
- * /snapshot:
- *   get:
- *     tags: [Legacy]
- *     summary: Snapshot (OpenClaw format)
- *     description: Snapshot with targetId/userId as query params.
- *     deprecated: true
- *     parameters:
- *       - name: targetId
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *       - name: userId
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *       - name: format
- *         in: query
- *         schema:
- *           type: string
- *       - name: offset
- *         in: query
- *         schema:
- *           type: integer
- *       - name: includeScreenshot
- *         in: query
- *         schema:
- *           type: string
- *           enum: ['true', 'false']
- *     responses:
- *       200:
- *         description: Snapshot.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *       400:
- *         description: Bad request.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.get('/snapshot', async (req, res) => {
-  try {
-    const { targetId, userId, format = 'text' } = req.query;
-    const offset = parseInt(req.query.offset) || 0;
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, targetId);
-    if (!found) {
-      return res.status(404).json({ error: 'Tab not found' });
-    }
-
-    const { tabState } = found;
-    tabState.toolCalls++;
-    tabState.consecutiveTimeouts = 0;
-    tabState.consecutiveFailures = 0;
-
-    // Cached chunk retrieval
-    if (offset > 0 && tabState.lastSnapshot) {
-      const win = windowSnapshot(tabState.lastSnapshot, offset);
-      const response = {
-        ok: true,
-        format: 'aria',
-        targetId,
-        url: tabState.page.url(),
-        snapshot: win.text,
-        refsCount: tabState.refs.size,
-        truncated: win.truncated,
-        totalChars: win.totalChars,
-        hasMore: win.hasMore,
-        nextOffset: win.nextOffset,
-      };
-      if (req.query.includeScreenshot === 'true') {
-        const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-        response.screenshot = {
-          data: pngBuffer.toString('base64'),
-          mimeType: 'image/png',
-        };
-      }
-      return res.json(response);
-    }
-
-    const pageUrl = tabState.page.url();
-
-    // Google SERP fast path
-    if (isGoogleSerp(pageUrl)) {
-      const { refs: googleRefs, snapshot: googleSnapshot } =
-        await extractGoogleSerp(tabState.page);
-      tabState.refs = googleRefs;
-      tabState.lastSnapshot = googleSnapshot;
-      snapshotBytes
-        .labels('google_serp')
-        .observe(Buffer.byteLength(googleSnapshot, 'utf8'));
-      const annotatedYaml = googleSnapshot;
-      const win = windowSnapshot(annotatedYaml, 0);
-      const response = {
-        ok: true,
-        format: 'aria',
-        targetId,
-        url: pageUrl,
-        snapshot: win.text,
-        refsCount: tabState.refs.size,
-        truncated: win.truncated,
-        totalChars: win.totalChars,
-        hasMore: win.hasMore,
-        nextOffset: win.nextOffset,
-      };
-      if (req.query.includeScreenshot === 'true') {
-        const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-        response.screenshot = {
-          data: pngBuffer.toString('base64'),
-          mimeType: 'image/png',
-        };
-      }
-      return res.json(response);
-    }
-
-    tabState.refs = await buildRefs(tabState.page);
-
-    const ariaYaml = await getAriaSnapshot(tabState.page);
-
-    // Annotate YAML with ref IDs
-    let annotatedYaml = ariaYaml || '';
-    if (annotatedYaml && tabState.refs.size > 0) {
-      const refsByKey = new Map();
-      for (const [refId, el] of tabState.refs) {
-        const key = `${el.role}:${el.name || ''}`;
-        if (!refsByKey.has(key)) refsByKey.set(key, refId);
-      }
-
-      const lines = annotatedYaml.split('\n');
-      annotatedYaml = lines
-        .map((line) => {
-          const match = line.match(/^(\s*)-\s+(\w+)(?:\s+"([^"]*)")?/);
-          if (match) {
-            const [, indent, role, name] = match;
-            const key = `${role}:${name || ''}`;
-            const refId = refsByKey.get(key);
-            if (refId) {
-              return line.replace(/^(\s*-\s+\w+)/, `$1 [${refId}]`);
-            }
-          }
-          return line;
-        })
-        .join('\n');
-    }
-
-    tabState.lastSnapshot = annotatedYaml;
-    if (annotatedYaml)
-      snapshotBytes
-        .labels('full')
-        .observe(Buffer.byteLength(annotatedYaml, 'utf8'));
-    const win = windowSnapshot(annotatedYaml, 0);
-
-    const response = {
-      ok: true,
-      format: 'aria',
-      targetId,
-      url: tabState.page.url(),
-      snapshot: win.text,
-      refsCount: tabState.refs.size,
-      truncated: win.truncated,
-      totalChars: win.totalChars,
-      hasMore: win.hasMore,
-      nextOffset: win.nextOffset,
-    };
-
-    if (req.query.includeScreenshot === 'true') {
-      const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-      response.screenshot = {
-        data: pngBuffer.toString('base64'),
-        mimeType: 'image/png',
-      };
-    }
-
-    res.json(response);
-  } catch (err) {
-    log('error', 'openclaw snapshot failed', {
-      reqId: req.reqId,
-      error: err.message,
-    });
-    handleRouteError(err, req, res);
-  }
+mountLegacySnapshotRoutes(app, {
+  buildRefs,
+  extractGoogleSerp,
+  findTab,
+  getAriaSnapshot,
+  handleRouteError,
+  isGoogleSerp,
+  log,
+  normalizeUserId,
+  sessions,
+  snapshotBytes,
+  windowSnapshot,
 });
 
 // POST /act - Combined action endpoint (OpenClaw format)
