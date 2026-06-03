@@ -17,10 +17,6 @@ import {
   clearSessionDownloads,
   clearTabDownloads,
 } from './lib/downloads.js';
-import {
-  extractDeterministic,
-  validateSchema as validateExtractSchema,
-} from './lib/extract.js';
 import { createFlyHelpers } from './lib/fly.js';
 import { expandMacro } from './lib/macros.js';
 import { createPluginEvents, loadPlugins } from './lib/plugins.js';
@@ -49,6 +45,7 @@ import { mountDocs } from './lib/openapi.js';
 import { mountSessionRoutes } from './lib/routes/sessions.js';
 import { mountSystemRoutes } from './lib/routes/system.js';
 import { mountTabContentRoutes } from './lib/routes/tabs-content.js';
+import { mountTabEvaluationRoutes } from './lib/routes/tabs-evaluation.js';
 import { mountTabHistoryRoutes } from './lib/routes/tabs-history.js';
 import { mountTabLifecycleRoutes } from './lib/routes/tabs-lifecycle.js';
 import { mountTabNavigationRoutes } from './lib/routes/tabs-navigation.js';
@@ -3173,271 +3170,16 @@ mountTabContentRoutes(app, {
   sessions,
 });
 
-// Evaluate JavaScript in page context
-/**
- * @openapi
- * /tabs/{tabId}/evaluate:
- *   post:
- *     tags: [Interaction]
- *     summary: Evaluate JavaScript in tab
- *     description: Runs arbitrary JS in the page context and returns the result.
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [userId, expression]
- *             properties:
- *               userId:
- *                 type: string
- *               expression:
- *                 type: string
- *                 description: JavaScript expression to evaluate.
- *     responses:
- *       200:
- *         description: Evaluation result.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 result: {}
- *       400:
- *         description: Bad request.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post(
-  '/tabs/:tabId/evaluate',
-  express.json({ limit: '1mb' }),
-  async (req, res) => {
-    try {
-      const { userId, expression } = req.body;
-      if (!userId) return res.status(400).json({ error: 'userId is required' });
-      if (!expression)
-        return res.status(400).json({ error: 'expression is required' });
-
-      const session = sessions.get(normalizeUserId(userId));
-      const found = session && findTab(session, req.params.tabId);
-      if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-      session.lastAccess = Date.now();
-      const { tabState } = found;
-      tabState.toolCalls++;
-      tabState.consecutiveTimeouts = 0;
-      tabState.consecutiveFailures = 0;
-
-      pluginEvents.emit('tab:evaluate', {
-        userId,
-        tabId: req.params.tabId,
-        expression,
-      });
-      const result = await tabState.page.evaluate(expression);
-      pluginEvents.emit('tab:evaluated', {
-        userId,
-        tabId: req.params.tabId,
-        result,
-      });
-      log('info', 'evaluate', {
-        reqId: req.reqId,
-        tabId: req.params.tabId,
-        userId,
-        resultType: typeof result,
-      });
-      res.json({ ok: true, result });
-    } catch (err) {
-      failuresTotal.labels(classifyError(err), 'evaluate').inc();
-      log('error', 'evaluate failed', { reqId: req.reqId, error: err.message });
-      res.status(500).json({ error: safeError(err) });
-    }
-  },
-);
-
-// Structured extraction using JSON Schema with x-ref hints
-/**
- * @openapi
- * /tabs/{tabId}/extract:
- *   post:
- *     tags: [Content]
- *     summary: Structured data extraction via JSON Schema
- *     description: |
- *       Extracts structured data from the current page using a JSON Schema whose properties
- *       carry `x-ref` hints pointing at snapshot element refs (e.g. `e1`, `e2`).
- *       Call `GET /tabs/{tabId}/snapshot` first to populate the ref table.
- *     parameters:
- *       - name: tabId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [userId, schema]
- *             properties:
- *               userId:
- *                 type: string
- *               schema:
- *                 type: object
- *                 description: |
- *                   JSON Schema with `type: "object"` and a `properties` map.
- *                   Each property may include `x-ref` (a snapshot element ref) and an optional
- *                   `type` (`string`, `number`, `integer`, `boolean`).
- *                 required: [type, properties]
- *                 properties:
- *                   type:
- *                     type: string
- *                     enum: [object]
- *                   properties:
- *                     type: object
- *                     additionalProperties:
- *                       type: object
- *                       properties:
- *                         type:
- *                           type: string
- *                           enum: [string, number, integer, boolean, object, "null"]
- *                         x-ref:
- *                           type: string
- *                           description: Snapshot element ref (e.g. `e1`).
- *                   required:
- *                     type: array
- *                     items:
- *                       type: string
- *                     description: Property names that must resolve to a non-null value.
- *     responses:
- *       200:
- *         description: Extraction succeeded.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   description: Extracted key-value pairs matching the input schema.
- *       400:
- *         description: Missing userId, missing schema, or invalid schema.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Tab not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       409:
- *         description: No refs available -- call snapshot first.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                 snapshot:
- *                   type: string
- *                   nullable: true
- *       422:
- *         description: Extraction failed (e.g. required ref not found).
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 error:
- *                   type: string
- *                 snapshot:
- *                   type: string
- *                   nullable: true
- *       500:
- *         description: Internal server error.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-app.post(
-  '/tabs/:tabId/extract',
-  express.json({ limit: '256kb' }),
-  async (req, res) => {
-    try {
-      const { userId, schema } = req.body;
-      if (!userId) return res.status(400).json({ error: 'userId is required' });
-      if (!schema) return res.status(400).json({ error: 'schema is required' });
-
-      const check = validateExtractSchema(schema);
-      if (!check.ok) return res.status(400).json({ error: check.error });
-
-      const session = sessions.get(normalizeUserId(userId));
-      const found = session && findTab(session, req.params.tabId);
-      if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-      session.lastAccess = Date.now();
-      const { tabState } = found;
-      tabState.toolCalls++;
-      tabState.consecutiveTimeouts = 0;
-
-      if (!tabState.refs || tabState.refs.size === 0) {
-        return res.status(409).json({
-          error:
-            'no refs available -- call GET /tabs/:tabId/snapshot first to build the ref table',
-          snapshot: tabState.lastSnapshot || null,
-        });
-      }
-
-      try {
-        const data = extractDeterministic({ schema, refs: tabState.refs });
-        log('info', 'extract', {
-          reqId: req.reqId,
-          tabId: req.params.tabId,
-          userId,
-          keys: Object.keys(data),
-        });
-        res.json({ ok: true, data });
-      } catch (extractErr) {
-        log('warn', 'extract failed', {
-          reqId: req.reqId,
-          error: extractErr.message,
-        });
-        res.status(422).json({
-          ok: false,
-          error: extractErr.message,
-          snapshot: tabState.lastSnapshot || null,
-        });
-      }
-    } catch (err) {
-      failuresTotal.labels(classifyError(err), 'extract').inc();
-      log('error', 'extract error', { reqId: req.reqId, error: err.message });
-      res.status(500).json({ error: safeError(err) });
-    }
-  },
-);
+mountTabEvaluationRoutes(app, {
+  classifyError,
+  failuresTotal,
+  findTab,
+  log,
+  normalizeUserId,
+  pluginEvents,
+  safeError,
+  sessions,
+});
 
 mountTraceRoutes(app, {
   authMiddleware,
