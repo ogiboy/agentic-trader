@@ -1,3 +1,5 @@
+import { useTranslations } from 'next-intl';
+
 import type { DashboardData } from '../control-room.helpers';
 import
   {
@@ -12,7 +14,6 @@ import
     positionPlanCoverageLines,
     unavailableSectionLines,
   } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
 import { JsonPreview, KeyValueList, Panel, TextList } from './primitives';
 
 /**
@@ -22,9 +23,9 @@ import { JsonPreview, KeyValueList, Panel, TextList } from './primitives';
  * @returns A React element containing the portfolio-related panels and their contents
  */
 export function PortfolioView({
-  copy,
   dashboard,
-}: Readonly<{ copy: ControlRoomCopy; dashboard: DashboardData }>) {
+}: Readonly<{ dashboard: DashboardData }>) {
+  const t = useTranslations('controlRoom.portfolio');
   const currency = accountCurrency(dashboard);
   const financeOps = asRecord(dashboard.financeOps);
   const portfolio = asRecord(dashboard.portfolio);
@@ -38,27 +39,27 @@ export function PortfolioView({
   const costModel = asRecord(accounting.cost_model);
   const portfolioUnavailable = unavailableSectionLines(
     portfolio,
-    copy.portfolio.unavailable.portfolio,
+    t('unavailable.portfolio'),
   );
   const riskUnavailable = unavailableSectionLines(
     riskReport,
-    copy.portfolio.unavailable.riskReport,
+    t('unavailable.riskReport'),
   );
   const journalLines =
     unavailableSectionLines(
       journal,
-      copy.portfolio.unavailable.tradeJournal,
+      t('unavailable.tradeJournal'),
     ) ||
     (journalEntries.length
       ? journalEntries.map(
           (entry) =>
             `${formatTimestamp(entry.opened_at)} | ${asString(entry.symbol)} | ${asString(entry.journal_status)} | ${asString(entry.planned_side)} | ${asString(entry.realized_pnl)}`,
         )
-      : [copy.portfolio.emptyTradeJournal]);
+      : [t('emptyTradeJournal')]);
 
   return (
     <div className='grid grid--2'>
-      <Panel title={copy.portfolio.panels.portfolio} accent='lime'>
+      <Panel title={t('panels.portfolio')} accent='lime'>
         {portfolioUnavailable ? (
           <TextList items={portfolioUnavailable} />
         ) : (
@@ -66,35 +67,35 @@ export function PortfolioView({
             <KeyValueList
               items={[
                 [
-                  `${copy.portfolio.fields.cash} (${currency})`,
+                  `${t('fields.cash')} (${currency})`,
                   formatNumber(snapshot.cash),
                 ],
                 [
-                  `${copy.portfolio.fields.marketValue} (${currency})`,
+                  `${t('fields.marketValue')} (${currency})`,
                   formatNumber(snapshot.market_value),
                 ],
                 [
-                  `${copy.portfolio.fields.equity} (${currency})`,
+                  `${t('fields.equity')} (${currency})`,
                   formatNumber(snapshot.equity),
                 ],
                 [
-                  `${copy.portfolio.fields.realizedPnl} (${currency})`,
+                  `${t('fields.realizedPnl')} (${currency})`,
                   formatNumber(snapshot.realized_pnl),
                 ],
                 [
-                  `${copy.portfolio.fields.unrealizedPnl} (${currency}, ${copy.portfolio.fields.paperMark})`,
+                  `${t('fields.unrealizedPnl')} (${currency}, ${t('fields.paperMark')})`,
                   formatNumber(snapshot.unrealized_pnl),
                 ],
                 [
-                  copy.portfolio.fields.openPositions,
+                  t('fields.openPositions'),
                   asString(snapshot.open_positions),
                 ],
                 [
-                  copy.portfolio.fields.markedAt,
+                  t('fields.markedAt'),
                   formatTimestamp(accounting?.mark_created_at),
                 ],
                 [
-                  copy.portfolio.fields.markSource,
+                  t('fields.markSource'),
                   asString(accounting.mark_source),
                 ],
               ]}
@@ -103,7 +104,7 @@ export function PortfolioView({
           </>
         )}
       </Panel>
-      <Panel title={copy.portfolio.panels.riskReport} accent='rose'>
+      <Panel title={t('panels.riskReport')} accent='rose'>
         {riskUnavailable ? (
           <TextList items={riskUnavailable} />
         ) : (
@@ -111,23 +112,23 @@ export function PortfolioView({
             <KeyValueList
               items={[
                 [
-                  `${copy.portfolio.fields.equity} (${currency})`,
+                  `${t('fields.equity')} (${currency})`,
                   formatNumber(riskReportRecord.equity),
                 ],
                 [
-                  copy.portfolio.fields.grossExposure,
+                  t('fields.grossExposure'),
                   formatPercent(riskReportRecord.gross_exposure_pct),
                 ],
                 [
-                  copy.portfolio.fields.largestPosition,
+                  t('fields.largestPosition'),
                   formatPercent(riskReportRecord.largest_position_pct),
                 ],
                 [
-                  copy.portfolio.fields.drawdown,
+                  t('fields.drawdown'),
                   formatPercent(riskReportRecord.drawdown_from_peak_pct),
                 ],
                 [
-                  copy.portfolio.fields.warnings,
+                  t('fields.warnings'),
                   String(
                     Array.isArray(riskReportRecord.warnings)
                       ? riskReportRecord.warnings.length
@@ -135,7 +136,7 @@ export function PortfolioView({
                   ),
                 ],
                 [
-                  copy.portfolio.fields.generatedAt,
+                  t('fields.generatedAt'),
                   formatTimestamp(riskReportRecord.generated_at),
                 ],
               ]}
@@ -146,76 +147,76 @@ export function PortfolioView({
                   ? riskReportRecord.warnings.map((warning) =>
                       asString(warning),
                     )
-                  : [copy.portfolio.noWarnings]
+                  : [t('noWarnings')]
               }
             />
           </>
         )}
       </Panel>
-      <Panel title={copy.portfolio.panels.tradeJournal} accent='amber'>
+      <Panel title={t('panels.tradeJournal')} accent='amber'>
         <TextList items={journalLines} />
       </Panel>
-      <Panel title={copy.portfolio.panels.exitPlanCoverage} accent='rose'>
+      <Panel title={t('panels.exitPlanCoverage')} accent='rose'>
         <TextList items={positionPlanCoverageLines(dashboard)} />
       </Panel>
-      <Panel title={copy.portfolio.panels.preferences} accent='cyan'>
+      <Panel title={t('panels.preferences')} accent='cyan'>
         <KeyValueList
           items={[
             [
-              copy.portfolio.fields.regions,
+              t('fields.regions'),
               formatList(preferences.regions),
             ],
             [
-              copy.portfolio.fields.exchanges,
+              t('fields.exchanges'),
               formatList(preferences.exchanges),
             ],
             [
-              copy.portfolio.fields.currencies,
+              t('fields.currencies'),
               formatList(preferences.currencies),
             ],
             [
-              copy.portfolio.fields.risk,
+              t('fields.risk'),
               asString(preferences.risk_profile),
             ],
             [
-              copy.portfolio.fields.style,
+              t('fields.style'),
               asString(preferences.trade_style),
             ],
             [
-              copy.portfolio.fields.behavior,
+              t('fields.behavior'),
               asString(preferences.behavior_preset),
             ],
             [
-              copy.portfolio.fields.tone,
+              t('fields.tone'),
               asString(preferences.agent_tone),
             ],
             [
-              copy.portfolio.fields.strictness,
+              t('fields.strictness'),
               asString(preferences.strictness_preset),
             ],
           ]}
         />
       </Panel>
-      <Panel title={copy.portfolio.panels.deskAccountingNotes} accent='amber'>
+      <Panel title={t('panels.deskAccountingNotes')} accent='amber'>
         <KeyValueList
           items={[
-            [copy.portfolio.fields.currency, currency],
+            [t('fields.currency'), currency],
             [
-              copy.portfolio.fields.markStatus,
+              t('fields.markStatus'),
               asString(accounting.mark_status, 'mark_time_unavailable'),
             ],
             [
-              copy.portfolio.fields.deskFees,
+              t('fields.deskFees'),
               asString(costModel.fees),
             ],
             [
-              copy.portfolio.fields.slippage,
+              t('fields.slippage'),
               costModel.slippage_bps == null
                 ? '-'
-                : `${asString(costModel.slippage_bps)} ${copy.portfolio.fields.basisPoints}`,
+                : `${asString(costModel.slippage_bps)} ${t('fields.basisPoints')}`,
             ],
             [
-              copy.portfolio.fields.rejectionEvidence,
+              t('fields.rejectionEvidence'),
               asString(accounting.rejection_evidence),
             ],
           ]}

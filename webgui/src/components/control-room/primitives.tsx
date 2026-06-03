@@ -2,7 +2,15 @@ import type { ReactNode, SyntheticEvent } from 'react';
 
 import type { KeyValueItems, PanelAccent } from '../control-room.helpers';
 import { cx } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
+
+type WebguiTokenPromptCopy = Readonly<{
+  body: string;
+  eyebrow: string;
+  title: string;
+  tokenLabel: string;
+  unlock: string;
+  unlocking: string;
+}>;
 
 /**
  * Render a titled panel section with optional accent styling.
@@ -81,7 +89,7 @@ export function WebguiTokenPrompt({
   onTokenChange,
 }: Readonly<{
   busy: boolean;
-  copy: ControlRoomCopy['auth'];
+  copy: WebguiTokenPromptCopy;
   error: string | null;
   token: string;
   onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;

@@ -1,3 +1,5 @@
+import { useTranslations } from 'next-intl';
+
 import type { DashboardData } from '../control-room.helpers';
 import
   {
@@ -6,13 +8,13 @@ import
     asString,
     formatTimestamp,
   } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
 export function RuntimeView({
-  copy,
   dashboard,
-}: Readonly<{ copy: ControlRoomCopy; dashboard: DashboardData }>) {
+}: Readonly<{ dashboard: DashboardData }>) {
+  const common = useTranslations('controlRoom.common');
+  const t = useTranslations('controlRoom.runtime');
   const status = asRecord(dashboard.status);
   const state = asRecord(status.state);
   const agentActivity = asRecord(dashboard.agentActivity);
@@ -30,53 +32,53 @@ export function RuntimeView({
         (event) =>
           `${formatTimestamp(event.created_at)} | ${asString(event.level)} | ${asString(event.event_type)} | ${asString(event.symbol)} | ${asString(event.message)}`,
       )
-    : [copy.runtime.empty.events];
+    : [t('empty.events')];
   const supervisorTails = [
-    ...(stderrTail.length ? stderrTail : [copy.runtime.empty.stderr]),
-    ...(stdoutTail.length ? stdoutTail : [copy.runtime.empty.stdout]),
+    ...(stderrTail.length ? stderrTail : [t('empty.stderr')]),
+    ...(stdoutTail.length ? stdoutTail : [t('empty.stdout')]),
   ];
 
   return (
     <div className='grid grid--2'>
-      <Panel title={copy.runtime.panels.state} accent='lime'>
+      <Panel title={t('panels.state')} accent='lime'>
         <KeyValueList
           items={[
             [
-              copy.runtime.fields.runtime,
+              t('fields.runtime'),
               asString(status.runtime_state),
             ],
             [
-              copy.runtime.fields.liveProcess,
-              status.live_process ? copy.common.yes : copy.common.no,
+              t('fields.liveProcess'),
+              status.live_process ? common('yes') : common('no'),
             ],
             [
-              copy.runtime.fields.pid,
+              t('fields.pid'),
               asString(state.pid),
             ],
             [
-              copy.runtime.fields.currentSymbol,
+              t('fields.currentSymbol'),
               asString(state.current_symbol),
             ],
             [
-              copy.runtime.fields.cycleCount,
+              t('fields.cycleCount'),
               asString(state.cycle_count),
             ],
             [
-              copy.runtime.fields.updated,
+              t('fields.updated'),
               formatTimestamp(state.updated_at),
             ],
             [
-              copy.runtime.fields.stopRequested,
+              t('fields.stopRequested'),
               asString(state.stop_requested, 'false'),
             ],
             [
-              copy.runtime.fields.status,
+              t('fields.status'),
               asString(status.status_message),
             ],
           ]}
         />
       </Panel>
-      <Panel title={copy.runtime.panels.stageFlow} accent='cyan'>
+      <Panel title={t('panels.stageFlow')} accent='cyan'>
         <TextList
           items={stageStatusRows.map(
             (stage) =>
@@ -84,10 +86,10 @@ export function RuntimeView({
           )}
         />
       </Panel>
-      <Panel title={copy.runtime.panels.events} accent='amber'>
+      <Panel title={t('panels.events')} accent='amber'>
         <TextList items={runtimeEvents} />
       </Panel>
-      <Panel title={copy.runtime.panels.supervisorTails} accent='rose'>
+      <Panel title={t('panels.supervisorTails')} accent='rose'>
         <TextList items={supervisorTails} />
       </Panel>
     </div>

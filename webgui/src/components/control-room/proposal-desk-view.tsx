@@ -1,4 +1,5 @@
 import { CheckCircle2, RefreshCw, RotateCcw, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import type {
   DashboardData,
@@ -13,7 +14,6 @@ import {
   proposalHeadline,
   proposalLines,
 } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
 /**
@@ -31,14 +31,12 @@ import { KeyValueList, Panel, TextList } from './primitives';
  * @returns The Proposal Desk React element
  */
 export function ProposalDeskView({
-  copy,
   dashboard,
   busy,
   proposalNote,
   onProposalNoteChange,
   onProposalAction,
 }: Readonly<{
-  copy: ControlRoomCopy;
   dashboard: DashboardData;
   busy: string | null;
   proposalNote: string;
@@ -48,6 +46,8 @@ export function ProposalDeskView({
     proposalId: string,
   ) => Promise<void>;
 }>) {
+  const common = useTranslations('controlRoom.common');
+  const t = useTranslations('controlRoom.proposals');
   const tradeProposals = asRecord(dashboard.tradeProposals);
   const proposals = asRecordArray(tradeProposals.proposals);
   const broker = asRecord(dashboard.broker);
@@ -57,7 +57,7 @@ export function ProposalDeskView({
 
   return (
     <div className='grid grid--2'>
-      <Panel title={copy.proposals.panels.proposalDesk} accent='amber'>
+      <Panel title={t('panels.proposalDesk')} accent='amber'>
         <TextList items={proposalLines(dashboard)} />
         {approvalBlockedReason ? (
           <div className='banner banner--warn'>{approvalBlockedReason}</div>
@@ -94,10 +94,10 @@ export function ProposalDeskView({
                         <span>{proposalId}</span>
                         <span>{asString(proposal.source)}</span>
                         <span>
-                          {copy.proposals.stopTake(
-                            formatNumber(proposal.stop_loss, 2),
-                            formatNumber(proposal.take_profit, 2),
-                          )}
+                          {t('stopTake', {
+                            stop: formatNumber(proposal.stop_loss, 2),
+                            take: formatNumber(proposal.take_profit, 2),
+                          })}
                         </span>
                       </div>
                       <div className='tool-actions'>
@@ -107,11 +107,11 @@ export function ProposalDeskView({
                           onClick={() =>
                             void onProposalAction('approve', proposalId)
                           }
-                          title={copy.proposals.actions.approve.title}
+                          title={t('actions.approve.title')}
                           type='button'
                         >
                           <CheckCircle2 aria-hidden size={16} />
-                          {copy.proposals.actions.approve.label}
+                          {t('actions.approve.label')}
                         </button>
                         <button
                           className='button'
@@ -121,11 +121,11 @@ export function ProposalDeskView({
                           onClick={() =>
                             void onProposalAction('reject', proposalId)
                           }
-                          title={copy.proposals.actions.reject.title}
+                          title={t('actions.reject.title')}
                           type='button'
                         >
                           <XCircle aria-hidden size={16} />
-                          {copy.proposals.actions.reject.label}
+                          {t('actions.reject.label')}
                         </button>
                         <button
                           className='button'
@@ -133,11 +133,11 @@ export function ProposalDeskView({
                           onClick={() =>
                             void onProposalAction('reconcile', proposalId)
                           }
-                          title={copy.proposals.actions.reconcile.title}
+                          title={t('actions.reconcile.title')}
                           type='button'
                         >
                           <RotateCcw aria-hidden size={16} />
-                          {copy.proposals.actions.reconcile.label}
+                          {t('actions.reconcile.label')}
                         </button>
                         <button
                           className='button'
@@ -145,11 +145,11 @@ export function ProposalDeskView({
                           onClick={() =>
                             void onProposalAction('refresh', proposalId)
                           }
-                          title={copy.proposals.actions.refresh.title}
+                          title={t('actions.refresh.title')}
                           type='button'
                         >
                           <RefreshCw aria-hidden size={16} />
-                          {copy.proposals.actions.refresh.label}
+                          {t('actions.refresh.label')}
                         </button>
                       </div>
                     </article>
@@ -160,31 +160,31 @@ export function ProposalDeskView({
             <div className='composer'>
               <textarea
                 onChange={(event) => onProposalNoteChange(event.target.value)}
-                placeholder={copy.proposals.notePlaceholder}
+                placeholder={t('notePlaceholder')}
                 value={proposalNote}
               />
             </div>
           </>
         )}
       </Panel>
-      <Panel title={copy.proposals.panels.deskSafety} accent='cyan'>
+      <Panel title={t('panels.deskSafety')} accent='cyan'>
         <KeyValueList
           items={[
-            [copy.proposals.fields.backend, asString(broker.backend)],
-            [copy.proposals.fields.state, asString(broker.state)],
+            [t('fields.backend'), asString(broker.backend)],
+            [t('fields.state'), asString(broker.state)],
             [
-              copy.proposals.fields.externalPaper,
-              broker.external_paper ? copy.common.yes : copy.common.no,
+              t('fields.externalPaper'),
+              broker.external_paper ? common('yes') : common('no'),
             ],
             [
-              copy.proposals.fields.liveRequested,
-              broker.live_requested ? copy.common.yes : copy.common.no,
+              t('fields.liveRequested'),
+              broker.live_requested ? common('yes') : common('no'),
             ],
             [
-              copy.proposals.fields.killSwitch,
-              broker.kill_switch_active ? copy.common.on : copy.common.off,
+              t('fields.killSwitch'),
+              broker.kill_switch_active ? common('on') : common('off'),
             ],
-            [copy.proposals.fields.message, asString(broker.message)],
+            [t('fields.message'), asString(broker.message)],
           ]}
         />
       </Panel>

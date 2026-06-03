@@ -1,3 +1,5 @@
+import { useTranslations } from 'next-intl';
+
 import type { DashboardData } from '../control-room.helpers';
 import
   {
@@ -6,7 +8,6 @@ import
     formatTimestamp,
     unavailableSectionLines,
   } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
 import { Panel, TextList } from './primitives';
 
 function textValue(value: unknown): string {
@@ -21,9 +22,9 @@ function textValue(value: unknown): string {
 }
 
 export function MemoryView({
-  copy,
   dashboard,
-}: Readonly<{ copy: ControlRoomCopy; dashboard: DashboardData }>) {
+}: Readonly<{ dashboard: DashboardData }>) {
+  const t = useTranslations('controlRoom.memory');
   const memoryExplorer = asRecord(dashboard.memoryExplorer);
   const retrievalInspection = asRecord(dashboard.retrievalInspection);
   const memoryMatches = asRecordArray(memoryExplorer.matches);
@@ -31,7 +32,7 @@ export function MemoryView({
   const memoryLines =
     unavailableSectionLines(
       memoryExplorer,
-      copy.memory.labels.memoryExplorer,
+      t('labels.memoryExplorer'),
     ) ||
     (memoryMatches.length
       ? memoryMatches.map((match) => {
@@ -40,11 +41,11 @@ export function MemoryView({
             explanation.eligibility_reason || match.retrieval_source;
           return `${formatTimestamp(match.created_at)} | ${textValue(match.symbol)} | score=${textValue(match.similarity_score)} | why=${textValue(reason)} | ${textValue(match.summary)}`;
         })
-      : [copy.memory.emptySimilar]);
+      : [t('emptySimilar')]);
   const retrievalLines =
     unavailableSectionLines(
       retrievalInspection,
-      copy.memory.labels.retrievalInspection,
+      t('labels.retrievalInspection'),
     ) ||
     (retrievalStages.length
       ? retrievalStages.flatMap((stage) => {
@@ -65,24 +66,24 @@ export function MemoryView({
             const sample = retrievedMemories[0] ?? memoryNotes[0];
             const sampleText =
               sample == null
-                ? copy.memory.labels.noRetrievalContext
+                ? t('labels.noRetrievalContext')
                 : textValue(sample);
             const whyLine = Object.keys(firstWhy).length
-              ? `${copy.memory.labels.why}: ${textValue(firstWhy.eligibility_reason)} | freshness=${textValue(firstWhy.freshness)} | outcome=${textValue(firstWhy.outcome_tag)}`
-              : `${copy.memory.labels.sample}: ${sampleText}`;
+              ? `${t('labels.why')}: ${textValue(firstWhy.eligibility_reason)} | freshness=${textValue(firstWhy.freshness)} | outcome=${textValue(firstWhy.outcome_tag)}`
+              : `${t('labels.sample')}: ${sampleText}`;
             return [
               `${textValue(stage.role)} | retrieved=${retrievedMemories.length} | why=${explanations.length} | trade-memory=${memoryNotes.length} | shared-bus=${sharedBus.length} | recent-runs=${recentRuns.length}`,
               whyLine,
             ];
           })
-      : [copy.memory.emptyRetrieval]);
+      : [t('emptyRetrieval')]);
 
   return (
     <div className='grid grid--2'>
-      <Panel title={copy.memory.panels.similarPastRuns} accent='lime'>
+      <Panel title={t('panels.similarPastRuns')} accent='lime'>
         <TextList items={memoryLines} />
       </Panel>
-      <Panel title={copy.memory.panels.whyContextWasUsed} accent='cyan'>
+      <Panel title={t('panels.whyContextWasUsed')} accent='cyan'>
         <TextList items={retrievalLines} />
       </Panel>
     </div>

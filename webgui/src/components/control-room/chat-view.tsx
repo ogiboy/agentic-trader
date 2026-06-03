@@ -4,21 +4,23 @@ import
     formatChatPersona,
     type ChatPersona,
   } from '@/lib/chat-personas';
+import { useTranslations } from 'next-intl';
 
 import type { DashboardData } from '../control-room.helpers';
 import { asRecord, asString } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
 import { Panel, TextList } from './primitives';
 
-function chatPersonaLabel(persona: unknown, copy: ControlRoomCopy): string {
-  if (typeof persona === 'string' && copy.chat.personas[persona]) {
-    return copy.chat.personas[persona];
+function chatPersonaLabel(
+  persona: unknown,
+  labels: Readonly<Record<ChatPersona, string>>,
+): string {
+  if (typeof persona === 'string' && persona in labels) {
+    return labels[persona as ChatPersona];
   }
   return formatChatPersona(persona);
 }
 
 export function ChatView({
-  copy,
   dashboard,
   chatPersona,
   chatHistory,
@@ -28,7 +30,6 @@ export function ChatView({
   onChatDraftChange,
   onSendChat,
 }: Readonly<{
-  copy: ControlRoomCopy;
   dashboard: DashboardData;
   chatPersona: ChatPersona;
   chatHistory: Array<Record<string, string>>;
@@ -38,6 +39,15 @@ export function ChatView({
   onChatDraftChange: (value: string) => void;
   onSendChat: () => Promise<void>;
 }>) {
+  const common = useTranslations('controlRoom.common');
+  const t = useTranslations('controlRoom.chat');
+  const personaLabels: Record<ChatPersona, string> = {
+    operator_liaison: t('personas.operator_liaison'),
+    portfolio_manager: t('personas.portfolio_manager'),
+    regime_analyst: t('personas.regime_analyst'),
+    risk_steward: t('personas.risk_steward'),
+    strategy_selector: t('personas.strategy_selector'),
+  };
   const agentActivity = asRecord(dashboard.agentActivity);
   const tradeContext = asRecord(dashboard.tradeContext);
   const tradeRecord = asRecord(tradeContext.record);
@@ -46,10 +56,10 @@ export function ChatView({
 
   return (
     <div className='grid grid--2'>
-      <Panel title={copy.chat.panels.operatorChat} accent='lime'>
+      <Panel title={t('panels.operatorChat')} accent='lime'>
         <div className='form-row'>
           <label className='field-label'>
-            <span>{copy.chat.role}</span>
+            <span>{t('role')}</span>
             <select
               value={chatPersona}
               onChange={(event) =>
@@ -58,7 +68,7 @@ export function ChatView({
             >
               {CHAT_PERSONAS.map((persona) => (
                 <option key={persona} value={persona}>
-                  {chatPersonaLabel(persona, copy)}
+                  {chatPersonaLabel(persona, personaLabels)}
                 </option>
               ))}
             </select>
@@ -68,23 +78,23 @@ export function ChatView({
           {chatHistory.length ? (
             chatHistory.map((entry, index) => (
               <article className='chat-bubble' key={`${entry.user}-${index}`}>
-                <div className='chat-bubble__meta'>{copy.chat.userLabel}</div>
+                <div className='chat-bubble__meta'>{t('userLabel')}</div>
                 <p>{entry.user}</p>
                 <div className='chat-bubble__meta'>
-                  {chatPersonaLabel(entry.persona, copy)}
+                  {chatPersonaLabel(entry.persona, personaLabels)}
                 </div>
                 <p>{entry.response}</p>
               </article>
             ))
           ) : (
-            <p className='empty-copy'>{copy.chat.empty}</p>
+            <p className='empty-copy'>{t('empty')}</p>
           )}
         </div>
         <div className='composer'>
           <textarea
             value={chatDraft}
             onChange={(event) => onChatDraftChange(event.target.value)}
-            placeholder={copy.chat.placeholder}
+            placeholder={t('placeholder')}
           />
           <button
             className='button button--solid'
@@ -92,20 +102,20 @@ export function ChatView({
             onClick={() => void onSendChat()}
             type='button'
           >
-            {busy === 'chat' ? copy.common.working : copy.chat.send}
+            {busy === 'chat' ? common('working') : t('send')}
           </button>
         </div>
       </Panel>
-      <Panel title={copy.chat.panels.decisionWorkflowContext} accent='cyan'>
+      <Panel title={t('panels.decisionWorkflowContext')} accent='cyan'>
         <TextList
           items={[
-            `${copy.chat.workflow.currentStage}: ${asString(agentActivity.current_stage)}`,
-            `${copy.chat.workflow.stageStatus}: ${asString(agentActivity.current_stage_status)}`,
-            `${copy.chat.workflow.stageDetail}: ${asString(agentActivity.current_stage_message)}`,
-            `${copy.chat.workflow.lastCompleted}: ${asString(agentActivity.last_completed_stage)}`,
-            `${copy.chat.workflow.completedDetail}: ${asString(agentActivity.last_completed_message)}`,
-            `${copy.chat.workflow.toolRoles}: ${Object.keys(toolOutputs).join(', ') || '-'}`,
-            `${copy.chat.workflow.memoryRoles}: ${Object.keys(retrievedMemory).join(', ') || '-'}`,
+            `${t('workflow.currentStage')}: ${asString(agentActivity.current_stage)}`,
+            `${t('workflow.stageStatus')}: ${asString(agentActivity.current_stage_status)}`,
+            `${t('workflow.stageDetail')}: ${asString(agentActivity.current_stage_message)}`,
+            `${t('workflow.lastCompleted')}: ${asString(agentActivity.last_completed_stage)}`,
+            `${t('workflow.completedDetail')}: ${asString(agentActivity.last_completed_message)}`,
+            `${t('workflow.toolRoles')}: ${Object.keys(toolOutputs).join(', ') || '-'}`,
+            `${t('workflow.memoryRoles')}: ${Object.keys(retrievedMemory).join(', ') || '-'}`,
           ]}
         />
       </Panel>

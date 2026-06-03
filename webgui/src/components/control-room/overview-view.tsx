@@ -1,5 +1,6 @@
 import { Power, SlidersHorizontal, Wrench } from 'lucide-react';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 
 import type {
   DashboardData,
@@ -17,25 +18,27 @@ import
     marketLensImage,
     providerWarningLines,
     readinessLines,
+    type ControlRoomDiagnosticsCopySource,
   } from '../control-room.helpers';
-import { getControlRoomCopy, type ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
 export function OverviewView({
-  copy = getControlRoomCopy('en'),
   dashboard,
+  diagnosticsCopy,
   currentCycle,
   system,
   busy,
   onToolAction,
 }: Readonly<{
-  copy?: ControlRoomCopy;
   dashboard: DashboardData;
+  diagnosticsCopy: ControlRoomDiagnosticsCopySource;
   currentCycle: KeyValueItems;
   system: KeyValueItems;
   busy: string | null;
   onToolAction: (kind: ToolActionKind) => void;
 }>) {
+  const hero = useTranslations('controlRoom.hero');
+  const overview = useTranslations('controlRoom.overview');
   const agentActivity = asRecord(dashboard.agentActivity);
   const status = asRecord(dashboard.status);
   const broker = asRecord(dashboard.broker);
@@ -49,8 +52,8 @@ export function OverviewView({
         (event) =>
           `${formatTimestamp(event.created_at)} | ${asString(event.stage)} | ${asString(event.status)} | ${asString(event.message)}`,
       )
-    : [copy.overview.emptyStageEvents];
-  const localToolActions = localToolActionLines(dashboard, copy);
+    : [overview('emptyStageEvents')];
+  const localToolActions = localToolActionLines(dashboard, diagnosticsCopy);
   const canStartCamofoxService =
     camofoxService.access_key_configured === true;
 
@@ -60,22 +63,22 @@ export function OverviewView({
         <Image
           className='market-ribbon__image'
           src={marketLensImage}
-          alt={copy.hero.alt}
+          alt={hero('alt')}
           fill
           priority
           sizes='(max-width: 960px) 100vw, 50vw'
         />
         <div className='market-ribbon__overlay'>
           <div>
-            <p className='eyebrow'>{copy.hero.eyebrow}</p>
-            <h1>{copy.hero.title}</h1>
-            <p className='market-ribbon__copy'>{copy.hero.copy}</p>
+            <p className='eyebrow'>{hero('eyebrow')}</p>
+            <h1>{hero('title')}</h1>
+            <p className='market-ribbon__copy'>{hero('copy')}</p>
           </div>
           <div className='pill-row'>
             <span className='pill'>{asString(status.runtime_mode)}</span>
             <span className='pill'>{asString(broker.backend)}</span>
             <span className='pill'>
-              {asString(session.venue, copy.hero.sessionUnknown)}
+              {asString(session.venue, hero('sessionUnknown'))}
             </span>
             <span className='pill'>{asString(doctor.model)}</span>
           </div>
@@ -83,19 +86,19 @@ export function OverviewView({
       </section>
 
       <div className='grid grid--2'>
-        <Panel title={copy.overview.panels.currentCycle} accent='lime'>
+        <Panel title={overview('panels.currentCycle')} accent='lime'>
           <KeyValueList items={currentCycle} />
         </Panel>
-        <Panel title={copy.overview.panels.system} accent='cyan'>
+        <Panel title={overview('panels.system')} accent='cyan'>
           <KeyValueList items={system} />
         </Panel>
       </div>
 
       <div className='grid grid--2'>
-        <Panel title={copy.overview.panels.readinessGates} accent='rose'>
-          <TextList items={readinessLines(dashboard, copy)} />
+        <Panel title={overview('panels.readinessGates')} accent='rose'>
+          <TextList items={readinessLines(dashboard, diagnosticsCopy)} />
         </Panel>
-        <Panel title={copy.overview.panels.localTools} accent='cyan'>
+        <Panel title={overview('panels.localTools')} accent='cyan'>
           <div className='tool-actions'>
             <button
               className='button'
@@ -104,7 +107,7 @@ export function OverviewView({
               type='button'
             >
               <SlidersHorizontal aria-hidden='true' size={16} />
-              {copy.overview.tools.appTools}
+              {overview('tools.appTools')}
             </button>
             <button
               className='button'
@@ -113,7 +116,7 @@ export function OverviewView({
               type='button'
             >
               <SlidersHorizontal aria-hidden='true' size={16} />
-              {copy.overview.tools.hostFallback}
+              {overview('tools.hostFallback')}
             </button>
             <button
               className='button'
@@ -122,7 +125,7 @@ export function OverviewView({
               type='button'
             >
               <Power aria-hidden='true' size={16} />
-              {copy.overview.tools.ollama}
+              {overview('tools.ollama')}
             </button>
             <button
               className='button'
@@ -131,7 +134,7 @@ export function OverviewView({
               type='button'
             >
               <Wrench aria-hidden='true' size={16} />
-              {copy.overview.tools.camofox}
+              {overview('tools.camofox')}
             </button>
           </div>
           {localToolActions.length ? (
@@ -139,15 +142,15 @@ export function OverviewView({
               <TextList items={localToolActions} />
             </div>
           ) : null}
-          <TextList items={localToolLines(dashboard, copy)} />
+          <TextList items={localToolLines(dashboard, diagnosticsCopy)} />
         </Panel>
       </div>
 
-      <Panel title={copy.overview.panels.providerWarnings} accent='amber'>
-        <TextList items={providerWarningLines(dashboard, copy)} />
+      <Panel title={overview('panels.providerWarnings')} accent='amber'>
+        <TextList items={providerWarningLines(dashboard, diagnosticsCopy)} />
       </Panel>
 
-      <Panel title={copy.overview.panels.decisionWorkflow} accent='amber'>
+      <Panel title={overview('panels.decisionWorkflow')} accent='amber'>
         <TextList items={recentStageEvents} />
       </Panel>
     </div>

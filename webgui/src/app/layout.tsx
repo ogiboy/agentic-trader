@@ -2,6 +2,9 @@
 
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
+import { getLocale } from 'next-intl/server';
+import { ControlRoomIntlProvider } from '@/i18n/ControlRoomIntlProvider';
+import { normalizeWebguiLocale } from '@/i18n/locales';
 import './globals.css';
 import { WEBGUI_SITE_METADATA } from './site-metadata';
 
@@ -59,17 +62,23 @@ export const metadata: Metadata = {
  * @param children - Elements to render inside the document `<body>`
  * @returns The root HTML element tree for the application layout
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = normalizeWebguiLocale(await getLocale());
+
   return (
     <html
-      lang='en'
+      lang={locale}
       className={`${jetBrainsMono.variable} ${jetBrainsMono.className} dark h-full antialiased`}
     >
-      <body className='min-h-full flex flex-col'>{children}</body>
+      <body className='min-h-full flex flex-col'>
+        <ControlRoomIntlProvider initialLocale={locale}>
+          {children}
+        </ControlRoomIntlProvider>
+      </body>
     </html>
   );
 }

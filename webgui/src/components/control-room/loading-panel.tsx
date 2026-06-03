@@ -1,29 +1,27 @@
-import type { ControlRoomCopy } from './labels';
+import { useTranslations } from 'next-intl';
 
 export function ControlRoomLoadingPanel({
-  copy,
   loadingSeconds,
 }: Readonly<{
-  copy: ControlRoomCopy;
   loadingSeconds: number;
 }>) {
+  const t = useTranslations('controlRoom.shell');
+
   return (
     <div className='loading loading--panel' role='status' aria-live='polite'>
-      <div className='loading__title'>{copy.shell.loading}</div>
-      <div className='loading__detail'>{copy.shell.loadingDetail}</div>
+      <div className='loading__title'>{t('loading')}</div>
+      <div className='loading__detail'>{t('loadingDetail')}</div>
       {loadingSeconds > 1 ? (
         <div className='loading__elapsed'>
-          {copy.shell.loadingElapsed(loadingSeconds)}
+          {t('loadingElapsed', { seconds: loadingSeconds })}
         </div>
       ) : null}
     </div>
   );
 }
 
-export function ControlRoomUnavailablePanel({
-  copy,
-}: Readonly<{
-  copy: ControlRoomCopy;
-}>) {
-  return <div className='loading'>{copy.shell.unavailable}</div>;
+export function ControlRoomUnavailablePanel() {
+  const t = useTranslations('controlRoom.shell');
+
+  return <div className='loading'>{t('unavailable')}</div>;
 }

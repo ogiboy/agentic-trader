@@ -18,15 +18,21 @@ import
   } from './action-request';
 import { readJson } from './api';
 import type { DashboardLoader } from './dashboard-polling';
-import type { ControlRoomCopy } from './labels';
 import type { ControlRoomMessage, RuntimeActionKind } from './shell';
+
+type ControlRoomFeedbackCopy = Readonly<{
+  dashboardRefreshed: string;
+  instructionPreviewReady: string;
+  operatorReplyReceived: string;
+  preferencesUpdated: string;
+}>;
 
 type ControlRoomActionsProps = {
   abortDashboardRequest: () => void;
   applyLatestDashboard: (payload: DashboardData) => void;
   chatDraft: string;
   chatPersona: ChatPersona;
-  copy: ControlRoomCopy['feedback'];
+  copy: ControlRoomFeedbackCopy;
   instructionDraft: string;
   instructionMode: InstructionMode;
   loadDashboard: DashboardLoader;

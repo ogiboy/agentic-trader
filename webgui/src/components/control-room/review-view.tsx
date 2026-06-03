@@ -1,3 +1,5 @@
+import { useTranslations } from 'next-intl';
+
 import type { DashboardData } from '../control-room.helpers';
 import
   {
@@ -9,13 +11,12 @@ import
     tradeContextLines,
     unavailableSectionLines,
   } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
 import { Panel, TextList } from './primitives';
 
 export function ReviewView({
-  copy,
   dashboard,
-}: Readonly<{ copy: ControlRoomCopy; dashboard: DashboardData }>) {
+}: Readonly<{ dashboard: DashboardData }>) {
+  const t = useTranslations('controlRoom.review');
   const review = asRecord(dashboard.review);
   const reviewRecord = asRecord(review.record);
   const artifacts = asRecord(reviewRecord.artifacts);
@@ -28,32 +29,32 @@ export function ReviewView({
   const reviewLines =
     unavailableSectionLines(
       review,
-      copy.review.unavailable.latestReview,
+      t('unavailable.latestReview'),
     ) ||
     (Object.keys(reviewRecord).length
       ? [
-          `${copy.review.fields.runId}: ${asString(reviewRecord.run_id)}`,
-          `${copy.review.fields.created}: ${formatTimestamp(reviewRecord.created_at)}`,
-          `${copy.review.fields.symbol}: ${asString(reviewRecord.symbol)}`,
-          `${copy.review.fields.approved}: ${asString(reviewRecord.approved)}`,
-          `${copy.review.fields.coordinatorFocus}: ${asString(coordinator.market_focus)}`,
-          `${copy.review.fields.consensus}: ${asString(consensus.alignment_level)}`,
-          `${copy.review.fields.reviewSummary}: ${asString(reviewArtifact.summary)}`,
+          `${t('fields.runId')}: ${asString(reviewRecord.run_id)}`,
+          `${t('fields.created')}: ${formatTimestamp(reviewRecord.created_at)}`,
+          `${t('fields.symbol')}: ${asString(reviewRecord.symbol)}`,
+          `${t('fields.approved')}: ${asString(reviewRecord.approved)}`,
+          `${t('fields.coordinatorFocus')}: ${asString(coordinator.market_focus)}`,
+          `${t('fields.consensus')}: ${asString(consensus.alignment_level)}`,
+          `${t('fields.reviewSummary')}: ${asString(reviewArtifact.summary)}`,
         ]
-      : [copy.review.emptyPersistedRuns]);
+      : [t('emptyPersistedRuns')]);
 
   return (
     <div className='grid grid--2'>
-      <Panel title={copy.review.panels.latestReview} accent='lime'>
+      <Panel title={t('panels.latestReview')} accent='lime'>
         <TextList items={reviewLines} />
       </Panel>
-      <Panel title={copy.review.panels.tradeContext} accent='cyan'>
+      <Panel title={t('panels.tradeContext')} accent='cyan'>
         <TextList items={tradeContextLines(tradeContext.record)} />
       </Panel>
-      <Panel title={copy.review.panels.canonicalAnalysis} accent='amber'>
+      <Panel title={t('panels.canonicalAnalysis')} accent='amber'>
         <TextList items={canonicalLines(canonicalAnalysis.snapshot)} />
       </Panel>
-      <Panel title={copy.review.panels.marketContextPack} accent='rose'>
+      <Panel title={t('panels.marketContextPack')} accent='rose'>
         <TextList items={marketContextLines(marketContext.contextPack)} />
       </Panel>
     </div>

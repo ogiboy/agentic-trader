@@ -1,4 +1,5 @@
 import type { ReactNode, SyntheticEvent } from 'react';
+import { useTranslations } from 'next-intl';
 
 import type {
   DashboardData,
@@ -11,14 +12,13 @@ import
     asString,
     cx,
     localizedStatusText,
+    type ControlRoomDiagnosticsCopySource,
   } from '../control-room.helpers';
-import
-  {
-    CONTROL_ROOM_LOCALES,
-    normalizeControlRoomLocale,
-    type ControlRoomCopy,
-    type ControlRoomLocale,
-  } from './labels';
+import {
+  WEBGUI_LOCALE_OPTIONS,
+  normalizeWebguiLocale,
+  type WebguiLocale,
+} from '@/i18n/locales';
 import { WebguiTokenPrompt } from './primitives';
 
 export type RuntimeActionKind =
@@ -41,7 +41,6 @@ type LocalizedTab = {
 type ControlRoomAuthShellProps = {
   authBusy: boolean;
   authError: string | null;
-  copy: ControlRoomCopy;
   onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
   onTokenChange: (value: string) => void;
   token: string;
@@ -50,16 +49,24 @@ type ControlRoomAuthShellProps = {
 export function ControlRoomAuthShell({
   authBusy,
   authError,
-  copy,
   onSubmit,
   onTokenChange,
   token,
 }: Readonly<ControlRoomAuthShellProps>) {
+  const t = useTranslations('controlRoom.auth');
+
   return (
     <div className='auth-shell'>
       <WebguiTokenPrompt
         busy={authBusy}
-        copy={copy.auth}
+        copy={{
+          body: t('body'),
+          eyebrow: t('eyebrow'),
+          title: t('title'),
+          tokenLabel: t('tokenLabel'),
+          unlock: t('unlock'),
+          unlocking: t('unlocking'),
+        }}
         error={authError}
         onSubmit={onSubmit}
         onTokenChange={onTokenChange}
@@ -73,16 +80,16 @@ type ControlRoomShellProps = {
   activeTabLabel: string;
   busy: string | null;
   content: ReactNode;
-  copy: ControlRoomCopy;
   dashboard: DashboardData | null;
+  diagnosticsCopy: ControlRoomDiagnosticsCopySource;
   error: string | null;
   lastLoadedAt: string;
-  locale: ControlRoomLocale;
+  locale: WebguiLocale;
   message: ControlRoomMessage | null;
   tabs: LocalizedTab[];
   tab: TabId;
   onRunAction: (kind: RuntimeActionKind) => void;
-  onSelectLocale: (locale: ControlRoomLocale) => void;
+  onSelectLocale: (locale: WebguiLocale) => void;
   onSelectTab: (tab: TabId) => void;
 };
 
@@ -90,8 +97,8 @@ export function ControlRoomShell({
   activeTabLabel,
   busy,
   content,
-  copy,
   dashboard,
+  diagnosticsCopy,
   error,
   lastLoadedAt,
   locale,
@@ -102,6 +109,7 @@ export function ControlRoomShell({
   onSelectLocale,
   onSelectTab,
 }: Readonly<ControlRoomShellProps>) {
+  const t = useTranslations('controlRoom.shell');
   const status = asRecord(dashboard?.status);
   const doctor = asRecord(dashboard?.doctor);
   const broker = asRecord(dashboard?.broker);
@@ -114,12 +122,12 @@ export function ControlRoomShell({
     <div className='shell'>
       <aside className='sidebar'>
         <div className='sidebar__brand'>
-          <div className='sidebar__eyebrow'>{copy.shell.eyebrow}</div>
-          <div className='sidebar__title'>{copy.shell.title}</div>
-          <div className='sidebar__subtitle'>{copy.shell.subtitle}</div>
+          <div className='sidebar__eyebrow'>{t('eyebrow')}</div>
+          <div className='sidebar__title'>{t('title')}</div>
+          <div className='sidebar__subtitle'>{t('subtitle')}</div>
         </div>
 
-        <nav className='sidebar__nav' aria-label={copy.shell.navAria}>
+        <nav className='sidebar__nav' aria-label={t('navAria')}>
           {tabs.map((item) => (
             <button
               className={cx(
@@ -137,14 +145,14 @@ export function ControlRoomShell({
 
         <div className='sidebar__meta'>
           <label className='field-label'>
-            <span>{copy.shell.language}</span>
+            <span>{t('language')}</span>
             <select
               value={locale}
               onChange={(event) =>
-                onSelectLocale(normalizeControlRoomLocale(event.target.value))
+                onSelectLocale(normalizeWebguiLocale(event.target.value))
               }
             >
-              {CONTROL_ROOM_LOCALES.map((item) => (
+              {WEBGUI_LOCALE_OPTIONS.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
                 </option>
@@ -152,16 +160,16 @@ export function ControlRoomShell({
             </select>
           </label>
           <div>
-            {copy.shell.runtime}: {asString(status.runtime_state)}
+            {t('runtime')}: {asString(status.runtime_state)}
           </div>
           <div>
-            {copy.shell.mode}: {runtimeMode}
+            {t('mode')}: {runtimeMode}
           </div>
           <div>
-            {copy.shell.backend}: {asString(broker.backend)}
+            {t('backend')}: {asString(broker.backend)}
           </div>
           <div>
-            {copy.shell.lastRefresh}: {lastLoadedAt}
+            {t('lastRefresh')}: {lastLoadedAt}
           </div>
         </div>
       </aside>
@@ -174,8 +182,8 @@ export function ControlRoomShell({
             <span className='chip'>{asString(broker.execution_mode)}</span>
             <span className='chip chip--message'>
               {localizedStatusText(
-                asString(broker.message, copy.shell.runtimeUnavailable),
-                copy,
+                asString(broker.message, t('runtimeUnavailable')),
+                diagnosticsCopy,
               )}
             </span>
           </div>
@@ -186,7 +194,7 @@ export function ControlRoomShell({
               onClick={() => onRunAction('refresh')}
               type='button'
             >
-              {copy.shell.actions.refresh}
+              {t('actions.refresh')}
             </button>
             <button
               className='button'
@@ -194,7 +202,7 @@ export function ControlRoomShell({
               onClick={() => onRunAction('one-shot')}
               type='button'
             >
-              {copy.shell.actions.oneShot}
+              {t('actions.oneShot')}
             </button>
             <button
               className='button'
@@ -202,7 +210,7 @@ export function ControlRoomShell({
               onClick={() => onRunAction('start')}
               type='button'
             >
-              {copy.shell.actions.start}
+              {t('actions.start')}
             </button>
             <button
               className='button'
@@ -210,7 +218,7 @@ export function ControlRoomShell({
               onClick={() => onRunAction('stop')}
               type='button'
             >
-              {copy.shell.actions.stop}
+              {t('actions.stop')}
             </button>
             <button
               className='button'
@@ -218,7 +226,7 @@ export function ControlRoomShell({
               onClick={() => onRunAction('restart')}
               type='button'
             >
-              {copy.shell.actions.restart}
+              {t('actions.restart')}
             </button>
           </div>
         </header>

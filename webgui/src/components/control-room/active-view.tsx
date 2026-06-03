@@ -10,7 +10,9 @@ import type {
   ToolActionKind,
 } from '../control-room.helpers';
 import { ChatView } from './chat-view';
-import { getControlRoomCopy, type ControlRoomCopy } from './labels';
+import type {
+  ControlRoomDiagnosticsCopySource,
+} from './diagnostics-formatting';
 import { MemoryView } from './memory-view';
 import { OverviewView } from './overview-view';
 import { PortfolioView } from './portfolio-view';
@@ -21,8 +23,8 @@ import { SettingsView } from './settings-view';
 
 type ActiveViewProps = Readonly<{
   tab: TabId;
-  copy?: ControlRoomCopy;
   dashboard: DashboardData;
+  diagnosticsCopy: ControlRoomDiagnosticsCopySource;
   currentCycle: KeyValueItems;
   system: KeyValueItems;
   chatPersona: ChatPersona;
@@ -56,14 +58,12 @@ type ActiveViewProps = Readonly<{
  * @returns The JSX element for the active tab view.
  */
 export function ActiveView(props: ActiveViewProps) {
-  const copy = props.copy ?? getControlRoomCopy('en');
-
   switch (props.tab) {
     case 'overview':
       return (
         <OverviewView
-          copy={copy}
           dashboard={props.dashboard}
+          diagnosticsCopy={props.diagnosticsCopy}
           currentCycle={props.currentCycle}
           system={props.system}
           busy={props.busy}
@@ -71,13 +71,12 @@ export function ActiveView(props: ActiveViewProps) {
         />
       );
     case 'runtime':
-      return <RuntimeView copy={copy} dashboard={props.dashboard} />;
+      return <RuntimeView dashboard={props.dashboard} />;
     case 'portfolio':
-      return <PortfolioView copy={copy} dashboard={props.dashboard} />;
+      return <PortfolioView dashboard={props.dashboard} />;
     case 'proposals':
       return (
         <ProposalDeskView
-          copy={copy}
           dashboard={props.dashboard}
           busy={props.busy}
           proposalNote={props.proposalNote}
@@ -86,13 +85,12 @@ export function ActiveView(props: ActiveViewProps) {
         />
       );
     case 'review':
-      return <ReviewView copy={copy} dashboard={props.dashboard} />;
+      return <ReviewView dashboard={props.dashboard} />;
     case 'memory':
-      return <MemoryView copy={copy} dashboard={props.dashboard} />;
+      return <MemoryView dashboard={props.dashboard} />;
     case 'chat':
       return (
         <ChatView
-          copy={copy}
           dashboard={props.dashboard}
           chatPersona={props.chatPersona}
           chatHistory={props.chatHistory}
@@ -106,7 +104,6 @@ export function ActiveView(props: ActiveViewProps) {
     case 'settings':
       return (
         <SettingsView
-          copy={copy}
           dashboard={props.dashboard}
           instructionDraft={props.instructionDraft}
           instructionMode={props.instructionMode}

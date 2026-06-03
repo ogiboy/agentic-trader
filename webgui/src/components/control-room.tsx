@@ -8,6 +8,7 @@ import
     useState,
     type SyntheticEvent,
   } from 'react';
+import { useTranslations } from 'next-intl';
 
 import type { ChatPersona } from '@/lib/chat-personas';
 
@@ -23,7 +24,11 @@ import { ActiveView } from './control-room/active-view';
 import { authenticateWebguiSession, errorMessage } from './control-room/api';
 import { ControlRoomContent } from './control-room/content';
 import { useDashboardPolling } from './control-room/dashboard-polling';
-import { controlRoomTabs, getControlRoomCopy } from './control-room/labels';
+import { CONTROL_ROOM_TAB_IDS } from './control-room/labels';
+import {
+  useControlRoomCurrentCycleCopy,
+  useControlRoomDiagnosticsCopy,
+} from './control-room/intl-copy';
 import
   {
     ControlRoomAuthShell,
@@ -134,11 +139,20 @@ export function ControlRoom() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [locale, selectLocale] = useControlRoomLocaleState();
+  const currentCycleCopy = useControlRoomCurrentCycleCopy();
+  const diagnosticsCopy = useControlRoomDiagnosticsCopy();
+  const feedbackCopy = useTranslations('controlRoom.feedback');
+  const tabsCopy = useTranslations('controlRoom.tabs');
   const loadingSeconds = useLoadingSeconds(loading);
-  const copy = useMemo(() => getControlRoomCopy(locale), [locale]);
-  const localizedTabs = useMemo(() => controlRoomTabs(copy), [copy]);
-  const activeTabLabel =
-    localizedTabs.find((item) => item.id === tab)?.label ?? copy.tabs.overview;
+  const localizedTabs = useMemo(
+    () =>
+      CONTROL_ROOM_TAB_IDS.map((id) => ({
+        id,
+        label: tabsCopy(id),
+      })),
+    [tabsCopy],
+  );
+  const activeTabLabel = tabsCopy(tab);
 
   const selectTab = useCallback((nextTab: TabId) => {
     setTab(nextTab);
@@ -206,7 +220,12 @@ export function ControlRoom() {
     applyLatestDashboard,
     chatDraft,
     chatPersona,
-    copy: copy.feedback,
+    copy: {
+      dashboardRefreshed: feedbackCopy('dashboardRefreshed'),
+      instructionPreviewReady: feedbackCopy('instructionPreviewReady'),
+      operatorReplyReceived: feedbackCopy('operatorReplyReceived'),
+      preferencesUpdated: feedbackCopy('preferencesUpdated'),
+    },
     instructionDraft,
     instructionMode,
     loadDashboard,
@@ -221,20 +240,20 @@ export function ControlRoom() {
   });
 
   const currentCycle = useMemo(
-    () => currentCycleItems(dashboard, copy),
-    [copy, dashboard],
+    () => currentCycleItems(dashboard, currentCycleCopy, diagnosticsCopy),
+    [currentCycleCopy, dashboard, diagnosticsCopy],
   );
 
   const system = useMemo(
-    () => systemStatusViewItems(dashboard, copy),
-    [copy, dashboard],
+    () => systemStatusViewItems(dashboard, diagnosticsCopy),
+    [dashboard, diagnosticsCopy],
   );
 
   const activeView = dashboard ? (
     <ActiveView
       tab={tab}
-      copy={copy}
       dashboard={dashboard}
+      diagnosticsCopy={diagnosticsCopy}
       currentCycle={currentCycle}
       system={system}
       chatPersona={chatPersona}
@@ -259,7 +278,6 @@ export function ControlRoom() {
   const content = (
     <ControlRoomContent
       activeView={activeView}
-      copy={copy}
       dashboardAvailable={Boolean(dashboard)}
       loading={loading}
       loadingSeconds={loadingSeconds}
@@ -271,7 +289,6 @@ export function ControlRoom() {
       <ControlRoomAuthShell
         authBusy={authBusy}
         authError={authError}
-        copy={copy}
         onSubmit={unlockWebgui}
         onTokenChange={setWebguiToken}
         token={webguiToken}
@@ -284,8 +301,8 @@ export function ControlRoom() {
       activeTabLabel={activeTabLabel}
       busy={busy}
       content={content}
-      copy={copy}
       dashboard={dashboard}
+      diagnosticsCopy={diagnosticsCopy}
       error={error}
       lastLoadedAt={lastLoadedAt}
       locale={locale}

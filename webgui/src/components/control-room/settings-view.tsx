@@ -1,3 +1,5 @@
+import { useTranslations } from 'next-intl';
+
 import type {
   DashboardData,
   InstructionMode,
@@ -11,24 +13,24 @@ import
     formatList,
     formatTimestamp,
   } from '../control-room.helpers';
-import type { ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
 function instructionButtonLabel(
   busy: string | null,
   instructionMode: InstructionMode,
-  copy: ControlRoomCopy,
+  labels: Readonly<{
+    apply: string;
+    preview: string;
+    working: string;
+  }>,
 ) {
   if (busy === 'instruction') {
-    return copy.common.working;
+    return labels.working;
   }
-  return instructionMode === 'apply'
-    ? copy.settings.actions.apply
-    : copy.settings.actions.preview;
+  return instructionMode === 'apply' ? labels.apply : labels.preview;
 }
 
 export function SettingsView({
-  copy,
   dashboard,
   instructionDraft,
   instructionMode,
@@ -38,7 +40,6 @@ export function SettingsView({
   onInstructionModeChange,
   onSendInstruction,
 }: Readonly<{
-  copy: ControlRoomCopy;
   dashboard: DashboardData;
   instructionDraft: string;
   instructionMode: InstructionMode;
@@ -48,6 +49,8 @@ export function SettingsView({
   onInstructionModeChange: (value: InstructionMode) => void;
   onSendInstruction: () => Promise<void>;
 }>) {
+  const common = useTranslations('controlRoom.common');
+  const t = useTranslations('controlRoom.settings');
   const recentRuns = asRecord(dashboard.recentRuns);
   const preferences = asRecord(dashboard.preferences);
   const instruction = asRecord(instructionResult?.instruction);
@@ -55,83 +58,84 @@ export function SettingsView({
   const recentRunLines = recentRunRows.length
     ? recentRunRows.map(
         (run) =>
-          `${formatTimestamp(run.created_at)} | ${asString(run.symbol)} | ${asString(run.interval)} | ${copy.settings.fields.approved}=${asString(run.approved)}`,
+          `${formatTimestamp(run.created_at)} | ${asString(run.symbol)} | ${asString(run.interval)} | ${t('fields.approved')}=${asString(run.approved)}`,
       )
-    : [copy.settings.recentRunsEmpty];
+    : [t('recentRunsEmpty')];
   const instructionLines = instructionResult
     ? [
-        `${copy.settings.fields.instructionSummary}: ${asString(instruction.summary)}`,
-        `${copy.settings.fields.shouldUpdatePreferences}: ${asString(instruction.should_update_preferences, 'false')}`,
-        `${copy.settings.fields.requiresConfirmation}: ${asString(instruction.requires_confirmation, 'false')}`,
-        `${copy.settings.fields.applied}: ${
-          instructionResult.applied ? copy.common.yes : copy.common.no
+        `${t('fields.instructionSummary')}: ${asString(instruction.summary)}`,
+        `${t('fields.shouldUpdatePreferences')}: ${asString(instruction.should_update_preferences, 'false')}`,
+        `${t('fields.requiresConfirmation')}: ${asString(instruction.requires_confirmation, 'false')}`,
+        `${t('fields.applied')}: ${
+          instructionResult.applied ? common('yes') : common('no')
         }`,
-        `${copy.settings.fields.instructionRationale}: ${asString(instruction.rationale)}`,
+        `${t('fields.instructionRationale')}: ${asString(instruction.rationale)}`,
       ]
     : [
-        copy.settings.instructionEmpty,
-        copy.settings.fields.instructionExamples,
-        ...copy.settings.examples,
+        t('instructionEmpty'),
+        t('fields.instructionExamples'),
+        t('examples.conservative'),
+        t('examples.capitalPreservation'),
       ];
 
   return (
     <div className='grid grid--2'>
-      <Panel title={copy.settings.panels.preferences} accent='lime'>
+      <Panel title={t('panels.preferences')} accent='lime'>
         <KeyValueList
           items={[
             [
-              copy.settings.fields.regions,
+              t('fields.regions'),
               formatList(preferences.regions),
             ],
             [
-              copy.settings.fields.exchanges,
+              t('fields.exchanges'),
               formatList(preferences.exchanges),
             ],
             [
-              copy.settings.fields.currencies,
+              t('fields.currencies'),
               formatList(preferences.currencies),
             ],
             [
-              copy.settings.fields.sectors,
+              t('fields.sectors'),
               formatList(preferences.sectors),
             ],
             [
-              copy.settings.fields.risk,
+              t('fields.risk'),
               asString(preferences.risk_profile),
             ],
             [
-              copy.settings.fields.style,
+              t('fields.style'),
               asString(preferences.trade_style),
             ],
             [
-              copy.settings.fields.behavior,
+              t('fields.behavior'),
               asString(preferences.behavior_preset),
             ],
             [
-              copy.settings.fields.agentProfile,
+              t('fields.agentProfile'),
               asString(preferences.agent_profile),
             ],
             [
-              copy.settings.fields.tone,
+              t('fields.tone'),
               asString(preferences.agent_tone),
             ],
             [
-              copy.settings.fields.strictness,
+              t('fields.strictness'),
               asString(preferences.strictness_preset),
             ],
           ]}
         />
       </Panel>
-      <Panel title={copy.settings.panels.recentRuns} accent='amber'>
+      <Panel title={t('panels.recentRuns')} accent='amber'>
         <TextList items={recentRunLines} />
       </Panel>
-      <Panel title={copy.settings.panels.operatorInstruction} accent='cyan'>
+      <Panel title={t('panels.operatorInstruction')} accent='cyan'>
         <TextList items={instructionLines} />
       </Panel>
-      <Panel title={copy.settings.panels.composer} accent='rose'>
+      <Panel title={t('panels.composer')} accent='rose'>
         <div className='form-row'>
           <label className='field-label'>
-            <span>{copy.settings.fields.mode}</span>
+            <span>{t('fields.mode')}</span>
             <select
               value={instructionMode}
               onChange={(event) =>
@@ -139,9 +143,9 @@ export function SettingsView({
               }
             >
               <option value='preview'>
-                {copy.settings.modeOptions.preview}
+                {t('modeOptions.preview')}
               </option>
-              <option value='apply'>{copy.settings.modeOptions.apply}</option>
+              <option value='apply'>{t('modeOptions.apply')}</option>
             </select>
           </label>
         </div>
@@ -149,7 +153,7 @@ export function SettingsView({
           <textarea
             value={instructionDraft}
             onChange={(event) => onInstructionDraftChange(event.target.value)}
-            placeholder={copy.settings.placeholder}
+            placeholder={t('placeholder')}
           />
           <button
             className='button button--solid'
@@ -157,7 +161,11 @@ export function SettingsView({
             onClick={() => void onSendInstruction()}
             type='button'
           >
-            {instructionButtonLabel(busy, instructionMode, copy)}
+            {instructionButtonLabel(busy, instructionMode, {
+              apply: t('actions.apply'),
+              preview: t('actions.preview'),
+              working: common('working'),
+            })}
           </button>
         </div>
       </Panel>

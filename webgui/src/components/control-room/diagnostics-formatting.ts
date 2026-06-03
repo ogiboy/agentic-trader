@@ -1,4 +1,5 @@
-import { getControlRoomCopy, type ControlRoomCopy } from './labels';
+import { EN_DIAGNOSTICS_COPY } from './copy/diagnostics-en';
+import type { ControlRoomDiagnosticsCopy } from './copy/diagnostics-types';
 import { asRecord, asRecordArray, asString } from './payload';
 import type {
   DashboardData,
@@ -6,20 +7,36 @@ import type {
   KeyValueItems,
 } from './types';
 
-export function diagnosticsCopy(
-  copy?: ControlRoomCopy,
-): ControlRoomCopy['diagnostics'] {
-  return (copy ?? getControlRoomCopy('en')).diagnostics;
+export type ControlRoomDiagnosticsCopySource =
+  | ControlRoomDiagnosticsCopy
+  | { diagnostics: ControlRoomDiagnosticsCopy };
+
+function hasDiagnosticsCopy(
+  copy: ControlRoomDiagnosticsCopySource,
+): copy is { diagnostics: ControlRoomDiagnosticsCopy } {
+  return 'diagnostics' in copy;
 }
 
-export function yesNo(value: unknown, copy?: ControlRoomCopy): string {
+export function diagnosticsCopy(
+  copy?: ControlRoomDiagnosticsCopySource,
+): ControlRoomDiagnosticsCopy {
+  if (!copy) {
+    return EN_DIAGNOSTICS_COPY;
+  }
+  return hasDiagnosticsCopy(copy) ? copy.diagnostics : copy;
+}
+
+export function yesNo(
+  value: unknown,
+  copy?: ControlRoomDiagnosticsCopySource,
+): string {
   const values = diagnosticsCopy(copy).values;
   return value ? values.yes : values.no;
 }
 
 export function localizedStatusText(
   value: unknown,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): string {
   if (typeof value !== 'string' || value === '') {
     return '-';
@@ -51,7 +68,7 @@ export function localizedStatusText(
 
 export function sourceHealthSummaryLine(
   summary: unknown,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): string {
   const sourceSummary = asRecord(summary);
   if (!Object.keys(sourceSummary).length) {
@@ -92,7 +109,7 @@ export function failedCheckNames(
 
 export function readinessLines(
   dashboard: DashboardData,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): string[] {
   const diagnostics = diagnosticsCopy(copy);
   const { labels } = diagnostics;
@@ -119,7 +136,7 @@ export function readinessLines(
 
 export function providerWarningLines(
   dashboard: DashboardData,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): string[] {
   const diagnostics = diagnosticsCopy(copy);
   const { labels, messages, values } = diagnostics;
@@ -168,14 +185,14 @@ function effectiveModelBaseUrl(dashboard: DashboardData | null): string {
 function effectiveBoolean(
   appOwnedValue: unknown,
   fallbackValue: unknown,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): string {
   return yesNo(appOwnedValue ?? fallbackValue, copy);
 }
 
 export function systemStatusItems(
   dashboard: DashboardData | null,
-  copy?: ControlRoomCopy,
+  copy?: ControlRoomDiagnosticsCopySource,
 ): KeyValueItems {
   const diagnostics = diagnosticsCopy(copy);
   const { labels, values } = diagnostics;

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-import type { ControlRoomCopy } from './copy/types';
 import {
   ControlRoomLoadingPanel,
   ControlRoomUnavailablePanel,
@@ -8,7 +7,6 @@ import {
 
 type ControlRoomContentProps = {
   activeView: ReactNode;
-  copy: ControlRoomCopy;
   dashboardAvailable: boolean;
   loading: boolean;
   loadingSeconds: number;
@@ -16,18 +14,15 @@ type ControlRoomContentProps = {
 
 export function ControlRoomContent({
   activeView,
-  copy,
   dashboardAvailable,
   loading,
   loadingSeconds,
 }: ControlRoomContentProps) {
   if (loading) {
-    return (
-      <ControlRoomLoadingPanel copy={copy} loadingSeconds={loadingSeconds} />
-    );
+    return <ControlRoomLoadingPanel loadingSeconds={loadingSeconds} />;
   }
   if (dashboardAvailable) {
     return activeView;
   }
-  return <ControlRoomUnavailablePanel copy={copy} />;
+  return <ControlRoomUnavailablePanel />;
 }
