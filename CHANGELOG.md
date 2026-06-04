@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.14.2 (2026-06-04)
+
+### Chores
+
+- Bump crewai[tools] in /sidecars/research_flow
+  ([`40649f5`](https://github.com/ogiboy/agentic-trader/commit/40649f5320548c8bc24aed77b08e6a5399c6661d))
+
 ## v0.14.1 (2026-06-04)
 
 ### Bug Fixes
