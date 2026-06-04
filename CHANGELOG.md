@@ -7,6 +7,30 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.14.1 (2026-06-04)
+
+### Bug Fixes
+
+- Update versioning
+  ([`3c6eb20`](https://github.com/ogiboy/agentic-trader/commit/3c6eb2009b61e4b909cb481ef11ccd8b72ee86d6))
+- Fix lockfile issue
+  ([`eeef472`](https://github.com/ogiboy/agentic-trader/commit/eeef4728de2844f57af7f0b75c6df34ae1632673))
+- Fix lockfile issues and versioning
+  ([`e14d5bc`](https://github.com/ogiboy/agentic-trader/commit/e14d5bcca59fe7d5ef9c5ff76f1d1a9d2f60f57d))
+- Fix lockfile issues and versioning
+  ([`468ebd6`](https://github.com/ogiboy/agentic-trader/commit/468ebd61b8d18ee646ea4100cf9cbbd4da5d4644))
+- Fix lockfile issues and versioning
+  ([`5cf9136`](https://github.com/ogiboy/agentic-trader/commit/5cf9136a95b452051801d4d960d177f4f06579f7))
+- Align aiohttp dependabot version metadata
+  ([`3250e03`](https://github.com/ogiboy/agentic-trader/commit/3250e03f586b465516e708629827bef9d87aa0b1))
+
+### Chores
+
+- Bump pysonar from 1.5.0.4793 to 1.6.0.4905
+  ([`84383ba`](https://github.com/ogiboy/agentic-trader/commit/84383ba7a44a6b38ea42d0be2da62a7a3f7e0631))
+- Bump aiohttp from 3.13.5 to 3.14.0
+  ([`d411126`](https://github.com/ogiboy/agentic-trader/commit/d411126c6ffa5975959d4416c0a674e65c338bdb))
+
 ## v0.14.0 (2026-06-03)
 
 ### Features
