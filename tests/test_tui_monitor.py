@@ -121,6 +121,17 @@ def test_agent_activity_table_filters_to_current_runtime_cycle(tmp_path: Path) -
 
 
 def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
+    """
+    Validate pure TUI helper functions produce expected status lines and default messages.
+    
+    Asserts that:
+    - style_key formats keys with the expected style.
+    - split_csv normalizes and uppercases CSV symbol lists.
+    - runtime_cycle_lines returns the runtime summary lines (runtime state, mode, watched symbols, current symbol, cycle, interval/lookback, and current note).
+    - agent_activity_lines includes current stage, stage status, and stage message.
+    - broker_gate_lines reports broker backend/state, kill switch state, and paper gate status using UI text for English.
+    - last_outcome_lines returns the last outcome type and message for populated activity and a single waiting message when activity lacks outcome information.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

@@ -5,6 +5,11 @@ from agentic_trader import ui_text
 
 
 def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> None:
+    """
+    Verify that get_ui_text returns the English UI catalog when no locale is provided or configured in the environment.
+    
+    Asserts that supported locales include English and Turkish and that many catalog entries match the English constants and literal English strings (including titles, labels, help texts, status tokens, and templated message prefixes).
+    """
     monkeypatch.delenv(ui_text.UI_LOCALE_ENV, raising=False)
     catalog = ui_text.get_ui_text()
 
@@ -244,6 +249,11 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
+    """
+    Verify that requesting the Turkish regional locale ("tr-TR") returns a catalog with expected Turkish translations and message formats.
+    
+    Asserts that a wide set of UI labels, titles, help texts, status strings, prompts, and formatted messages are translated or formatted as expected for the Turkish regional locale, including checks that certain entries start with or end with expected prefixes/suffixes and that some keys match specific constants.
+    """
     catalog = ui_text.get_ui_text("tr-TR")
 
     assert catalog.title_runtime_status == "Runtime Durumu"
@@ -436,6 +446,11 @@ def test_translation_facade_resolves_catalog_first_keys() -> None:
 
 
 def test_translation_facade_resolves_domain_first_keys() -> None:
+    """
+    Validates that a domain-first translation key resolves to the expected Turkish string.
+    
+    Asserts that translating "runtime.status.title" with locale "tr" yields "Runtime Durumu".
+    """
     assert ui_text.t("runtime.status.title", locale="tr") == "Runtime Durumu"
 
 

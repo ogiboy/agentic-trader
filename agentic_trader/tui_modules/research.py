@@ -24,6 +24,17 @@ from agentic_trader.ui_text import t
 
 
 def memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
+    """
+    Builds a rich Table displaying a list of historical memory matches.
+    
+    Creates a Table titled with the localized UI key for the memory explorer and adds columns for created, symbol, score, regime, strategy, and bias. If `matches` is empty the table contains a single row of "-" placeholders; otherwise one row is added per match with the match's created_at, symbol, similarity_score (formatted to two decimals), regime, strategy_family, and manager_bias.
+    
+    Parameters:
+        matches (Sequence[HistoricalMemoryMatch]): Sequence of historical memory match objects to display.
+    
+    Returns:
+        Table: A populated rich.table.Table ready for rendering.
+    """
     table = Table(title=t("title.decision.evidence.explorer"))
     table.add_column(t("label.created"))
     table.add_column(t("label.symbol"))
@@ -48,6 +59,11 @@ def memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
 
 
 def show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
+    """
+    Open an interactive prompt to search for historical memory matches for a symbol and display the results in a table.
+    
+    Prompts the user for symbol, interval, lookback window and maximum matches, fetches market data, builds a feature snapshot, retrieves similar historical memories from the provided database, and renders the matches using the memory explorer table.
+    """
     symbol = Prompt.ask(t("label.symbol"), default="AAPL").strip().upper()
     interval = Prompt.ask(t("label.interval"), default="1d")
     lookback = Prompt.ask(t("label.lookback"), default="180d")
@@ -62,6 +78,14 @@ def show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
 
 
 def research_menu(settings: Settings) -> None:
+    """
+    Display an interactive TUI research menu for exploring historical memories and recent runs.
+    
+    Runs a loop that presents menu actions to open the memory explorer, show recent runs (and render recent runtime events after that action), or go back; executes the selected action using a read-only database context and prompts the user to continue between iterations.
+    
+    Parameters:
+        settings (Settings): Application settings and environment used to access services and the database.
+    """
     actions = {
         "1": TuiMenuAction(
             "1",

@@ -75,6 +75,12 @@ def _monitor_db(
 
 
 def _monitor_header() -> Panel:
+    """
+    Create the header panel for the live monitor UI.
+    
+    Returns:
+        Panel: A Rich Panel containing a localized title and subtitle; the title is styled and the panel uses a bright blue border.
+    """
     return Panel(
         Text(t("title.live.monitor"), style=t("style.key.column")),
         subtitle=t("message.monitor.return.shortcut"),
@@ -125,6 +131,15 @@ def _status_columns(
 
 
 def _operator_data_columns(db: TradingDatabase | None) -> Columns:
+    """
+    Constructs the operator data columns for the monitor, showing preference and portfolio panels or observer-mode placeholders.
+    
+    Parameters:
+        db (TradingDatabase | None): Database handle; when provided, panels render actual preferences and portfolio data. When `None`, observer-mode placeholder panels are used.
+    
+    Returns:
+        columns (Columns): Two-column layout (equal, expanded) where the left column is a preferences panel or observer placeholder and the right column is a portfolio panel or observer placeholder.
+    """
     return Columns(
         [
             (
@@ -144,6 +159,18 @@ def _operator_data_columns(db: TradingDatabase | None) -> Columns:
 
 
 def _history_columns(db: TradingDatabase | None, events: list[ServiceEvent]) -> Columns:
+    """
+    Builds a two-column layout showing recent run history (or an observer-mode placeholder) alongside recent runtime events.
+    
+    Parameters:
+        db (TradingDatabase | None): Database handle; if provided the left column shows recent runs and a trade journal, otherwise it shows an observer-mode placeholder.
+        events (list[ServiceEvent]): Recent runtime events to display in the right column.
+    
+    Returns:
+        Columns: A rich Columns renderable with two equally sized, expanded columns:
+            - Left column: a Panel containing recent runs and a trade journal when `db` is available, or an observer-mode panel otherwise.
+            - Right column: a Panel containing the runtime events table.
+    """
     return Columns(
         [
             (
@@ -162,6 +189,15 @@ def _history_columns(db: TradingDatabase | None, events: list[ServiceEvent]) -> 
 
 
 def _risk_renderable(db: TradingDatabase | None) -> RenderableType:
+    """
+    Return a renderable showing the daily risk report or an observer-mode placeholder.
+    
+    Parameters:
+        db (TradingDatabase | None): Database handle used to build the risk report. If `None`, an observer-mode placeholder is returned.
+    
+    Returns:
+        RenderableType: A `Panel` with the risk report when `db` is provided, otherwise an observer-mode panel titled with the localized "daily risk report" string.
+    """
     return (
         Panel(risk_report_table(db), border_style="red")
         if db is not None

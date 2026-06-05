@@ -28,10 +28,28 @@ console = Console()
 
 
 def _yes_no(value: object) -> str:
+    """
+    Provide a localized 'yes' or 'no' label for a value's truthiness.
+    
+    Parameters:
+        value (object): The value to evaluate for truthiness.
+    
+    Returns:
+        str: Localized "yes" label if `value` is truthy, localized "no" label otherwise.
+    """
     return t("label.yes") if value else t("label.no")
 
 
 def render_status(settings: Settings, db: TradingDatabase | None) -> None:
+    """
+    Render a full system status view including runtime details, LLM health, current activity panels, preferences/recent runs (when available), and recent runtime events.
+    
+    Prints a Rich-formatted table and several panels to the module console. The display includes runtime directory, database path, runtime mode, model and base URL, LLM reachability and availability, strict LLM flag, the current runtime state panel, a current activity panel, and an observer or preferences/runs panel depending on `db`. Also renders a short runtime event feed.
+    
+    Parameters:
+        settings (Settings): Application settings and configuration used to populate the status display.
+        db (TradingDatabase | None): Optional trading database; when provided, preferences and recent runs are rendered. If `None`, an observer-mode panel is shown instead.
+    """
     health = LocalLLM(settings).health_check()
     runtime_state = read_service_state(settings)
     status = Table(title=t("title.system.status"))
@@ -78,6 +96,13 @@ def render_status(settings: Settings, db: TradingDatabase | None) -> None:
 
 
 def render_compact_status(settings: Settings, db: TradingDatabase | None) -> None:
+    """
+    Render a compact system snapshot table showing runtime state, model name, LLM and provider readiness, broker status, kill-switch, provider warnings count, and whether database views are available.
+    
+    Parameters:
+        settings (Settings): Application settings and runtime configuration used to build the snapshot.
+        db (TradingDatabase | None): Trading database instance; when `None` the snapshot shows observer-mode as the DB status.
+    """
     health = LocalLLM(settings).health_check()
     runtime_state = read_service_state(settings)
     runtime_view = build_runtime_status_view(runtime_state)

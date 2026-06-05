@@ -39,10 +39,26 @@ def render_main_status(settings: Settings) -> None:
 
 
 def _exit_menu_action(_settings: Settings) -> None:
+    """
+    Exit the application cleanly.
+    
+    This action handler terminates the program by calling exit_cleanly and does not use the provided settings.
+    
+    Parameters:
+        _settings (Settings): Ignored; present to match the action handler signature.
+    """
     exit_cleanly()
 
 
 def main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
+    """
+    Get the fixed tuple of main-menu actions used by the TUI.
+    
+    Each entry is a TuiMainMenuAction mapping a single-character key to a localized label and a handler;
+    the final action (key "7") is configured to exit the menu loop.
+    Returns:
+    	tuple[TuiMainMenuAction, ...]: Ordered sequence of seven main-menu actions (keys "1" through "7").
+    """
     return (
         TuiMainMenuAction(
             "1",
@@ -61,6 +77,15 @@ def main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
 
 
 def main_menu_table(actions: Sequence[TuiMainMenuAction]) -> Table:
+    """
+    Builds a Rich Table representing the main menu from the provided actions.
+    
+    Parameters:
+        actions (Sequence[TuiMainMenuAction]): Sequence of menu actions used to populate the table; each action yields one row with its `key` and `label`.
+    
+    Returns:
+        Table: A `rich.table.Table` titled with the main menu text, containing two columns (key and action label) and one row per action.
+    """
     menu = Table(title=t("title.main.menu"))
     menu.add_column(t("label.key"), style=t("style.key.column"))
     menu.add_column(t("label.action"))
@@ -84,6 +109,19 @@ def run_main_menu(
     *,
     settings_provider: Callable[[], Settings] = get_settings,
 ) -> None:
+    """
+    Run the interactive main menu loop using a settings provider.
+    
+    Displays the application banner, current status, and main menu; prompts the user to choose actions and dispatches the selected action handlers until an exit action is chosen or an EOF condition occurs.
+    
+    Parameters:
+        settings_provider (Callable[[], Settings]): Callable that returns a Settings instance; used to obtain configuration and ensure required directories exist before entering the menu loop.
+    
+    Behavior notes:
+        - Calls exit_cleanly() and returns when an EOF is encountered while prompting.
+        - Catches KeyboardInterrupt during action execution and returns to the menu after showing a cancellation message.
+        - Catches other exceptions raised by actions and displays an error panel, then continues the menu loop.
+    """
     settings = settings_provider()
     settings.ensure_directories()
     actions = main_menu_actions()

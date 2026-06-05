@@ -22,6 +22,14 @@ from agentic_trader.ui_text import t
 
 
 def configure_preferences(db: TradingDatabase) -> None:
+    """
+    Open the trading database, interactively prompt the user to edit investment preferences, and save the updated preferences.
+    
+    Loads current preferences from the provided `db`, displays them, prompts the user for updated values for regions, exchanges, currencies, sectors, risk profile, trade style, behavior and agent settings, strictness and intervention presets, and free-text notes. Parses comma-separated inputs for list fields (using `split_csv`), falls back to existing values for regions/exchanges/currencies when the parsed result is empty, casts selected string choices to their schema types, persists the assembled `InvestmentPreferences` via `db.save_preferences`, and prints a localized confirmation panel.
+    
+    Parameters:
+        db (TradingDatabase): Writable trading database used to load and persist user preferences.
+    """
     current = db.load_preferences()
     console.print(render_preferences(current))
     regions = Prompt.ask(t("label.regions"), default=", ".join(current.regions))
@@ -88,6 +96,14 @@ def configure_preferences(db: TradingDatabase) -> None:
 
 
 def edit_preferences_action(settings: Settings) -> None:
+    """
+    Open a writable database and launch the interactive preferences editor, handling errors and ensuring the database is closed.
+    
+    If opening the database fails, an error panel is displayed and the user is prompted to continue; the function then returns without making changes. On success, the function runs the interactive preference configuration flow and always closes the database connection when finished.
+    
+    Parameters:
+        settings (Settings): Application settings used to locate and open the database.
+    """
     try:
         db = open_db(settings, read_only=False)
     except Exception as exc:

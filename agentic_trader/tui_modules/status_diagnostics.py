@@ -29,6 +29,15 @@ BROKER_STATUS_KEYS: tuple[str, ...] = (
 
 
 def render_broker_status(settings: Settings) -> None:
+    """
+    Render a Rich table showing the broker's runtime status and health information.
+    
+    The table displays each field from the broker runtime payload (as defined by BROKER_STATUS_KEYS),
+    the healthcheck message if present, and any blocking reasons joined by the configured list separator.
+    
+    Parameters:
+        settings (Settings): Application settings used to fetch the broker runtime payload.
+    """
     payload = broker_runtime_payload(settings)
     table = Table(title=t("title.broker.status"))
     table.add_column(t("label.field"), style=t("style.key.column"))
@@ -52,6 +61,14 @@ def render_broker_status(settings: Settings) -> None:
 
 
 def render_provider_diagnostics(settings: Settings) -> None:
+    """
+    Render provider diagnostics to the console.
+    
+    Builds and prints a summary table of provider-related diagnostics (LLM, market data, news, and Alpaca configuration), prints a warnings panel if any warnings are present, and builds and prints a provider "source ladder" table showing provider id, type, role, enabled state, API key readiness, and freshness.
+    
+    Parameters:
+        settings (Settings): Application settings used to fetch the provider diagnostics payload.
+    """
     payload = object_mapping(provider_diagnostics_payload(settings))
     summary = Table(title=t("title.provider.diagnostics"))
     summary.add_column(t("label.field"), style=t("style.key.column"))
