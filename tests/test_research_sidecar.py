@@ -175,7 +175,8 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(
         research_symbols="AAPL",
     )
     flow_dir = tmp_path / "research_flow"
-    (flow_dir / ".venv").mkdir(parents=True)
+    (tmp_path / ".venv").mkdir(parents=True)
+    flow_dir.mkdir(parents=True)
     (flow_dir / "pyproject.toml").write_text("[project]\nname='fake'\n")
     captured: dict[str, object] = {}
 
@@ -255,11 +256,13 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(
     assert captured["command"] == [
         "uv",
         "run",
+        "--package",
+        "research-flow",
         "--locked",
         "--no-sync",
         "research-flow-contract",
     ]
-    assert captured["cwd"] == str(flow_dir)
+    assert captured["cwd"] == str(tmp_path)
     assert captured["tracing"] == "false"
     assert captured["broker_secret"] is None
     assert captured["model_secret"] == "model-secret"
@@ -281,7 +284,8 @@ def test_crewai_backend_redacts_non_json_process_output(
         research_symbols="AAPL",
     )
     flow_dir = tmp_path / "research_flow"
-    (flow_dir / ".venv").mkdir(parents=True)
+    (tmp_path / ".venv").mkdir(parents=True)
+    flow_dir.mkdir(parents=True)
     (flow_dir / "pyproject.toml").write_text("[project]\nname='fake'\n")
 
     def fake_runner(
@@ -334,7 +338,8 @@ def test_crewai_backend_preserves_non_list_contract_errors(
         research_symbols="AAPL",
     )
     flow_dir = tmp_path / "research_flow"
-    (flow_dir / ".venv").mkdir(parents=True)
+    (tmp_path / ".venv").mkdir(parents=True)
+    flow_dir.mkdir(parents=True)
     (flow_dir / "pyproject.toml").write_text("[project]\nname='fake'\n")
 
     def fake_runner(

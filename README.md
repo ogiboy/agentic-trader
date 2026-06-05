@@ -346,10 +346,11 @@ local environment file.
 
 ### Optional CrewAI Research Flow Sidecar
 
-CrewAI is tracked as an isolated uv-managed Flow sidecar under
-`sidecars/research_flow/`. It is not a root dependency and the core runtime does
-not import it. When the research backend is set to `crewai`, the root process
-calls the Flow sidecar through a subprocess JSON contract after the sidecar
+CrewAI is tracked as a uv workspace member under `sidecars/research_flow/`. It
+is not a root runtime dependency and the core runtime does not import it. The
+root `uv.lock` owns dependency resolution for both the core package and the
+sidecar. When the research backend is set to `crewai`, the root process calls
+the Flow sidecar through a subprocess JSON contract after the workspace
 environment has been installed.
 
 ```bash
@@ -592,7 +593,7 @@ Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, or `pnpm ru
 
 GitHub Actions needs only `SONAR_TOKEN` as a repository secret for SonarCloud. Docs deployment uses GitHub Pages permissions, releases/binaries use the built-in `GITHUB_TOKEN`, and local Docker SonarQube tokens should stay on the developer machine.
 
-uv selects and syncs the root Python interpreter from `.python-version`, owns root dependency locking, command execution, and builds, while the tracked CrewAI Flow sidecar owns its own nested `uv.lock`. pnpm owns JavaScript workspace dependencies plus the shared command surface. The two uv projects intentionally stay separate below the root scripts so CrewAI can evolve without widening the core runtime dependency graph.
+uv selects and syncs the root Python interpreter from `.python-version`, owns the Python workspace lock, command execution, and builds, while the tracked CrewAI Flow sidecar is a subprocess-only workspace member under `sidecars/research_flow/`. pnpm owns JavaScript workspace dependencies plus the shared command surface. CrewAI remains outside the root runtime dependency list even though root `uv.lock` owns the shared resolution.
 
 Commit messages should follow conventional commits so release automation can infer version bumps:
 

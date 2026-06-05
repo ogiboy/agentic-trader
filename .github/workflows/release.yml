@@ -119,7 +119,6 @@ jobs:
           uv run --locked --no-sync semantic-release version --no-commit --no-tag --no-push --no-vcs-release
           uv run --locked --no-sync python scripts/release/fill_stable_changelog.py --version "$tag"
           uv lock
-          (cd sidecars/research_flow && uv lock)
           git add \
             CHANGELOG.md \
             agentic_trader/__init__.py \
@@ -127,7 +126,6 @@ jobs:
             package.json \
             pyproject.toml \
             sidecars/research_flow/pyproject.toml \
-            sidecars/research_flow/uv.lock \
             tui/package.json \
             uv.lock \
             webgui/package.json

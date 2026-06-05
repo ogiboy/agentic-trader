@@ -2,16 +2,15 @@
 set -eu
 
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-SIDECAR_DIR="${REPO_ROOT}/sidecars/research_flow"
 
 if ! command -v uv >/dev/null 2>&1; then
 	echo "uv is required for the research CrewAI Flow sidecar. Install uv before running this check." >&2
 	exit 1
 fi
 
-cd "${SIDECAR_DIR}"
-uv sync --locked
-uv run --locked python -m compileall -q src
-uv run --locked research-flow-check
-printf '%s\n' '{"mode":"training","symbols":["AAPL"],"provider_outputs":[]}' | uv run --locked --no-sync research-flow-contract
-uv run --locked python -c 'import sys; print(f"python={sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")'
+cd "${REPO_ROOT}"
+uv sync --locked --all-packages --all-extras --group dev
+uv run --locked --package research-flow python -m compileall -q sidecars/research_flow/src
+uv run --locked --package research-flow research-flow-check
+printf '%s\n' '{"mode":"training","symbols":["AAPL"],"provider_outputs":[]}' | uv run --locked --package research-flow --no-sync research-flow-contract
+uv run --locked --package research-flow python -c 'import sys; print(f"python={sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")'

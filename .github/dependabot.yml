@@ -20,6 +20,12 @@ updates:
           - react-dom
           - eslint*
           - "@types/*"
+    ignore:
+      # eslint-plugin-react@7.37.5 is still pulled by eslint-config-next@16.2.7
+      # and is not compatible with ESLint 10 rule-context APIs.
+      - dependency-name: eslint
+        update-types:
+          - version-update:semver-major
 
   # Python dependencies are uv-owned in this repo, so use the native `uv`
   # ecosystem instead of the older `pip` fallback.
@@ -28,9 +34,3 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-
-  - package-ecosystem: uv
-    directory: /sidecars/research_flow
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3

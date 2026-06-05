@@ -26,12 +26,12 @@ export function upPlan(options) {
     ),
     upStep(
       'research-flow-sidecar',
-      'Install or repair the isolated CrewAI Flow sidecar environment',
+      'Install or repair the CrewAI Flow workspace member dependencies',
       ['pnpm', 'run', 'setup:research-flow'],
       'sidecar',
       {
         reason:
-          'Sidecar remains isolated under sidecars/research_flow and is not imported by the core runtime.',
+          'Sidecar remains a subprocess-only workspace member and is not imported by the core runtime.',
       },
     ),
     upStep(

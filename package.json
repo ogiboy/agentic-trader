@@ -1,6 +1,6 @@
 {
   "name": "agentic-trader-workspace",
-  "version": "0.14.4",
+  "version": "0.14.5",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1",
@@ -26,7 +26,7 @@
     "setup:node": "scripts/setup-node-workspace.sh",
     "install:python": "scripts/install-python.sh",
     "install:node": "pnpm run setup:node",
-    "setup:research-flow": "cd sidecars/research_flow && uv sync --locked",
+    "setup:research-flow": "uv sync --locked --all-packages --all-extras --group dev",
     "setup:research-crewai": "pnpm run setup:research-flow",
     "check": "pnpm run qa:prompts && pnpm run check:python && pnpm run check:node",
     "check:python": "scripts/check-python.sh",

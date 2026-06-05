@@ -29,7 +29,7 @@ Web GUI launch requires explicit scopes plus --yes.
 
 Options:
   --core              Run root app:setup core repair.
-  --sidecar           Install or repair the CrewAI Flow sidecar environment.
+  --sidecar           Install or repair CrewAI Flow workspace member dependencies.
   --camofox-deps      Install optional Camofox helper dependencies only.
   --camofox-browser   Fetch/update the optional Camofox browser binary.
   --model-service     Start the app-owned local model-service.

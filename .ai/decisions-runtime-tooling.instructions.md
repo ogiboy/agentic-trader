@@ -68,21 +68,21 @@ A root pnpm workspace keeps Node dependency locking, CI cache keys, setup, build
 uv remains the Python truth, while root `package.json` scripts and thin Makefile aliases provide the human-facing command surface.
 The Makefile must stay an alias layer over pnpm and uv commands rather than becoming a second build system.
 
-### CrewAI Flow sidecar uses uv without turning the repo into a uv workspace
+### CrewAI Flow sidecar is a uv workspace member without becoming core runtime
 
 Reason:
-CrewAI currently requires a narrower Python range than the root package wants to support, and its dependency graph should not become part of the strict trading runtime by accident.
-The repository should therefore keep `sidecars/research_flow/` as an independent uv project with its own lockfile and smoke checks.
-Root pnpm and Make commands may call into that sidecar for setup, check, and gated runs, but the root project should not add CrewAI to the root dependency graph or adopt a repository-wide uv workspace until there is a proven need.
-Runtime integration should use `uv run --locked --no-sync` against an already-installed sidecar environment so normal trading commands do not silently create or update a CrewAI environment.
+CrewAI currently requires a narrower Python range than the root package advertises, and its dependency graph must not become part of the strict trading runtime by direct import.
+The repository therefore keeps `sidecars/research_flow/` as a separate package in the root uv workspace: root `uv.lock` owns resolution for both packages, while CrewAI remains declared only by the `research_flow` member.
+Root pnpm and Make commands may call into that sidecar for setup, check, and gated runs through `uv sync --all-packages --all-extras --group dev` and `uv run --package research-flow`.
+Runtime integration should use `uv run --locked --package research-flow --no-sync` against an already-installed workspace environment so normal trading commands do not silently create or update a CrewAI environment.
 The core Python runtime may spawn the sidecar process and parse its JSON contract, but it must not import CrewAI modules directly.
-The sidecar pyproject version is synced with the root application version through semantic-release `version_toml`, while its Python pin remains `3.13` to stay under CrewAI's current `<3.14` support boundary.
+The sidecar pyproject version is synced with the root application version through semantic-release `version_toml`, while its Python pin remains `3.13` to stay under CrewAI's current `<3.14` support boundary. Because uv workspaces use a shared lock, local and CI sync commands should use Python 3.13.
 
 ### Root uv migration replaces Poetry but not the project runtime architecture
 
 Reason:
 Using Conda, Poetry, uv sidecars, and multiple Python versions at once became operationally noisy.
-The root now uses uv for dependency resolution, environment sync, command execution, and package builds, while pnpm remains the JavaScript workspace owner and the CrewAI Flow sidecar keeps its own isolated uv lock.
+The root now uses uv for dependency resolution, environment sync, command execution, and package builds, while pnpm remains the JavaScript workspace owner and the CrewAI Flow sidecar participates as a subprocess-only uv workspace member.
 This changes developer environment management only; it does not replace the staged specialist runtime, broker adapter boundary, memory rules, or paper-first safety gates.
 
 ### Environment templates document targets, local env files own secrets
@@ -391,8 +391,8 @@ one operator command instead of scattered across manual `pnpm`, `uv`, sidecar,
 tool-root, build, and status commands.
 `app:update` therefore defaults to a dry-run plan and requires at least one
 explicit scope plus `--yes` before it mutates anything.
-The first scopes are `--core` for root pnpm plus root uv lock/env updates,
-`--sidecar` for the CrewAI Flow uv lock/env, `--camofox` for optional
+The first scopes are `--core` for root pnpm plus uv workspace lock/env updates,
+`--sidecar` for CrewAI Flow workspace member sync, `--camofox` for optional
 Camofox helper package dependencies, `--build` for repository/sidecar/tool-root
 checks, and `--status` for the post-update `app:doctor` payload.
 `--all` selects the full lane.

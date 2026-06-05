@@ -30,12 +30,12 @@ SEC EDGAR submissions metadata can produce source-attributed filing evidence for
 The provider may summarize compact official XBRL company facts from the SEC companyfacts API for both sidecar research evidence and canonical US fundamental snapshots, but it still must not download raw filing text, parse arbitrary filing HTML, or mutate trading policy.
 When providers return normalized evidence, world-state source attribution must stay fresh and source-attributed rather than being collapsed into missing-source scaffolding.
 
-### CrewAI setup stays isolated until the dependency boundary is proven
+### CrewAI setup stays subprocess-only under the uv workspace
 
 Reason:
-CrewAI is available as a useful sidecar harness, but adding it to the root lock would widen the runtime dependency surface before the adapter is implemented.
-The current path is operator-visible setup/status plus a tracked uv-managed CrewAI Flow sidecar under `sidecars/research_flow/`, then JSON/Pydantic handshakes behind `ResearchSidecarBackend` as V1 deep-dive tasks mature.
-The sidecar can own its CrewAI dependency, Python 3.13 `.python-version`, and `uv.lock`; the root runtime must keep working when that sidecar is not installed.
+CrewAI is available as a useful sidecar harness, but importing it from the core runtime would widen the runtime dependency surface before the adapter is implemented.
+The current path is operator-visible setup/status plus a tracked uv workspace member under `sidecars/research_flow/`, then JSON/Pydantic handshakes behind `ResearchSidecarBackend` as V1 deep-dive tasks mature.
+The sidecar owns its CrewAI dependency declaration and Python 3.13 `.python-version`, while root `uv.lock` owns shared workspace resolution. The root runtime must keep working when sidecar dependencies are not installed.
 
 ### External AI coding tools are development helpers, not runtime dependencies
 

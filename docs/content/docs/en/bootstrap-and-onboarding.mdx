@@ -196,8 +196,8 @@ rebuild and re-run setup status:
 
 - root Node workspace: pnpm recursive/workspace update flow
 - Camofox helper: `pnpm --dir tools/camofox-browser ...`
-- root Python: uv lock upgrade plus locked sync
-- CrewAI Flow sidecar: sidecar uv lock upgrade plus locked sync
+- root Python: uv workspace lock upgrade plus locked sync
+- CrewAI Flow sidecar: workspace member locked sync through root uv
 - docs/WebGUI/TUI: normal workspace build and typecheck gates
 - post-update status: `app:doctor`
 

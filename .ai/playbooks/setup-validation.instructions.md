@@ -86,7 +86,7 @@ or app-owned runtime state.
 - Research Flow sidecar:
   - `pnpm run setup:research-flow`
   - `pnpm run check:research-flow`
-  - `cd sidecars/research_flow && uv lock --check`
+  - `uv lock --check`
 - Camofox tool root:
   - `pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`
   - `pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser`
@@ -152,7 +152,7 @@ or app-owned runtime state.
 | Camofox browser missing | `pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser` | require explicit operator approval first |
 | WebGUI build           | `pnpm --filter webgui build`             | run Browser QA if UI behavior changed            |
 | docs build             | `pnpm --filter docs build`               | verify static export assumptions                 |
-| sidecar check          | `pnpm run check:research-flow`           | verify sidecar `.venv` and `uv.lock`             |
+| sidecar check          | `pnpm run check:research-flow`           | verify workspace `.venv` and root `uv.lock`      |
 | app-owned model absent | `agentic-trader model-service status --probe-generation --json` | verify host-owned vs app-owned vs skipped provider choice |
 | command runtime risk   | `ruflo hooks pre-command -- "<command>"` | document residual risk before running            |
 

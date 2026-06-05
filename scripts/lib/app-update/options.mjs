@@ -9,8 +9,8 @@ Default behavior is a dry-run plan. Mutating updates require selecting one or
 more scopes plus --yes.
 
 Options:
-  --core     Update root pnpm workspace and root uv lock/env owners.
-  --sidecar  Update the CrewAI Flow sidecar uv lock/env owner.
+  --core     Update root pnpm workspace and uv workspace lock/env owners.
+  --sidecar  Sync CrewAI Flow workspace member dependencies.
   --camofox  Update optional Camofox helper package dependencies only.
   --build    Run repository build/check validation after selected updates.
   --status   Run app:doctor after selected updates.
