@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +12,7 @@ from typing import Iterable
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROMPT_DOC_SUFFIXES = (".instructions.md", ".agent.md", ".prompt.md")
 SKIP_DIRS = {
+    ".agents", ".claude", ".claude-flow",
     ".git",
     ".mypy_cache",
     ".next",
@@ -25,17 +25,8 @@ SKIP_DIRS = {
     "runtime",
 }
 GENERATED_TOOL_STATE_NAMES = {
-    ".mcp.json",
-    ".ruflo",
     ".swarm",
-}
-GENERATED_RUNTIME_STATE_PARTS = {
-    (".claude-flow", "data"),
-    (".claude-flow", "logs"),
-    (".claude-flow", "sessions"),
-    (".claude-flow", "neural"),
-    (".claude-flow", "metrics"),
-    (".claude-flow", "security"),
+    ".mcp.json",
 }
 
 ERROR_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -124,38 +115,20 @@ def _generated_state_findings() -> list[Finding]:
     for current_root, dirs, files in os.walk(REPO_ROOT):
         dirs[:] = [name for name in dirs if name not in SKIP_DIRS]
         current = Path(current_root)
-        rel_parts = current.relative_to(REPO_ROOT).parts
-        if "example" in rel_parts:
+        if "example" in current.relative_to(REPO_ROOT).parts:
             continue
         for name in list(dirs) + files:
-            path = current / name
-            rel_path = path.relative_to(REPO_ROOT)
-            rel_key = rel_path.parts[:2]
-            if name in GENERATED_TOOL_STATE_NAMES or rel_key in GENERATED_RUNTIME_STATE_PARTS:
-                if _is_ignored_by_git(path):
-                    continue
+            if name in GENERATED_TOOL_STATE_NAMES:
                 findings.append(
                     Finding(
                         "error",
-                        path,
+                        current / name,
                         1,
-                        "generated assistant/tool runtime state must not live in tracked repo state",
+                        "generated assistant/tool state must not live in repo state",
                         name,
                     )
                 )
     return findings
-
-
-def _is_ignored_by_git(path: Path) -> bool:
-    if not path.exists():
-        return False
-    rel = path.relative_to(REPO_ROOT)
-    result = subprocess.run(  # noqa: S603
-        ["git", "check-ignore", "-q", str(rel)],
-        cwd=REPO_ROOT,
-        check=False,
-    )
-    return result.returncode == 0
 
 
 def lint(

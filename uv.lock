@@ -12,8 +12,23 @@ resolution-markers = [
 
 [[package]]
 name = "agentic-trader"
-source = {editable = "."}
 version = "0.14.2"
+source = { editable = "." }
+dependencies = [
+    { name = "alpaca-py" },
+    { name = "duckdb" },
+    { name = "firecrawl-py" },
+    { name = "httpx" },
+    { name = "massive" },
+    { name = "ollama" },
+    { name = "pandas" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "rich" },
+    { name = "typer" },
+    { name = "yfinance" },
+    { name = "yt-dlp" },
+]
 
 [package.dev-dependencies]
 dev = [
