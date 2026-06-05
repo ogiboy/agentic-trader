@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from pytest import MonkeyPatch
 from rich.console import Console
@@ -19,8 +20,10 @@ from agentic_trader.tui import (
     TuiMenuAction,
     agent_activity_lines,
     agent_activity_table,
+    banner,
     broker_gate_lines,
     build_monitor_renderable,
+    exit_cleanly,
     last_outcome_lines,
     main_menu_actions,
     main_menu_table,
@@ -121,17 +124,6 @@ def test_agent_activity_table_filters_to_current_runtime_cycle(tmp_path: Path) -
 
 
 def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
-    """
-    Validate pure TUI helper functions produce expected status lines and default messages.
-    
-    Asserts that:
-    - style_key formats keys with the expected style.
-    - split_csv normalizes and uppercases CSV symbol lists.
-    - runtime_cycle_lines returns the runtime summary lines (runtime state, mode, watched symbols, current symbol, cycle, interval/lookback, and current note).
-    - agent_activity_lines includes current stage, stage status, and stage message.
-    - broker_gate_lines reports broker backend/state, kill switch state, and paper gate status using UI text for English.
-    - last_outcome_lines returns the last outcome type and message for populated activity and a single waiting message when activity lacks outcome information.
-    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -337,3 +329,116 @@ def test_terminal_tui_tables_and_menu_actions(
     )
     assert keep_running is False
     assert called[-1] == "exit"
+
+
+# ---------------------------------------------------------------------------
+# Tests for PR: banner() and exit_cleanly() use t() translation facade
+# ---------------------------------------------------------------------------
+
+
+def test_banner_wide_contains_translated_control_room_title(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """
+    banner() in wide-terminal mode renders the translated title_control_room and
+    the full subtitle from message_control_room_full_subtitle.
+    """
+    import agentic_trader.tui_modules.common as common_module
+
+    monkeypatch.setenv(UI_LOCALE_ENV, "en")
+    # Force the module-level console to report a wide width so the full art path is taken.
+    fake_console = SimpleNamespace(width=140)
+    monkeypatch.setattr(common_module, "console", fake_console)
+
+    panel = banner()
+
+    recording = Console(record=True, width=160)
+    recording.print(panel)
+    output = recording.export_text()
+
+    assert "Agentic Trader Control Room" in output
+    assert "Strict LLM gate, saved preferences" in output
+
+
+def test_banner_narrow_contains_compact_control_room_title(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """
+    banner() in narrow-terminal mode renders the uppercased title_control_room
+    and the compact subtitle from message_control_room_compact_subtitle.
+    """
+    import agentic_trader.tui_modules.common as common_module
+
+    monkeypatch.setenv(UI_LOCALE_ENV, "en")
+    # Force the module-level console to report a narrow width so the compact path is taken.
+    fake_console = SimpleNamespace(width=80)
+    monkeypatch.setattr(common_module, "console", fake_console)
+
+    panel = banner()
+
+    recording = Console(record=True, width=100)
+    recording.print(panel)
+    output = recording.export_text()
+
+    assert "AGENTIC TRADER" in output
+    assert "CONTROL ROOM" in output
+    assert "Strict LLM gate, portfolio state, runtime controls." in output
+
+
+def test_banner_wide_turkish_locale_uses_translated_title(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """
+    banner() wide path uses the Turkish title_control_room when locale is TR.
+    """
+    import agentic_trader.tui_modules.common as common_module
+
+    monkeypatch.setenv(UI_LOCALE_ENV, "tr")
+    fake_console = SimpleNamespace(width=140)
+    monkeypatch.setattr(common_module, "console", fake_console)
+
+    panel = banner()
+
+    recording = Console(record=True, width=160)
+    recording.print(panel)
+    output = recording.export_text()
+
+    assert "Agentic Trader Kontrol Odası" in output
+
+
+def test_exit_cleanly_renders_closed_message_panel(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """
+    exit_cleanly() should print a panel containing the translated
+    message_control_room_closed string via the t() facade.
+    """
+    import agentic_trader.tui_modules.common as common_module
+
+    monkeypatch.setenv(UI_LOCALE_ENV, "en")
+    recording = Console(record=True, width=120)
+    monkeypatch.setattr(common_module, "console", recording)
+
+    exit_cleanly()
+
+    output = recording.export_text()
+    assert "Control room closed cleanly." in output
+
+
+def test_exit_cleanly_turkish_locale_renders_corrected_message(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """
+    exit_cleanly() in TR locale uses the fixed Turkish message with proper diacritics.
+    """
+    import agentic_trader.tui_modules.common as common_module
+
+    monkeypatch.setenv(UI_LOCALE_ENV, "tr")
+    recording = Console(record=True, width=120)
+    monkeypatch.setattr(common_module, "console", recording)
+
+    exit_cleanly()
+
+    output = recording.export_text()
+    # The PR fixed "kapandi" → "kapandı" (with dotless-i diacritic)
+    assert "kapandı" in output
