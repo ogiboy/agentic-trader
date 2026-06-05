@@ -95,10 +95,10 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
 
     python_version_file = flow_dir / ".python-version"
     notes = [
-        "CrewAI stays optional and isolated behind researchd backend boundaries.",
-        "The tracked CrewAI Flow sidecar lives in sidecars/research_flow as a uv workspace member.",
+        "CrewAI stays isolated behind researchd backend boundaries.",
+        "The tracked CrewAI Flow sidecar lives in sidecars/research_flow as the research-flow uv workspace dependency.",
         "The root uv workspace owns the shared lockfile and environment for sidecar setup.",
-        "The core runtime calls the Flow sidecar through a subprocess JSON contract only after setup.",
+        "The core runtime controls the Flow sidecar through a subprocess JSON contract only after setup.",
         "Do not import CrewAI from core trading runtime modules.",
     ]
     if version_error:
@@ -129,6 +129,8 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
         "lockfile_exists": lockfile_path.exists(),
         "lockfile_path": str(lockfile_path),
         "core_dependency": False,
+        "workspace_dependency": True,
+        "runtime_controlled": True,
         "workspace_member": True,
         "recommended_commands": [
             "pnpm run setup:research-flow",

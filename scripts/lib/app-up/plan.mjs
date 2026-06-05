@@ -31,7 +31,7 @@ export function upPlan(options) {
       'sidecar',
       {
         reason:
-          'Sidecar remains a subprocess-only workspace member and is not imported by the core runtime.',
+          'Sidecar remains a runtime-controlled workspace dependency and is not imported by the core runtime.',
       },
     ),
     upStep(

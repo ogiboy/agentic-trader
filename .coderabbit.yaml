@@ -13,10 +13,14 @@ reviews:
     drafts: false
     auto_incremental_review: true
   path_filters:
+    - "!.agents/**"
+    - "!.claude/**"
+    - "!.claude-flow/**"
     - "!**/.agents/**"
     - "!**/.claude/**"
     - "!**/.claude-flow/**"
     - "!CLAUDE.md"
+    - "!skills-lock.json"
     - "!**/node_modules/**"
     - "!**/dist/**"
     - "!**/build/**"

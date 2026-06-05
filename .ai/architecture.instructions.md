@@ -59,7 +59,7 @@ Current runtime stages:
   Repo-owned optional helper infrastructure for local browser/model/fetcher tools. Camofox lives here today as loopback browser infrastructure; future Ollama and Firecrawl tool roots should hold app-managed configuration/assets or adapter metadata, not secrets or mandatory runtime dependencies. Root runtime code should prefer a central tool-readiness contract over ad hoc probes.
 
 - `sidecars/research_flow/`
-  Tracked but isolated CrewAI Flow sidecar package. uv owns its Python 3.13 environment and lockfile; the root runtime reports setup/readiness and may call its pure JSON contract through subprocess, but must not import this package directly.
+  Tracked but isolated CrewAI Flow sidecar package. Root uv owns it as the `research-flow` workspace dependency and shared lockfile; the root runtime reports setup/readiness and may call its pure JSON contract through subprocess, but must not import this package directly.
 
 - `agentic_trader/cli.py`, `main.py`, `agentic_trader/tui.py`
   Operator-facing control surfaces
@@ -148,7 +148,7 @@ Good changes fit into one of these buckets:
 - keep canonical source attribution and freshness metadata attached whenever external provider data enters runtime or persisted review context
 - keep research sidecars as local evidence companions that consume or emit structured packets through `runtime_feed` JSON snapshots without taking the DuckDB runtime writer role
 - keep official research providers explicit and opt-in; SEC EDGAR submissions metadata and canonical companyfacts fundamentals are allowed only with watched/configured US symbols and a configured User-Agent, and full filing parsing remains a separate future provider layer
-- keep CrewAI or any future crew loop behind an optional adapter boundary; native runtime, replay, QA, and operator surfaces must keep working without it, and the tracked uv sidecar must communicate through subprocess JSON contracts rather than direct broker/runtime imports
+- keep CrewAI or any future crew loop behind the `researchd` adapter boundary; native runtime, replay, QA, and operator surfaces must degrade visibly when the sidecar is unavailable, and the tracked uv sidecar must communicate through subprocess JSON contracts rather than direct broker/runtime imports
 - keep V1 scoped to Alpaca-ready US active trading through explicit paper/external-paper/manual-approval gates; defer Turkey-specific market, KAP/CBRT, TRY/FX, and broker expansion to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite

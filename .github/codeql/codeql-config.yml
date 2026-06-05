@@ -1,0 +1,13 @@
+name: Agentic Trader CodeQL
+
+paths-ignore:
+  - ".agents/**"
+  - ".claude/**"
+  - ".claude-flow/**"
+  - "CLAUDE.md"
+  - "skills-lock.json"
+  - ".ai/qa/artifacts/**"
+  - "runtime/**"
+  - "dist/**"
+  - "build/**"
+  - "**/node_modules/**"

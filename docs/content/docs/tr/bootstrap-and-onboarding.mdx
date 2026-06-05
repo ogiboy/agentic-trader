@@ -54,9 +54,10 @@ ile istenir.
 
 `app:up` artık ilk yönlendirmeli first-run orkestratörüdür. Varsayılanı
 dry-run'dır ve yeni bir runtime sahibi yaratmak yerine mevcut lifecycle
-komutlarını birleştirir. Güvenli `--all --yes` lane'i core setup repair, izole
-CrewAI Flow sidecar setup, app-owned Web GUI start ve final `app:doctor` raporu
-çalıştırır. Opsiyonel Camofox dependency setup, Camofox browser binary fetch,
+komutlarını birleştirir. Güvenli `--all --yes` lane'i core setup repair,
+runtime kontrollü CrewAI Flow sidecar setup, app-owned Web GUI start ve final
+`app:doctor` raporu çalıştırır. Opsiyonel Camofox dependency setup, Camofox
+browser binary fetch,
 model-service start ve Camofox-service start için açık scope ve
 `--ollama-owner=app-owned` ya da `--camofox-owner=app-owned` gibi eşleşen
 sahiplik flag'i gerekir. Host-owned, API/key-only ve skipped seçimleri

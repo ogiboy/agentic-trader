@@ -1,8 +1,8 @@
 # Agentic Trader Research Flow
 
 This is the tracked, isolated CrewAI Flow sidecar for Agentic Trader research
-experiments. It is intentionally outside the root dependency graph and is
-managed by its own `uv` project.
+experiments. It is a root `uv` workspace package named `research-flow`; the
+Python import package remains `research_flow`.
 
 ## Contract
 
@@ -17,15 +17,14 @@ managed by its own `uv` project.
 ## Setup
 
 ```bash
-cd sidecars/research_flow
-uv sync --locked
-uv run --locked research-flow-check
+uv sync --locked --all-packages --all-extras --group dev
+uv run --locked --package research-flow research-flow-check
 printf '%s\n' '{"mode":"training","symbols":["AAPL"],"provider_outputs":[]}' \
-  | uv run --locked --no-sync research-flow-contract
+  | uv run --locked --package research-flow --no-sync research-flow-contract
 ```
 
-The project is pinned to Python `3.13` through `.python-version`, while
-`requires-python` stays within CrewAI's supported `<3.14` range.
+The project is pinned to Python `3.13` through `.python-version`, while the
+sidecar `requires-python` stays within CrewAI's supported `<3.14` range.
 
 ## Running
 

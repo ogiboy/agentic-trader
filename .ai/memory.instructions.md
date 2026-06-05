@@ -52,7 +52,7 @@ after the change. Missing or stale memory must not override runtime contracts.
 - Do not weaken strict runtime gating
 - Do not let operator chat history bleed into execution-time context assembly
 - Do not let research sidecars or CrewAI loops become hidden execution, policy mutation, or raw web-text prompt injection paths
-- Do not add CrewAI to the root package dependency graph or import it from core runtime modules; it belongs to the `research_flow` workspace member and subprocess boundary
+- Do not import CrewAI from core runtime modules or give it broker, policy, runtime-mode, or prompt-authority; it belongs to the `research-flow` workspace package and subprocess JSON boundary
 - Do not let runtime commands implicitly sync or upgrade the workspace environment; setup/check commands own uv sync
 - Do not fetch SEC EDGAR or any future external research source without explicit provider enablement and required contact/credential configuration
 - Do not let Firecrawl/Camofox errors, snippets, browser payloads, or provider raw text bypass central redaction or source-normalization before reaching CLI/observer/Web/research snapshots

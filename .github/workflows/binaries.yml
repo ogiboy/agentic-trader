@@ -222,6 +222,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.build.outputs.release_ref || github.sha }}
           fetch-depth: 0
 
       - name: Download packaged binary artifacts
@@ -262,25 +263,25 @@ jobs:
 
           notes="$(mktemp)"
           if [ -n "${RELEASE_REF}" ]; then
-            cat > "$notes" <<EOF
-          Stable release build for \`${TAG}\`.
-
-          - Workflow run: ${RUN_URL}
-          EOF
+            python3 scripts/release/release_notes.py \
+              --version "$TAG" \
+              --output "$notes" \
+              --stable \
+              --run-url "$RUN_URL" \
+              --repo-url "https://github.com/${GITHUB_REPOSITORY}"
             gh release create "$TAG" "${assets[@]}" \
               --verify-tag \
               --title "Agentic Trader ${TAG}" \
               --notes-file "$notes"
           else
-            cat > "$notes" <<EOF
-          Automated ${CHANNEL} preview build for \`${BRANCH}\`.
-
-          - Channel: \`${CHANNEL}\`
-          - Commit: \`${SHORT_SHA}\`
-          - Workflow run: ${RUN_URL}
-
-          This prerelease is intended for branch testing. Stable releases are produced from \`main\`.
-          EOF
+            python3 scripts/release/release_notes.py \
+              --version "$TAG" \
+              --output "$notes" \
+              --channel "$CHANNEL" \
+              --branch "$BRANCH" \
+              --short-sha "$SHORT_SHA" \
+              --run-url "$RUN_URL" \
+              --repo-url "https://github.com/${GITHUB_REPOSITORY}"
             gh release create "$TAG" "${assets[@]}" \
               --target "$GITHUB_SHA" \
               --title "Agentic Trader ${TAG}" \

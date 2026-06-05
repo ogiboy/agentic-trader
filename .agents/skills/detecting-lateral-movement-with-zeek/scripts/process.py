@@ -68,12 +68,12 @@ def detect_rdp_pivots(log_file, window_minutes=10):
     rdp_sessions = [(float(e.get('ts', 0)), e.get('id.orig_h', ''), e.get('id.resp_h', ''))
                      for e in entries if e.get('id.resp_p') == '3389']
     rdp_sessions.sort()
-
+    
     # Find chains: A->B then B->C within window
     dst_arrivals = defaultdict(list)
     for ts, src, dst in rdp_sessions:
         dst_arrivals[dst].append((ts, src))
-
+    
     for ts, src, dst in rdp_sessions:
         for arrival_ts, arrival_src in dst_arrivals.get(src, []):
             if 0 < (ts - arrival_ts) < window_minutes * 60:
@@ -84,14 +84,14 @@ def detect_ntlm_spray(log_file, window_seconds=300, threshold=3):
     """Detect NTLM account spray via time-windowed burst analysis."""
     entries = parse_zeek_log(log_file)
     user_events = defaultdict(list)
-
+    
     for entry in entries:
         user = entry.get('username', '')
         dst = entry.get('id.resp_h', '')
         ts = float(entry.get('ts', 0))
         if user and user != '-':
             user_events[user].append((ts, dst))
-
+    
     for user, events in user_events.items():
         events.sort()
         # Sliding window analysis
@@ -114,7 +114,7 @@ def detect_dcsync(log_file, dc_ips=None):
         print("[WARN] DCSync detection skipped: --dc-ips not provided. "
               "Specify domain controller IPs to enable this detector.")
         return
-
+    
     dc_set = set(dc_ips.split(","))
     entries = parse_zeek_log(log_file)
     for entry in entries:
@@ -130,12 +130,12 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print(__doc__)
         sys.exit(1)
-
+    
     log_type, log_file = sys.argv[1], sys.argv[2]
-
+    
     # Parse optional args
     args = {sys.argv[i]: sys.argv[i+1] for i in range(3, len(sys.argv)-1, 2) if sys.argv[i].startswith('--')}
-
+    
     if log_type == "smb_mapping":
         detect_admin_shares(log_file, args.get('--internal-nets'))
     elif log_type == "conn":

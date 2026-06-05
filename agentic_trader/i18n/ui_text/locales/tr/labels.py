@@ -43,7 +43,7 @@ TR_LABELS_COPY: dict[str, str] = {
     "label_confidence": "Guven",
     "label_consensus": "Consensus",
     "label_context": "Baglam",
-    "label_core_dependency": "Core Dependency",
+    "label_core_dependency": "Direkt Core Import",
     "label_core_ready": "Core Hazir",
     "label_cpu_count": "CPU Sayisi",
     "label_created": "Olusturuldu",

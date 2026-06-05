@@ -35,6 +35,7 @@
     "../.agents",
     "../.claude",
     "../.claude-flow",
-    "../CLAUDE.md"
+    "../CLAUDE.md",
+    "../skills-lock.json"
   ]
 }

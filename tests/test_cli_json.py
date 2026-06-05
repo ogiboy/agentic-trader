@@ -2083,13 +2083,13 @@ def test_research_cycle_run_replays_previous_snapshot_between_invocations(
     assert settings.database_path.exists() is False
 
 
-def test_research_flow_setup_json_reports_optional_boundary(
+def test_research_flow_setup_json_reports_runtime_controlled_boundary(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """
-    Verify the `research-flow-setup --json` CLI command reports that the research flow is optional and includes workspace environment and setup recommendations.
+    Verify the `research-flow-setup --json` CLI command reports the runtime-controlled sidecar boundary and includes workspace environment and setup recommendations.
 
-    Asserts the JSON payload marks the flow as not a core dependency, exposes the flow directory path ending with `sidecars/research_flow`, includes workspace readiness fields, reports `python_version` as "3.13", lists the `pnpm run setup:research-flow` command among recommendations, and contains notes mentioning that the flow is optional.
+    Asserts the JSON payload marks the flow as a workspace dependency but not a direct core import, exposes the flow directory path ending with `sidecars/research_flow`, includes workspace readiness fields, reports `python_version` as "3.13", lists the `pnpm run setup:research-flow` command among recommendations, and contains notes mentioning the researchd boundary.
     """
     settings = Settings(
         runtime_dir=tmp_path,
@@ -2104,13 +2104,15 @@ def test_research_flow_setup_json_reports_optional_boundary(
     assert result.exit_code == 0
     payload = json_object(result.stdout)
     assert payload["core_dependency"] is False
+    assert payload["workspace_dependency"] is True
+    assert payload["runtime_controlled"] is True
     assert payload["workspace_member"] is True
     assert payload["flow_dir"].endswith("sidecars/research_flow")
     assert "environment_exists" in payload
     assert payload["lockfile_path"].endswith("uv.lock")
     assert payload["python_version"] == "3.13"
     assert "pnpm run setup:research-flow" in payload["recommended_commands"]
-    assert any("optional" in note.lower() for note in payload["notes"])
+    assert any("researchd backend" in note.lower() for note in payload["notes"])
 
 
 def test_research_crewai_setup_alias_still_reports_optional_boundary(
