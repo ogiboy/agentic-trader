@@ -27,6 +27,7 @@ EN_TITLES_COPY: dict[str, str] = {
     "title_camofox_start_failed": "Camofox Start Failed",
     "title_chat": "Chat / {persona}",
     "title_choose_surface": "Choose A Surface",
+    "title_control_room": "Agentic Trader Control Room",
     "title_context_summary": "Context Summary",
     "title_current_cycle": "Current Cycle",
     "title_decision_workflow": "Decision Workflow",

@@ -15,26 +15,7 @@ from agentic_trader.tui_modules.research import research_menu
 from agentic_trader.tui_modules.review import review_menu
 from agentic_trader.tui_modules.runtime import runtime_menu
 from agentic_trader.tui_modules.status import render_compact_status, render_status
-from agentic_trader.ui_text import (
-    LABEL_ACTION,
-    LABEL_KEY,
-    MENU_ACTION_CONFIGURE_INVESTMENT_PREFERENCES,
-    MENU_ACTION_EXIT,
-    MENU_ACTION_OPERATOR_DESK,
-    MENU_ACTION_PORTFOLIO_AND_RISK,
-    MENU_ACTION_RESEARCH_AND_MEMORY,
-    MENU_ACTION_REVIEW_AND_TRACE,
-    MENU_ACTION_RUNTIME_CONTROL,
-    MESSAGE_ACTION_CANCELLED_RETURNING,
-    MESSAGE_CONTROL_ROOM_CLOSED,
-    PROMPT_CONTINUE,
-    PROMPT_SELECT_ACTION,
-    STYLE_KEY_COLUMN,
-    TITLE_ACTION_FAILED,
-    TITLE_CANCELLED,
-    TITLE_EXIT,
-    TITLE_MAIN_MENU,
-)
+from agentic_trader.ui_text import t
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,31 +39,31 @@ def render_main_status(settings: Settings) -> None:
 
 
 def _exit_menu_action(_settings: Settings) -> None:
-    console.print(
-        Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue")
-    )
+    exit_cleanly()
 
 
 def main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
     return (
         TuiMainMenuAction(
             "1",
-            MENU_ACTION_CONFIGURE_INVESTMENT_PREFERENCES,
+            t("menu.action.configure.investment.preferences"),
             edit_preferences_action,
         ),
-        TuiMainMenuAction("2", MENU_ACTION_RUNTIME_CONTROL, runtime_menu),
-        TuiMainMenuAction("3", MENU_ACTION_OPERATOR_DESK, operator_menu),
-        TuiMainMenuAction("4", MENU_ACTION_PORTFOLIO_AND_RISK, portfolio_menu),
-        TuiMainMenuAction("5", MENU_ACTION_RESEARCH_AND_MEMORY, research_menu),
-        TuiMainMenuAction("6", MENU_ACTION_REVIEW_AND_TRACE, review_menu),
-        TuiMainMenuAction("7", MENU_ACTION_EXIT, _exit_menu_action, exits_menu=True),
+        TuiMainMenuAction("2", t("menu.action.runtime.control"), runtime_menu),
+        TuiMainMenuAction("3", t("menu.action.operator.desk"), operator_menu),
+        TuiMainMenuAction("4", t("menu.action.portfolio.and.risk"), portfolio_menu),
+        TuiMainMenuAction("5", t("menu.action.research.and.memory"), research_menu),
+        TuiMainMenuAction("6", t("menu.action.review.and.trace"), review_menu),
+        TuiMainMenuAction(
+            "7", t("menu.action.exit"), _exit_menu_action, exits_menu=True
+        ),
     )
 
 
 def main_menu_table(actions: Sequence[TuiMainMenuAction]) -> Table:
-    menu = Table(title=TITLE_MAIN_MENU)
-    menu.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
-    menu.add_column(LABEL_ACTION)
+    menu = Table(title=t("title.main.menu"))
+    menu.add_column(t("label.key"), style=t("style.key.column"))
+    menu.add_column(t("label.action"))
     for action in actions:
         menu.add_row(action.key, action.label)
     return menu
@@ -116,7 +97,7 @@ def run_main_menu(
 
         try:
             choice = Prompt.ask(
-                PROMPT_SELECT_ACTION,
+                t("prompt.select.action"),
                 choices=choices,
                 default="2",
             )
@@ -132,17 +113,17 @@ def run_main_menu(
         except KeyboardInterrupt:
             console.print(
                 Panel(
-                    MESSAGE_ACTION_CANCELLED_RETURNING,
-                    title=TITLE_CANCELLED,
+                    t("message.action.cancelled.returning"),
+                    title=t("title.cancelled"),
                     border_style="yellow",
                 )
             )
         except Exception as exc:
             console.print(
-                Panel(str(exc), title=TITLE_ACTION_FAILED, border_style="red")
+                Panel(str(exc), title=t("title.action.failed"), border_style="red")
             )
         try:
-            Prompt.ask(PROMPT_CONTINUE, default="")
+            Prompt.ask(t("prompt.continue"), default="")
         except EOFError:
             exit_cleanly()
             return

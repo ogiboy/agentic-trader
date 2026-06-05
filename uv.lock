@@ -32,7 +32,7 @@ dependencies = [
 ]
 name = "agentic-trader"
 source = {editable = "."}
-version = "0.14.7"
+version = "0.14.8"
 
 [package.dev-dependencies]
 dev = [
@@ -2682,7 +2682,7 @@ dependencies = [
 ]
 name = "research-flow"
 source = {editable = "sidecars/research_flow"}
-version = "0.14.7"
+version = "0.14.8"
 
 [package.metadata]
 requires-dist = [{name = "crewai", extras = ["tools"], specifier = "==1.14.6"}]

@@ -8,7 +8,12 @@ EN_MESSAGES_COPY: dict[str, str] = {
     "message_all_agent_stages_llm_path": "All agent stages completed through the LLM path.",
     "message_background_service_not_active": "No managed service is currently active.",
     "message_background_service_restarted": "Background orchestrator restarted with PID {pid}.",
+    "message_control_room_compact_subtitle": "Strict LLM gate, portfolio state, runtime controls.",
     "message_control_room_closed": "Control room closed cleanly.",
+    "message_control_room_full_subtitle": (
+        "Strict LLM gate, saved preferences, portfolio state, recent runs, "
+        "and launch controls."
+    ),
     "message_fallback_used_in": "Fallback was used in",
     "message_evidence_bundle_written": "Bundle written to {bundle_dir}",
     "message_no_elevated_portfolio_risk_warnings": "No elevated portfolio risk warnings for this report.",

@@ -27,6 +27,7 @@ TR_TITLES_COPY: dict[str, str] = {
     "title_camofox_start_failed": "Camofox Baslatma Basarisiz",
     "title_chat": "Chat / {persona}",
     "title_choose_surface": "Yuzey Sec",
+    "title_control_room": "Agentic Trader Kontrol Odası",
     "title_context_summary": "Context Ozeti",
     "title_current_cycle": "Geçerli Döngü",
     "title_decision_workflow": "Decision Workflow",

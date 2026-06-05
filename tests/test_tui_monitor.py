@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pytest import MonkeyPatch
 from rich.console import Console
 
 from agentic_trader.config import Settings
@@ -32,7 +33,7 @@ from agentic_trader.tui import (
     style_key,
     system_status_table,
 )
-from agentic_trader.ui_text import get_ui_text
+from agentic_trader.ui_text import UI_LOCALE_ENV, get_ui_text
 
 
 def test_build_monitor_renderable_contains_core_sections(tmp_path: Path) -> None:
@@ -220,12 +221,15 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
     ]
 
 
-def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
+def test_terminal_tui_tables_and_menu_actions(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
     """
     Exercise TUI table rendering and main-menu action dispatch for terminal UI helpers.
 
     Renders runtime, system, memory explorer, and menu tables to a recorded Console and asserts presence and absence of expected output fragments. Also verifies that run_main_menu_action invokes the correct action callbacks and that it signals whether the menu loop should continue.
     """
+    monkeypatch.setenv(UI_LOCALE_ENV, "en")
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

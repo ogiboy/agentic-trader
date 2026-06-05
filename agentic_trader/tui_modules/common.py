@@ -8,13 +8,7 @@ from rich.table import Table
 
 from agentic_trader.config import Settings
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.ui_text import (
-    LABEL_ACTION,
-    LABEL_KEY,
-    MESSAGE_CONTROL_ROOM_CLOSED,
-    STYLE_KEY_COLUMN,
-    TITLE_EXIT,
-)
+from agentic_trader.ui_text import t
 
 console = Console()
 
@@ -32,7 +26,8 @@ def open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
 
 
 def style_key(text: str) -> str:
-    return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
+    style = t("style.key.column")
+    return f"[{style}]{text}[/{style}]"
 
 
 def split_csv(value: str) -> list[str]:
@@ -41,8 +36,8 @@ def split_csv(value: str) -> list[str]:
 
 def menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) -> Table:
     table = Table(title=title)
-    table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
-    table.add_column(LABEL_ACTION)
+    table.add_column(t("label.key"), style=t("style.key.column"))
+    table.add_column(t("label.action"))
     for item in items:
         if isinstance(item, TuiMenuAction):
             table.add_row(item.key, item.label)
@@ -71,8 +66,8 @@ def banner() -> Panel:
     if console.width < 120:
         compact = (
             "[bold green]AGENTIC TRADER[/bold green] "
-            "[cyan]// CONTROL ROOM[/cyan]\n"
-            "[dim]Strict LLM gate, portfolio state, runtime controls.[/dim]"
+            f"[cyan]// {t('title.control.room').upper()}[/cyan]\n"
+            f"[dim]{t('message.control.room.compact.subtitle')}[/dim]"
         )
         return Panel(Align.center(compact), border_style="bright_blue")
 
@@ -85,13 +80,11 @@ def banner() -> Panel:
 ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝       ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 """
     subtitle = (
-        "[bold cyan]Agentic Trader control room[/bold cyan]\n"
-        "[dim]Strict LLM gate, saved preferences, portfolio state, recent runs, and launch controls.[/dim]"
+        f"[bold cyan]{t('title.control.room')}[/bold cyan]\n"
+        f"[dim]{t('message.control.room.full.subtitle')}[/dim]"
     )
     return Panel(f"[green]{art}[/green]\n{subtitle}", border_style="bright_blue")
 
 
 def exit_cleanly() -> None:
-    console.print(
-        Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue")
-    )
+    console.print(Panel(t("message.control.room.closed"), title=t("title.exit"), border_style="blue"))

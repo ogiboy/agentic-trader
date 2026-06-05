@@ -33,6 +33,7 @@ class TitleTextFields:
     title_camofox_start_failed: str
     title_chat: str
     title_choose_surface: str
+    title_control_room: str
     title_context_summary: str
     title_current_cycle: str
     title_decision_workflow: str
