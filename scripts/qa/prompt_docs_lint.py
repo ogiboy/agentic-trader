@@ -12,6 +12,7 @@ from typing import Iterable
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROMPT_DOC_SUFFIXES = (".instructions.md", ".agent.md", ".prompt.md")
 SKIP_DIRS = {
+    ".agents", ".claude", ".claude-flow",
     ".git",
     ".mypy_cache",
     ".next",
@@ -24,11 +25,8 @@ SKIP_DIRS = {
     "runtime",
 }
 GENERATED_TOOL_STATE_NAMES = {
-    ".claude",
-    ".claude-flow",
     ".swarm",
     ".mcp.json",
-    "CLAUDE.md",
 }
 
 ERROR_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (

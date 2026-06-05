@@ -7,6 +7,36 @@ If a named external skill, MCP tool, CLI, or plugin is unavailable, continue
 with local source review and tests. Record the missing tool only when it changes
 the confidence of the result.
 
+## Project-local Skill Catalog
+
+`.agents/skills/` and `skills-lock.json` are now tracked as a project-local
+development catalog. The lock file records source repositories, source type,
+skill paths, and computed hashes so future sync work can distinguish deliberate
+catalog changes from generated noise.
+
+Current catalog sources include:
+
+- `mukul975/Anthropic-Cybersecurity-Skills`
+- `Leonxlnx/taste-skill`
+- `vercel-labs/next-skills`
+
+Only file-and-hash entries in `skills-lock.json` count as project-local skill
+catalog truth. If a manually installed global source such as
+`Lum1104/Understand-Anything`, `ruvnet/ruflo`, or
+`multica-ai/andrej-karpathy-skills` is not represented by a path and hash in
+this checkout, treat it as global-only context and do not cite it as
+repo-tracked capability.
+
+Use these files as advisory references. Do not import their scripts into the
+trading runtime, add their dependencies to product setup, or treat offensive
+security examples as executable project behavior without a separate repo
+decision and security review.
+
+`CLAUDE.md`, `.claude/`, and `.claude-flow/` may contain Claude/RuFlo command,
+agent, hook, and helper descriptions. Codex should treat them as context for
+cross-assistant alignment while keeping `.ai/*.instructions.md` and
+`AGENTS.instructions.md` authoritative for this repository.
+
 ## Documentation Lookup
 
 Use system-level documentation helpers for current API behavior, especially for
@@ -23,7 +53,8 @@ Follow this order:
 1. Use Codex-exposed RuFlo MCP tools.
 2. Use the global `ruflo` binary.
 3. Use `npx ruflo@latest` only when the global binary is unavailable.
-4. Skip repo-local initialization unless the user explicitly requests it.
+4. Do not run new repo-local initialization unless the user explicitly requests
+   it. The tracked catalog/config files are enough for normal work.
    If Ruflo MCP closes transport, stop the Ruflo sequence and use Codex-native
    review, tests, and explicit subagents instead.
 

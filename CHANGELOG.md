@@ -7,6 +7,28 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.14.4 (2026-06-05)
+
+### Bug Fixes
+
+- Harden agent skill catalog checks
+  ([`6ca9d76`](https://github.com/ogiboy/agentic-trader/commit/6ca9d764f37be46673a503d93fd0b7dab6d95ed8))
+- Keep CodeQL on default setup
+  ([`bba8b3d`](https://github.com/ogiboy/agentic-trader/commit/bba8b3d4bfaf73db86c20f6e5ecb8b08d5968efa))
+
+### Chores
+
+- Sync project agent skill catalog
+  ([`a799887`](https://github.com/ogiboy/agentic-trader/commit/a799887955c229add3310ab8a008c7131e4bfb1d))
+
+## v0.14.3 (2026-06-05)
+
+### Chores
+
+- **deps**: Bump astral-sh/setup-uv from 8.1.0 to 8.2.0
+  ([`34eb043`](https://github.com/ogiboy/agentic-trader/commit/34eb0439f2a540295fd527292cef98a1243a0297))
+
+
 ## v0.14.2 (2026-06-04)
 
 ### Chores

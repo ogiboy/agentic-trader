@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+  path_filters:
+    - "!**/.agents/**"
+    - "!**/.claude/**"
+    - "!**/.claude-flow/**"
+    - "!CLAUDE.md"
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/.next/**"
+    - "!**/out/**"
+    - "!runtime/**"
+    - "agentic_trader/**"
+    - "tests/**"
+    - "scripts/**"
+    - "webgui/src/**"
+    - "docs/app/**"
+    - "docs/components/**"
+    - "docs/content/**"
+    - "docs/lib/**"
+    - "tui/**"
+    - "tools/camofox-browser/**"
+    - "sidecars/research_flow/**"
+    - ".github/**"
+    - ".ai/**"
+
+chat:
+  auto_reply: true
