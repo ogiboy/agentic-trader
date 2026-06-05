@@ -49,11 +49,12 @@ describe('Ink TUI copy helpers', () => {
     const tr = getTuiCopy('tr-TR');
     expect(normalizeTuiLocale('tr-TR')).toBe('tr');
     expect(tr.dashboardTitle).toBe('AGENTIC TRADER // INK KONTROL ODASI');
-    expect(getPageLabel('overview', tr)).toBe('Genel Bakis');
-    expect(formatPersona('portfolio_manager', tr)).toBe('Portfoy Yoneticisi');
+    expect(getPageLabel('overview', tr)).toBe('Genel Bakış');
+    expect(formatPersona('portfolio_manager', tr)).toBe('Portföy Yöneticisi');
+    expect(tr.lastRefresh).toBe('Son yenileme');
     expect(dashboardStatusLine({ busy: true, page: 'settings', copy: tr }))
       .toContain('page 7/7: Ayarlar');
     expect(dashboardStatusLine({ busy: true, page: 'settings', copy: tr }))
-      .toContain('calisiyor...');
+      .toContain('çalışıyor...');
   });
 });
