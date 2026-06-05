@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-# Agentic Trader Project Boundary
+## Agentic Trader Project Boundary
 
 This file is tracked as development advisory configuration for Claude/RuFlo
 alignment. It does not define Agentic Trader runtime behavior, operator
@@ -13,9 +13,9 @@ for that exact operation and the repo workflow permits it. Keep `.claude-flow`
 runtime data, logs, sessions, neural output, metrics, and security JSON reports
 out of git.
 
-# Ruflo — Claude Code Configuration
+## Ruflo — Claude Code Configuration
 
-## Rules
+### Rules
 
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless absolutely necessary — prefer editing existing files
@@ -27,11 +27,11 @@ out of git.
 - Keep files under 500 lines
 - Validate input at system boundaries
 
-## Agent Comms (SendMessage-First Coordination)
+### Agent Comms (SendMessage-First Coordination)
 
 Named agents coordinate via `SendMessage`, not polling or shared state.
 
-```
+```txt
 Lead (you) ←→ architect ←→ developer ←→ tester ←→ reviewer
               (named agents message each other directly)
 ```
@@ -58,12 +58,12 @@ SendMessage({ to: "researcher", summary: "Start", message: "[task context]" })
 ### Patterns
 
 | Pattern | Flow | Use When |
-|---------|------|----------|
+| --------- | ------ | ---------- |
 | **Pipeline** | A → B → C → D | Sequential dependencies (feature dev) |
 | **Fan-out** | Lead → A, B, C → Lead | Independent parallel work (research) |
 | **Supervisor** | Lead ↔ workers | Ongoing coordination (complex refactor) |
 
-### Rules
+### Rule
 
 - ALWAYS name agents — `name: "role"` makes them addressable
 - ALWAYS include comms instructions in prompts — who to message, what to send
@@ -71,9 +71,10 @@ SendMessage({ to: "researcher", summary: "Start", message: "[task context]" })
 - After spawning: STOP, tell user what's running, wait for results
 - NEVER poll status — agents message back or complete automatically
 
-## Swarm & Routing
+### Swarm & Routing
 
-### Config
+#### Config
+
 - **Topology**: hierarchical-mesh (anti-drift)
 - **Max Agents**: 15
 - **Memory**: hybrid
@@ -84,10 +85,10 @@ SendMessage({ to: "researcher", summary: "Start", message: "[task context]" })
 npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
 ```
 
-### Agent Routing
+#### Agent Routing
 
 | Task | Agents | Topology |
-|------|--------|----------|
+| ------ | -------- | ---------- |
 | Bug Fix | researcher, coder, tester | hierarchical |
 | Feature | architect, coder, tester, reviewer | hierarchical |
 | Refactor | architect, coder, reviewer | hierarchical |
@@ -95,35 +96,38 @@ npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --
 | Security | security-architect, auditor | hierarchical |
 
 ### When to Swarm
+
 - **YES**: 3+ files, new features, cross-module refactoring, API changes, security, performance
 - **NO**: single file edits, 1-2 line fixes, docs updates, config changes, questions
 
 ### 3-Tier Model Routing
 
 | Tier | Handler | Use Cases |
-|------|---------|-----------|
+| ------ | --------- | ----------- |
 | 1 | Agent Booster (WASM) | Simple transforms — skip LLM, use Edit directly |
 | 2 | Haiku | Simple tasks, low complexity |
 | 3 | Sonnet/Opus | Architecture, security, complex reasoning |
 
-## Memory & Learning
+### Memory & Learning
 
-### Before Any Task
+#### Before Any Task
+
 ```bash
 npx @claude-flow/cli@latest memory search --query "[task keywords]" --namespace patterns
 npx @claude-flow/cli@latest hooks route --task "[task description]"
 ```
 
-### After Success
+#### After Success
+
 ```bash
 npx @claude-flow/cli@latest memory store --namespace patterns --key "[name]" --value "[what worked]"
 npx @claude-flow/cli@latest hooks post-task --task-id "[id]" --success true --store-results true
 ```
 
-### MCP Tools (use `ToolSearch("keyword")` to discover)
+#### MCP Tools (use `ToolSearch("keyword")` to discover)
 
 | Category | Key Tools |
-|----------|-----------|
+| ---------- | ----------- |
 | **Memory** | `memory_store`, `memory_search`, `memory_search_unified` |
 | **Bridge** | `memory_import_claude`, `memory_bridge_status` |
 | **Swarm** | `swarm_init`, `swarm_status`, `swarm_health` |
@@ -135,7 +139,7 @@ npx @claude-flow/cli@latest hooks post-task --task-id "[id]" --success true --st
 ### Background Workers
 
 | Worker | When |
-|--------|------|
+| -------- | ------ |
 | `audit` | After security changes |
 | `optimize` | After performance work |
 | `testgaps` | After adding features |
@@ -146,7 +150,7 @@ npx @claude-flow/cli@latest hooks post-task --task-id "[id]" --success true --st
 npx @claude-flow/cli@latest hooks worker dispatch --trigger audit
 ```
 
-## Agents
+### Agents
 
 **Core**: `coder`, `reviewer`, `tester`, `planner`, `researcher`
 **Architecture**: `system-architect`, `backend-dev`, `mobile-dev`
@@ -157,7 +161,7 @@ npx @claude-flow/cli@latest hooks worker dispatch --trigger audit
 
 Any string works as a custom agent type.
 
-## Build & Test
+### Build & Test
 
 - ALWAYS run tests after code changes
 - ALWAYS verify build succeeds before committing
@@ -166,7 +170,7 @@ Any string works as a custom agent type.
 npm run build && npm test
 ```
 
-## CLI Quick Reference
+### CLI Quick Reference
 
 ```bash
 npx @claude-flow/cli@latest init --wizard           # Setup
@@ -180,7 +184,7 @@ npx @claude-flow/cli@latest performance benchmark    # Benchmarks
 
 26 commands, 140+ subcommands. Use `--help` on any command for details.
 
-## Setup
+### Setup
 
 ```bash
 claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
@@ -189,8 +193,6 @@ npx @claude-flow/cli@latest doctor --fix
 ```
 
 **Agent tool** handles execution (agents, files, code, git). **MCP tools** handle coordination (swarm, memory, hooks). **CLI** is the same via Bash.
-
-
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -201,6 +203,7 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -223,12 +226,14 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
@@ -239,12 +244,14 @@ The test: Every changed line should trace directly to the user's request.
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
+
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
-```
+
+```txt
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
 3. [Step] → verify: [check]

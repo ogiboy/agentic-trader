@@ -30,12 +30,12 @@ export function setupPlan() {
     ),
     coreStep(
       'python-env',
-      'Sync the root uv Python 3.13 development environment',
+      'Sync the root uv workspace Python 3.13 development environment',
       ['pnpm', 'run', 'install:python'],
     ),
     deferredStep(
       'research-flow-sidecar',
-      'CrewAI Flow sidecar dependency setup',
+      'CrewAI Flow workspace member dependency setup',
       ['pnpm', 'run', 'setup:research-flow'],
       'Sidecar setup stays explicit until app:setup grows opt-in side-application ownership.',
     ),
@@ -75,7 +75,7 @@ export function setupPlan() {
 export function safetyNotes() {
   return [
     'app:setup defaults to a dry-run plan.',
-    'The current mutating scope is only --core --yes: root pnpm workspace setup plus root uv Python sync.',
+    'The current mutating scope is only --core --yes: root pnpm workspace setup plus root uv workspace Python sync.',
     'No trading daemon, Web GUI service, model-service, Camofox service, browser binary fetch, Ollama model pull, provider account, secret, or brokerage config is changed.',
     'Optional tools remain deferred until ownership is explicit: host-owned, app-owned, API/key-only, or skipped.',
   ];

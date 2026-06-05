@@ -7,7 +7,7 @@ from importlib.metadata import version
 from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar, cast
 
 from pydantic import BaseModel, Field
-from research_flow.contracts import (
+from .contracts import (
     CONTRACT_VERSION,
     ResearchFlowRequest,
     build_contract_output,

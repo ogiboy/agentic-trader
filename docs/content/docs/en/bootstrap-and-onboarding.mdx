@@ -55,8 +55,9 @@ explicit through `v1-readiness --provider-check` or
 
 `app:up` is now the first guided first-run orchestrator. It defaults to dry-run
 and composes the existing lifecycle commands instead of creating another runtime
-owner. The safe `--all --yes` lane runs core setup repair, the isolated CrewAI
-Flow sidecar setup, app-owned Web GUI start, and a final `app:doctor` report.
+owner. The safe `--all --yes` lane runs core setup repair, the runtime-controlled
+CrewAI Flow sidecar setup, app-owned Web GUI start, and a final `app:doctor`
+report.
 Optional Camofox dependency setup, Camofox browser binary fetch, model-service
 start, and Camofox-service start require explicit scopes plus matching ownership
 flags such as `--ollama-owner=app-owned` or `--camofox-owner=app-owned`.
@@ -196,8 +197,8 @@ rebuild and re-run setup status:
 
 - root Node workspace: pnpm recursive/workspace update flow
 - Camofox helper: `pnpm --dir tools/camofox-browser ...`
-- root Python: uv lock upgrade plus locked sync
-- CrewAI Flow sidecar: sidecar uv lock upgrade plus locked sync
+- root Python: uv workspace lock upgrade plus locked sync
+- CrewAI Flow sidecar: workspace member locked sync through root uv
 - docs/WebGUI/TUI: normal workspace build and typecheck gates
 - post-update status: `app:doctor`
 

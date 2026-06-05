@@ -20,14 +20,22 @@
   "isort.args": ["--profile", "black"],
   "python.analysis.autoImportCompletions": true,
   "python.analysis.exclude": [
+    ".agents/**",
+    ".claude/**",
+    ".claude-flow/**",
     "**/.agents/**",
     "**/.claude/**",
-    "**/.claude-flow/**"
+    "**/.claude-flow/**",
+    "**/skills-lock.json"
   ],
   "python.analysis.ignore": [
+    ".agents/**",
+    ".claude/**",
+    ".claude-flow/**",
     "**/.agents/**",
     "**/.claude/**",
-    "**/.claude-flow/**"
+    "**/.claude-flow/**",
+    "**/skills-lock.json"
   ],
   "python-envs.pythonProjects": [],
   "python.createEnvironment.contentButton": "show",
@@ -54,14 +62,22 @@
   "files.encoding": "utf8",
   "files.autoGuessEncoding": true,
   "files.watcherExclude": {
+    ".agents/**": true,
+    ".claude/**": true,
+    ".claude-flow/**": true,
     "**/.agents/**": true,
     "**/.claude/**": true,
-    "**/.claude-flow/**": true
+    "**/.claude-flow/**": true,
+    "**/skills-lock.json": true
   },
   "search.exclude": {
+    ".agents/**": true,
+    ".claude/**": true,
+    ".claude-flow/**": true,
     "**/.agents/**": true,
     "**/.claude/**": true,
-    "**/.claude-flow/**": true
+    "**/.claude-flow/**": true,
+    "**/skills-lock.json": true
   },
   "workbench.activityBar.compact": false,
   "workbench.fontAliasing": "default",

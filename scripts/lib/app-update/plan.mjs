@@ -1,9 +1,5 @@
-import { join } from 'node:path';
-
 import { ROOT_DIR } from '../app-lifecycle.mjs';
 import { SCOPE_IDS } from './options.mjs';
-
-const RESEARCH_FLOW_DIR = join(ROOT_DIR, 'sidecars', 'research_flow');
 
 function updateStep(id, label, command, scope, options = {}) {
   return {
@@ -28,29 +24,21 @@ export function updatePlan() {
     ),
     updateStep(
       'root-python-lock',
-      'Upgrade root uv lock metadata',
+      'Upgrade uv workspace lock metadata',
       ['uv', 'lock', '--upgrade'],
       'core',
     ),
     updateStep(
       'root-python-sync',
-      'Sync root uv Python environment with dev extras',
+      'Sync root uv workspace Python environment with dev extras',
       ['uv', 'sync', '--locked', '--all-extras', '--group', 'dev'],
       'core',
     ),
     updateStep(
-      'research-flow-lock',
-      'Upgrade CrewAI Flow sidecar uv lock metadata',
-      ['uv', 'lock', '--upgrade'],
-      'sidecar',
-      { cwd: RESEARCH_FLOW_DIR },
-    ),
-    updateStep(
       'research-flow-sync',
-      'Sync CrewAI Flow sidecar uv environment',
-      ['uv', 'sync', '--locked'],
+      'Sync CrewAI Flow workspace member dependencies',
+      ['uv', 'sync', '--locked', '--all-packages', '--all-extras', '--group', 'dev'],
       'sidecar',
-      { cwd: RESEARCH_FLOW_DIR },
     ),
     updateStep(
       'camofox-tool-root',
@@ -97,7 +85,7 @@ export function safetyNotes() {
   return [
     'app:update defaults to a dry-run plan.',
     'Mutating updates require an explicit scope plus --yes.',
-    'The update lane uses native dependency owners: pnpm for Node workspaces/tool roots and uv for Python locks/environments.',
+    'The update lane uses native dependency owners: pnpm for Node workspaces/tool roots and uv for the Python workspace lock/environment.',
     'No trading daemon, app-owned service start/stop, browser binary fetch, Ollama model pull, provider account, secret, brokerage config, or runtime state deletion is performed.',
   ];
 }

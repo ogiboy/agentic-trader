@@ -55,6 +55,22 @@ def _load_fill_stable_changelog() -> ModuleType:
     return module
 
 
+def _load_release_notes() -> ModuleType:
+    script_path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "release"
+        / "release_notes.py"
+    )
+    spec = importlib.util.spec_from_file_location("release_notes", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_bootstrap_changelog_renders_categorized_baseline_section() -> None:
     changelog = _load_bootstrap_changelog()
 
@@ -187,3 +203,47 @@ def test_fill_stable_changelog_defaults_until_to_existing_tag(
     monkeypatch.setattr(changelog, "_run_git", existing_ref)
 
     assert changelog.default_until_ref("0.13.0") == "v0.13.0"
+
+
+def test_release_notes_includes_stable_changelog_body() -> None:
+    release_notes = _load_release_notes()
+    changelog_text = (
+        "# Changelog\n\n"
+        "## v0.14.4 (2026-06-05)\n\n"
+        "### Bug Fixes\n\n"
+        "- Harden agent skill catalog checks\n\n"
+        "## v0.14.3 (2026-06-05)\n\n"
+        "- Older.\n"
+    )
+
+    notes = release_notes.render_release_notes(
+        version="0.14.4",
+        changelog_text=changelog_text,
+        repo_url="https://github.com/example/project",
+        run_url="https://github.com/example/project/actions/runs/1",
+        stable=True,
+    )
+
+    assert "Stable release build for `v0.14.4`." in notes
+    assert "### Bug Fixes" in notes
+    assert "- Harden agent skill catalog checks" in notes
+    assert "blob/v0.14.4/CHANGELOG.md" in notes
+    assert "actions/runs/1" in notes
+
+
+def test_release_notes_renders_preview_build_metadata() -> None:
+    release_notes = _load_release_notes()
+
+    notes = release_notes.render_release_notes(
+        version="v0.14.5-beta.1",
+        changelog_text="# Changelog\n",
+        repo_url="https://github.com/example/project",
+        channel="beta",
+        branch="feature/example",
+        short_sha="abc1234",
+    )
+
+    assert "Automated beta preview build for `feature/example`." in notes
+    assert "- Channel: `beta`" in notes
+    assert "- Commit: `abc1234`" in notes
+    assert "blob/abc1234/CHANGELOG.md" in notes

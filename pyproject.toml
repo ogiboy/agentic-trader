@@ -20,6 +20,7 @@ dependencies = [
   "firecrawl-py>=4.28.0",
   "ollama>=0.6.2",
   "yt-dlp>=2026.3.17",
+  "research-flow>=0.14.0",
 ]
 description = "A guardrailed multi-agent paper trading system built around local LLMs."
 license = "LGPL-3.0-or-later"
@@ -27,7 +28,7 @@ license-files = ["LICENSE"]
 name = "agentic-trader"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
-version = "0.14.4"
+version = "0.14.6"
 
 [dependency-groups]
 dev = [
@@ -49,6 +50,12 @@ dev = [
   "python-semantic-release>=10.0.0,<11.0.0",
   "ruff>=0.15.14",
 ]
+
+[tool.uv.sources]
+research-flow = { workspace = true }
+
+[tool.uv.workspace]
+members = ["sidecars/research_flow"]
 
 [project.scripts]
 agentic-trader = "agentic_trader.cli:app"

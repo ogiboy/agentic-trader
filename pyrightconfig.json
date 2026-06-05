@@ -1,9 +1,13 @@
 {
   "include": ["agentic_trader", "tests", "scripts", "sidecars/research_flow/*"],
   "exclude": [
+    ".agents/**",
+    ".claude/**",
+    ".claude-flow/**",
     ".agents",
     ".claude",
     ".claude-flow",
+    "skills-lock.json",
     "build",
     "dist",
     "runtime",

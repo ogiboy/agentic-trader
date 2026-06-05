@@ -11,13 +11,7 @@ from rich.table import Table
 from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
 from agentic_trader.schemas import RuntimeMode, RuntimeModeTransitionPlan
-from agentic_trader.ui_text import (
-    HELP_JSON,
-    HELP_RUNTIME_MODE_PROVIDER_CHECK,
-    HELP_RUNTIME_MODE_TARGET,
-    UITextCatalog,
-    get_ui_text,
-)
+from agentic_trader.ui_text import t
 
 
 class RuntimeModePlanProvider(Protocol):
@@ -43,17 +37,19 @@ def register_runtime_mode_commands(
 ) -> None:
     @app.command("runtime-mode-checklist")
     def runtime_mode_checklist(
-        target_mode: RuntimeMode = typer.Argument(..., help=HELP_RUNTIME_MODE_TARGET),
+        target_mode: RuntimeMode = typer.Argument(
+            ...,
+            help=runtime_mode_text("target.help"),
+        ),
         check_provider: bool = typer.Option(
             True,
             "--provider-check/--skip-provider-check",
-            help=HELP_RUNTIME_MODE_PROVIDER_CHECK,
+            help=runtime_mode_text("provider.check.help"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=t("help.json")),
     ) -> None:
         """Show the approved checklist for a Training/Operation mode transition."""
         settings = deps.get_settings()
-        copy = get_ui_text(settings.ui_locale)
         plan = deps.transition_plan(
             settings,
             target_mode=target_mode,
@@ -62,43 +58,54 @@ def register_runtime_mode_commands(
         if json_output:
             deps.emit_json(plan.model_dump(mode="json"))
             return
-        render_runtime_mode_transition_plan(plan, copy=copy)
+        render_runtime_mode_transition_plan(plan, locale=settings.ui_locale)
 
 
 def render_runtime_mode_transition_plan(
     plan: RuntimeModeTransitionPlan,
     *,
-    copy: UITextCatalog | None = None,
+    locale: str | None = None,
 ) -> None:
-    resolved_copy = copy or get_ui_text()
-    table = Table(title=resolved_copy.title_runtime_mode_transition_checklist)
-    table.add_column(resolved_copy.label_check)
-    table.add_column(resolved_copy.label_passed)
-    table.add_column(resolved_copy.label_blocking)
-    table.add_column(resolved_copy.label_details)
+    table = Table(title=runtime_mode_text("transition.checklist.title", locale=locale))
+    table.add_column(t("label.check", locale=locale))
+    table.add_column(t("label.passed", locale=locale))
+    table.add_column(t("label.blocking", locale=locale))
+    table.add_column(t("label.details", locale=locale))
     for check in plan.checks:
         table.add_row(
             check.name,
-            resolved_copy.label_yes if check.passed else resolved_copy.label_no,
-            resolved_copy.label_yes if check.blocking else resolved_copy.label_no,
+            t("label.yes", locale=locale)
+            if check.passed
+            else t("label.no", locale=locale),
+            t("label.yes", locale=locale)
+            if check.blocking
+            else t("label.no", locale=locale),
             check.details,
         )
     console.print(
         Panel(
             (
-                f"{resolved_copy.label_current}: {plan.current_mode}\n"
-                f"{resolved_copy.label_target}: {plan.target_mode}\n"
-                f"{resolved_copy.label_allowed}: {plan.allowed}\n\n{plan.summary}"
+                f"{t('label.current', locale=locale)}: {plan.current_mode}\n"
+                f"{t('label.target', locale=locale)}: {plan.target_mode}\n"
+                f"{t('label.allowed', locale=locale)}: {plan.allowed}\n\n"
+                f"{plan.summary}"
             ),
-            title=resolved_copy.title_runtime_mode,
+            title=runtime_mode_text("title", locale=locale),
             border_style="green" if plan.allowed else "yellow",
         )
     )
     console.print(table)
 
 
+def runtime_mode_text(
+    key: str, *, locale: str | None = None, **values: object
+) -> str:
+    return t(f"runtime.mode.{key}", locale=locale, catalog=None, **values)
+
+
 __all__ = (
     "RuntimeModeCommandDeps",
     "register_runtime_mode_commands",
     "render_runtime_mode_transition_plan",
+    "runtime_mode_text",
 )

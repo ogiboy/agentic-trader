@@ -30,15 +30,15 @@ paid users or real-money claims.
       broker-dealer, Form CRS/Reg BI, SRO, books-and-records, custody,
       disclosure, and state-law problem; see SEC investment-adviser
       registration guidance
-      (https://www.sec.gov/investment/how-to-register-with-sec-investment-adviser),
+      (<https://www.sec.gov/investment/how-to-register-with-sec-investment-adviser>),
       SEC broker-dealer registration guidance
-      (https://www.sec.gov/about/reports-publications/investor-publications/guide-broker-dealer-registration),
+      (<https://www.sec.gov/about/reports-publications/investor-publications/guide-broker-dealer-registration>),
       SEC Reg BI/Form CRS resources
-      (https://www.sec.gov/regulation-best-interest),
+      (<https://www.sec.gov/regulation-best-interest>),
       SEC automated-investment-tool investor guidance
-      (https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins-84),
+      (<https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins-84>),
       and FINRA algorithmic-trading supervision notes
-      (https://www.finra.org/rules-guidance/key-topics/algorithmic-trading).
+      (<https://www.finra.org/rules-guidance/key-topics/algorithmic-trading>).
 - [ ] choose a first paid SKU that avoids hidden broker authority: local-first
       paper desk, evidence bundle export, operator education, personal
       automation, and team workflow value are V1-safe candidates; managed live
@@ -52,46 +52,46 @@ paid users or real-money claims.
       rejected-order handling, PDT/margin disclosure, and any
       account-opening/KYC/CIP responsibilities if the product becomes an
       end-user brokerage app; see Alpaca paper trading
-      (https://docs.alpaca.markets/docs/paper-trading),
-      trading API (https://docs.alpaca.markets/docs/trading-api),
-      orders (https://docs.alpaca.markets/docs/orders-at-alpaca),
-      trading updates (https://docs.alpaca.markets/us/docs/websocket-streaming),
+      (<https://docs.alpaca.markets/docs/paper-trading>),
+      trading API (<https://docs.alpaca.markets/docs/trading-api>),
+      orders (<https://docs.alpaca.markets/docs/orders-at-alpaca>),
+      trading updates (<https://docs.alpaca.markets/us/docs/websocket-streaming>),
       market-data streaming
-      (https://docs.alpaca.markets/us/docs/streaming-market-data),
+      (<https://docs.alpaca.markets/us/docs/streaming-market-data>),
       and broker/account-opening docs
-      (https://docs.alpaca.markets/docs/about-broker-api,
-      https://docs.alpaca.markets/us/docs/account-opening).
+      (<https://docs.alpaca.markets/docs/about-broker-api>,
+      <https://docs.alpaca.markets/us/docs/account-opening>).
 - [ ] add a revenue-ready trust layer: onboarding terms, risk disclosure,
       billing/subscription boundary, support and incident channel, audit
       export, data-retention/deletion policy, privacy/security review,
       provider-status telemetry, stale/degraded/no-action UX, and explicit
       "paper evidence only" wording. If the product handles customer financial
       information, include SEC Regulation S-P and FTC Safeguards-style controls
-      (https://www.sec.gov/newsroom/press-releases/2024-58,
-      https://www.ftc.gov/business-guidance/privacy-security/safeguards-rule).
+      (<https://www.sec.gov/newsroom/press-releases/2024-58>,
+      <https://www.ftc.gov/business-guidance/privacy-security/safeguards-rule>).
 - [ ] make AI/security risk management product-visible: map model/provider,
       prompt-injection, tool-poisoning, raw web text, sidecar, and
       operator-action risks to NIST AI RMF, NIST Cybersecurity Framework 2.0,
       and OWASP LLM Top 10 controls before claiming trusted automation
-      (https://www.nist.gov/itl/ai-risk-management-framework,
-      https://www.nist.gov/cyberframework,
-      https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+      (<https://www.nist.gov/itl/ai-risk-management-framework>,
+      <https://www.nist.gov/cyberframework>,
+      <https://owasp.org/www-project-top-10-for-large-language-model-applications/>).
 - [ ] define model-cost unit economics before cloud AI becomes default: keep
       local Ollama as the default, add per-cycle remote-model cost telemetry,
       hard monthly budgets, role-level routing policies, and quality/cost
       comparison gates; use current provider pages such as OpenAI pricing
-      (https://openai.com/api/pricing/), Anthropic pricing
-      (https://www.anthropic.com/pricing#api), and Gemini API pricing
-      (https://ai.google.dev/gemini-api/docs/pricing) as live inputs, not
+      (<https://openai.com/api/pricing/>), Anthropic pricing
+      (<https://www.anthropic.com/pricing#api>), and Gemini API pricing
+      (<https://ai.google.dev/gemini-api/docs/pricing>) as live inputs, not
       hardcoded assumptions.
 - [ ] match market-tool expectations without copying their scope: a paid V1
       paper desk must offer clear paper/live separation, backtest/replay
       evidence, watchlist/scanner flows, audit exports, and degraded-source
       messaging at least comparable to the expectations set by tools such as
       TradingView paper trading
-      (https://www.tradingview.com/support/categories/paper-trading/),
+      (<https://www.tradingview.com/support/categories/paper-trading/>),
       QuantConnect live/paper workflows
-      (https://www.quantconnect.com/docs/v2/cloud-platform/live-trading/overview),
+      (<https://www.quantconnect.com/docs/v2/cloud-platform/live-trading/overview>),
       and Alpaca's paper/broker ecosystem, while staying local-first and
       manual-approval-first.
 
@@ -368,9 +368,9 @@ Status: in progress.
 - keep recurring operator-facing text behind a shared catalog so future localization does not fragment CLI, Rich, Ink, and WebUI surfaces
 - make lookback truth a first-class artifact: every trading decision should expose the data window, context summary, memory inputs, and safety gates that shaped it
 - treat Training vs Operation as a shared runtime mode overlay, not a forked product or separate orchestration path
-- treat research sidecars as optional local evidence companions, not a second trading runtime or a replacement for the staged specialist graph
+- treat research sidecars as runtime-controlled local evidence companions, not a second trading runtime or a replacement for the staged specialist graph
 - keep the root runtime on uv with Python 3.13 as the daily developer default while preserving `>=3.12,<3.15` package support until CI broadens the matrix
-- keep optional CrewAI Flow work in a tracked but isolated uv sidecar instead of adding CrewAI to the root dependency graph or turning the repository into a repo-wide uv workspace
+- keep CrewAI Flow work in the tracked `research-flow` uv workspace package while preserving the subprocess boundary, no direct core imports, and no broker/policy/runtime-mode authority
 - keep Conda/Poetry references as legacy fallback knowledge only; active setup, checks, QA, release, and CI should use root uv commands
 - evolve QA from smoke testing into repeatable terminal regression evidence with deterministic CLI JSON checks, pexpect flows, optional tmux/asciinema capture, and human-readable failure reports
 - keep memory local-first, inspectable, and policy-bound even as embeddings become more semantic and retrieval becomes more powerful
@@ -570,9 +570,9 @@ Status: in progress.
 - [x] add sidecar settings for mode, enablement, backend, symbols, cadence, and per-source limits with safe defaults
 - [x] add SEC EDGAR, KAP, macro, news/event, and social-watchlist provider scaffolds that expose missing ingestion instead of fabricating evidence
 - [x] add `research-status`, dashboard, and observer API visibility for mode, enabled/disabled state, backend, watched symbols, source health, and last update fields
-- [x] keep the initial CrewAI integration as an optional backend boundary rather than a required dependency or runtime replacement
+- [x] keep the initial CrewAI integration as a backend boundary rather than a runtime replacement or trading authority
 - [x] add file-backed sidecar persistence for raw-evidence references, world-state snapshots, and memory-update previews without opening or competing with the active DuckDB runtime writer
-- [x] move CrewAI Flow scaffolding into a tracked uv-managed sidecar at `sidecars/research_flow/` while keeping it outside the root dependency graph
+- [x] move CrewAI Flow scaffolding into a tracked `research-flow` uv workspace package at `sidecars/research_flow/`
 - [x] add a first opt-in official SEC EDGAR submissions metadata provider with User-Agent gating and normalized filing evidence
 - [x] add compact official SEC companyfacts XBRL summaries with fresh source attribution and no raw filing text injection
 - [x] add optional disabled-by-default Firecrawl news search and Camofox local-browser health providers behind `researchd`, with redaction, provenance, and raw-text-free prompt boundaries
@@ -595,7 +595,7 @@ Status: in progress.
 
 Status: planned.
 
-- [x] add an operator-visible CrewAI setup/status preflight that keeps CrewAI out of the core runtime dependency graph
+- [x] add an operator-visible CrewAI setup/status preflight that keeps CrewAI out of direct core runtime imports
 - [x] add a minimal tracked CrewAI Flow package with Python 3.13 `.python-version`, root-version-aligned pyproject metadata, uv lock/install flow, and root pnpm/Make setup and smoke-check commands
 - [x] add a subprocess JSON contract between the root `ResearchSidecarBackend` and tracked CrewAI Flow sidecar without importing CrewAI in core runtime modules
 - [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
@@ -603,10 +603,10 @@ Status: planned.
 - [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations
 - [ ] link simulated training trades back to the exact world-state snapshot, evidence packet, prompt context, and sidecar version used
 - [ ] add scenario memory, contradiction files, source-diversity scoring, and freshness/outcome weighting before research packets influence manager confidence
-- [ ] keep native replay, QA, and runtime paths valid when CrewAI is not installed or disabled
+- [ ] keep native replay, QA, and runtime paths visibly degraded rather than broken when the CrewAI sidecar environment is not installed or disabled
       Notes:
-- CrewAI is useful here as a sidecar research harness, not as the owner of execution, broker state, or runtime orchestration
-- the tracked sidecar is intentionally isolated: uv owns `sidecars/research_flow/`, root uv owns the core runtime lock, and native runtime/replay/QA must keep working when the sidecar is not installed
+- CrewAI is useful here as a sidecar research harness, not as the owner of execution, broker state, policy, runtime mode, or orchestration
+- the tracked sidecar is intentionally isolated by contract: root uv owns `research-flow` workspace resolution and the shared lock, while native runtime/replay/QA must fail visibly rather than silently mutate setup when the sidecar environment is unavailable
 - training intelligence loops should improve evaluation and memory quality while Operation remains strict, paper-first, and explicitly gated
 
 ## Phase 18: V2 Turkey Expansion

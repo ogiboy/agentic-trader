@@ -91,6 +91,7 @@ def test_build_setup_status_classifies_core_and_optional_tools(
         "crewai_setup_status",
         _crewai_status(
             {
+                "available": False,
                 "environment_exists": False,
                 "flow_dir": str(tmp_path / "sidecars" / "research_flow"),
                 "version": None,
@@ -144,6 +145,7 @@ def test_setup_status_requires_reachable_owned_runtime(
         "crewai_setup_status",
         _crewai_status(
             {
+                "available": True,
                 "environment_exists": True,
                 "flow_dir": str(tmp_path / "sidecars" / "research_flow"),
                 "version": "0.1.0",

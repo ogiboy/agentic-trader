@@ -103,15 +103,15 @@ TR_MESSAGES_COPY: dict[str, str] = {
     "message_observer_mode_temporarily_unavailable": "Runtime writer veritabaninin sahibiyken {feature} gecici olarak "
     "kullanilamiyor.",
     "message_runtime_gate_open": "Ollama {base_url} adresinde erisilebilir ve {model_name} modeli kullanilabilir.",
-    "message_runtime_mode_configured_backend": "Yapilandirilan backend: {backend}",
-    "message_runtime_mode_configured_model": "Yapilandirilan model: {model_name}",
-    "message_runtime_mode_kill_switch_clear_required": "Production-like paper operation icin execution kill switch temiz olmali.",
-    "message_runtime_mode_live_execution_disabled_required": "Gercek adapter ve onaylar hazir olana kadar live execution kapali kalmali.",
-    "message_runtime_mode_provider_check_skipped": "Provider check atlandi; Operation mode oncesi doctor calistirin.",
-    "message_runtime_mode_strict_llm_required": "Operation mode icin AGENTIC_TRADER_STRICT_LLM=true gerekir.",
-    "message_runtime_mode_training_diagnostic_scope": "Training mode yalnizca replay, walk-forward, ablation ve diagnostic evaluation akislarina sinirlidir.",
-    "message_runtime_mode_training_no_hidden_trades": "`run`, `launch` ve service orchestration strict kalir; fallback ciktilariyla sessizce trade acmaz.",
-    "message_runtime_mode_training_operator_confirmation_required": "Mode degisiklikleri chat yan etkileriyle degil, acik configuration ile uygulanmalidir.",
+    "message_runtime_mode_configured_backend": "Yapılandırılan backend: {backend}",
+    "message_runtime_mode_configured_model": "Yapılandırılan model: {model_name}",
+    "message_runtime_mode_kill_switch_clear_required": "Production-like paper operation için execution kill switch temiz olmalı.",
+    "message_runtime_mode_live_execution_disabled_required": "Gerçek adapter ve onaylar hazır olana kadar live execution kapalı kalmalı.",
+    "message_runtime_mode_provider_check_skipped": "Provider check atlandı; Operation mode öncesi doctor çalıştırın.",
+    "message_runtime_mode_strict_llm_required": "Operation mode için AGENTIC_TRADER_STRICT_LLM=true gerekir.",
+    "message_runtime_mode_training_diagnostic_scope": "Training mode yalnızca replay, walk-forward, ablation ve diagnostic evaluation akışlarına sınırlıdır.",
+    "message_runtime_mode_training_no_hidden_trades": "`run`, `launch` ve service orchestration strict kalır; fallback çıktılarıyla sessizce trade açmaz.",
+    "message_runtime_mode_training_operator_confirmation_required": "Mode değişiklikleri chat yan etkileriyle değil, açık configuration ile uygulanmalıdır.",
     "message_portfolio_temporarily_unavailable": "Runtime writer veritabaninin sahibiyken portfolio view gecici olarak "
     "kullanilamiyor.\n\n{error}",
     "message_preferences_temporarily_unavailable": "Runtime writer veritabaninin sahibiyken preferences gecici olarak "
@@ -128,8 +128,8 @@ TR_MESSAGES_COPY: dict[str, str] = {
     "order={order_id} status={outcome_status}\n"
     "Broker resubmission denenmedi.",
     "message_trade_proposal_rejected": "{proposal_id} reddedildi.\n\nNeden: {reason}",
-    "message_runtime_mode_transition_allowed": "Runtime mode gecisi {current_mode} -> {target_mode} izinli.",
-    "message_runtime_mode_transition_blocked": "Runtime mode gecisi {current_mode} -> {target_mode} bloklandi.",
+    "message_runtime_mode_transition_allowed": "Runtime mode geçişi {current_mode} -> {target_mode} izinli.",
+    "message_runtime_mode_transition_blocked": "Runtime mode geçişi {current_mode} -> {target_mode} bloklandı.",
     "message_setup_bootstrap_guidance": "Interaktif system-tool installer icin `make bootstrap` calistirin.",
     "message_service_stale_runtime_recovered": "Dead PID {pid} artik yasamiyor. Runtime state stopped isaretlendi "
     "ve stale PID temizlendi.",

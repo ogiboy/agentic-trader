@@ -257,11 +257,11 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_daily_risk_report_for_date.startswith("Gunluk Risk Raporu")
     assert catalog.title_retrieval_stage == "Asama / {role}"
     assert catalog.label_fills_today == "Bugunku Fill'ler"
-    assert catalog.label_allowed_actors == "Izinli Actor'ler"
+    assert catalog.label_allowed_actors == "İzinli Actor'ler"
     assert catalog.message_no_retrieval_stage_context.startswith("Bu asama")
     assert catalog.message_no_runs_recorded == "Henuz run kaydi yok."
     assert catalog.message_no_orders_recorded == "Henuz order kaydi yok."
-    assert catalog.title_current_cycle == "Gecerli Dongu"
+    assert catalog.title_current_cycle == "Geçerli Döngü"
     assert catalog.status_allowed == "izinli"
     assert catalog.status_blocked == "bloklu"
     assert catalog.status_configured == "ayarlanmis"
@@ -285,7 +285,7 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_finance_operations_checks == "Finance Operations Kontrolleri"
     assert catalog.label_currency == "Para Birimi"
     assert catalog.help_locale_persist.startswith("Terminal UI locale")
-    assert catalog.title_runtime_mode_transition_checklist.startswith("Runtime Mode")
+    assert catalog.title_runtime_mode_transition_checklist.startswith("Runtime Modu")
     assert catalog.title_ui_locale == "UI Locale"
     assert catalog.label_supported == "Desteklenen"
     assert catalog.title_tool_readiness == "Tool Readiness"

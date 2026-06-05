@@ -9,13 +9,13 @@ from agentic_trader.schemas import (
     RuntimeModeTransitionCheck,
     RuntimeModeTransitionPlan,
 )
-from agentic_trader.ui_text import UITextCatalog, get_ui_text
+from agentic_trader.ui_text import t
 
 
 def runtime_mode_transition_plan(
     settings: Settings, *, target_mode: RuntimeMode, check_provider: bool
 ) -> RuntimeModeTransitionPlan:
-    copy = get_ui_text(settings.ui_locale)
+    locale = settings.ui_locale
     checks: list[RuntimeModeTransitionCheck] = []
 
     def add_check(
@@ -33,21 +33,25 @@ def runtime_mode_transition_plan(
     if target_mode == "operation":
         add_operation_mode_checks(
             settings=settings,
-            copy=copy,
+            locale=locale,
             checks=add_check,
             check_provider=check_provider,
         )
     else:
-        add_training_mode_checks(add_check, copy=copy)
+        add_training_mode_checks(add_check, locale=locale)
 
     allowed = all(check.passed for check in checks if check.blocking)
     summary = (
-        copy.message_runtime_mode_transition_allowed.format(
+        runtime_mode_text(
+            "transition.allowed",
+            locale=locale,
             current_mode=settings.runtime_mode,
             target_mode=target_mode,
         )
         if allowed
-        else copy.message_runtime_mode_transition_blocked.format(
+        else runtime_mode_text(
+            "transition.blocked",
+            locale=locale,
             current_mode=settings.runtime_mode,
             target_mode=target_mode,
         )
@@ -64,51 +68,57 @@ def runtime_mode_transition_plan(
 def add_operation_mode_checks(
     *,
     settings: Settings,
-    copy: UITextCatalog,
+    locale: str | None,
     checks: AddCheck,
     check_provider: bool,
 ) -> None:
     checks(
         "strict_llm_enabled",
         settings.strict_llm,
-        copy.message_runtime_mode_strict_llm_required,
+        runtime_mode_text("strict.llm.required", locale=locale),
     )
     if check_provider:
-        add_provider_checks(settings=settings, copy=copy, checks=checks)
+        add_provider_checks(settings=settings, locale=locale, checks=checks)
     else:
         checks(
             "provider_reachable",
             False,
-            copy.message_runtime_mode_provider_check_skipped,
+            runtime_mode_text("provider.check.skipped", locale=locale),
         )
     checks(
         "non_live_execution_backend",
         settings.execution_backend in {"paper", "simulated_real"},
-        copy.message_runtime_mode_configured_backend.format(
-            backend=settings.execution_backend
+        runtime_mode_text(
+            "configured.backend",
+            locale=locale,
+            backend=settings.execution_backend,
         ),
     )
     checks(
         "live_execution_disabled",
         not settings.live_execution_enabled,
-        copy.message_runtime_mode_live_execution_disabled_required,
+        runtime_mode_text("live.execution.disabled.required", locale=locale),
     )
     checks(
         "kill_switch_clear",
         not settings.execution_kill_switch_active,
-        copy.message_runtime_mode_kill_switch_clear_required,
+        runtime_mode_text("kill.switch.clear.required", locale=locale),
     )
 
 
 def add_provider_checks(
-    *, settings: Settings, copy: UITextCatalog, checks: AddCheck
+    *, settings: Settings, locale: str | None, checks: AddCheck
 ) -> None:
     health = LocalLLM(settings).health_check(include_generation=True)
     checks("provider_reachable", health.service_reachable, health.message)
     checks(
         "model_available",
         health.model_available,
-        copy.message_runtime_mode_configured_model.format(model_name=health.model_name),
+        runtime_mode_text(
+            "configured.model",
+            locale=locale,
+            model_name=health.model_name,
+        ),
     )
     checks(
         "model_generation_ready",
@@ -117,22 +127,31 @@ def add_provider_checks(
     )
 
 
-def add_training_mode_checks(checks: AddCheck, *, copy: UITextCatalog) -> None:
+def add_training_mode_checks(checks: AddCheck, *, locale: str | None) -> None:
     checks(
         "diagnostic_scope",
         True,
-        copy.message_runtime_mode_training_diagnostic_scope,
+        runtime_mode_text("training.diagnostic.scope", locale=locale),
     )
     checks(
         "runtime_no_hidden_trades",
         True,
-        copy.message_runtime_mode_training_no_hidden_trades,
+        runtime_mode_text("training.no.hidden.trades", locale=locale),
     )
     checks(
         "operator_confirmation_required",
         True,
-        copy.message_runtime_mode_training_operator_confirmation_required,
+        runtime_mode_text(
+            "training.operator.confirmation.required",
+            locale=locale,
+        ),
     )
+
+
+def runtime_mode_text(
+    key: str, *, locale: str | None = None, **values: object
+) -> str:
+    return t(f"runtime.mode.{key}", locale=locale, catalog=None, **values)
 
 
 class AddCheck(Protocol):

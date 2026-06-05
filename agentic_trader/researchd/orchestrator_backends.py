@@ -10,7 +10,10 @@ from uuid import uuid4
 
 from agentic_trader.config import Settings
 from agentic_trader.json_utils import object_dict_or_none as _object_mapping
-from agentic_trader.researchd.crewai_setup import default_crewai_flow_dir
+from agentic_trader.researchd.crewai_setup import (
+    crewai_workspace_root_for_flow,
+    default_crewai_flow_dir,
+)
 from agentic_trader.researchd.orchestrator_contract import (
     contract_error_items as _contract_error_items,
 )
@@ -67,9 +70,12 @@ class CrewAiResearchBackend:
         provider_outputs: list[ResearchProviderOutput],
     ) -> ResearchPipelineResult:
         flow_dir = self.flow_dir or default_crewai_flow_dir(settings)
+        workspace_root = crewai_workspace_root_for_flow(flow_dir)
         uv_path = self.uv_path or shutil.which("uv")
         now = utc_now_iso()
-        preflight_message = self._preflight_failure_message(flow_dir, uv_path)
+        preflight_message = self._preflight_failure_message(
+            flow_dir, workspace_root, uv_path
+        )
         if preflight_message is not None:
             return self._failed_result(
                 settings=settings,
@@ -84,6 +90,7 @@ class CrewAiResearchBackend:
             symbols=symbols,
             provider_outputs=provider_outputs,
             flow_dir=flow_dir,
+            workspace_root=workspace_root,
             uv_path=uv_path or "uv",
             now=now,
         )
@@ -108,14 +115,16 @@ class CrewAiResearchBackend:
         )
 
     @staticmethod
-    def _preflight_failure_message(flow_dir: Path, uv_path: str | None) -> str | None:
+    def _preflight_failure_message(
+        flow_dir: Path, workspace_root: Path, uv_path: str | None
+    ) -> str | None:
         if uv_path is None:
             return "uv is required before the CrewAI Flow sidecar can run."
         if not (flow_dir / "pyproject.toml").exists():
             return f"CrewAI Flow sidecar project is missing at {flow_dir}."
-        if not (flow_dir / ".venv").exists():
+        if not (workspace_root / ".venv").exists():
             return (
-                "CrewAI Flow sidecar environment is not installed. "
+                "CrewAI Flow workspace environment is not installed. "
                 "Run 'pnpm run setup:research-flow' first."
             )
         return None
@@ -127,6 +136,7 @@ class CrewAiResearchBackend:
         symbols: list[str],
         provider_outputs: list[ResearchProviderOutput],
         flow_dir: Path,
+        workspace_root: Path,
         uv_path: str,
         now: str,
     ) -> subprocess.CompletedProcess[str] | ResearchPipelineResult:
@@ -136,7 +146,7 @@ class CrewAiResearchBackend:
                 json.dumps(
                     self._contract_request_payload(settings, symbols, provider_outputs)
                 ),
-                flow_dir,
+                workspace_root,
                 _sidecar_process_env(),
                 self.timeout_seconds,
             )
@@ -188,6 +198,8 @@ class CrewAiResearchBackend:
         return [
             uv_path,
             "run",
+            "--package",
+            "research-flow",
             "--locked",
             "--no-sync",
             "research-flow-contract",

@@ -13,7 +13,7 @@ Adding an external orchestrator as the central control plane would duplicate and
 Reason:
 The trading runtime already owns staged specialist execution, manager synthesis, guard decisions, broker adapters, persistence, and operator truth.
 The V1 research sidecar may collect and normalize external evidence, produce world-state snapshots, and prepare memory-update packets, but it must not submit orders, mutate trading policy, weaken strict runtime gates, or replace the staged graph.
-The former V1.1/V1.2 tracks are now part of V1 completion: CrewAI can be useful for deep-dive/evaluation loops, but it stays behind an optional backend boundary and must not become a required core runtime dependency.
+The former V1.1/V1.2 tracks are now part of V1 completion: CrewAI can be useful for deep-dive/evaluation loops, but it stays behind an optional backend boundary and must not become a broker, policy, runtime-mode, or direct-import authority.
 
 ### Research snapshots use the runtime feed before a sidecar database
 
@@ -30,12 +30,12 @@ SEC EDGAR submissions metadata can produce source-attributed filing evidence for
 The provider may summarize compact official XBRL company facts from the SEC companyfacts API for both sidecar research evidence and canonical US fundamental snapshots, but it still must not download raw filing text, parse arbitrary filing HTML, or mutate trading policy.
 When providers return normalized evidence, world-state source attribution must stay fresh and source-attributed rather than being collapsed into missing-source scaffolding.
 
-### CrewAI setup stays isolated until the dependency boundary is proven
+### CrewAI setup stays runtime-controlled under the uv workspace
 
 Reason:
-CrewAI is available as a useful sidecar harness, but adding it to the root lock would widen the runtime dependency surface before the adapter is implemented.
-The current path is operator-visible setup/status plus a tracked uv-managed CrewAI Flow sidecar under `sidecars/research_flow/`, then JSON/Pydantic handshakes behind `ResearchSidecarBackend` as V1 deep-dive tasks mature.
-The sidecar can own its CrewAI dependency, Python 3.13 `.python-version`, and `uv.lock`; the root runtime must keep working when that sidecar is not installed.
+CrewAI is available as a useful sidecar harness, but importing it from core trading modules would widen the strict runtime surface and blur ownership.
+The current path is operator-visible setup/status plus a tracked `research-flow` uv workspace dependency under `sidecars/research_flow/`, then JSON/Pydantic handshakes behind `ResearchSidecarBackend` as V1 deep-dive tasks mature.
+The sidecar owns CrewAI imports and its Python 3.13 `.python-version`, while root `pyproject.toml`, `tool.uv.sources`, and `uv.lock` own shared workspace resolution. The root runtime may spawn the sidecar through the locked subprocess contract after setup, but it must degrade visibly if the sidecar environment is unavailable and must never import CrewAI directly.
 
 ### External AI coding tools are development helpers, not runtime dependencies
 

@@ -14,7 +14,17 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    '../.agents/**',
+    '../.claude/**',
+    '../.claude-flow/**',
+    '../CLAUDE.md',
+    '../skills-lock.json',
   ]),
+  {
+    settings: {
+      react: { version: '19' },
+    },
+  },
 ]);
 
 export default eslintConfig;

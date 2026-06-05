@@ -344,13 +344,20 @@ Terminal UI locale also follows the Python-side setting:
 `agentic-trader locale --set tr` persists `AGENTIC_TRADER_UI_LOCALE=tr` in the
 local environment file.
 
-### Optional CrewAI Research Flow Sidecar
+### Runtime-Controlled CrewAI Research Flow Sidecar
 
-CrewAI is tracked as an isolated uv-managed Flow sidecar under
-`sidecars/research_flow/`. It is not a root dependency and the core runtime does
-not import it. When the research backend is set to `crewai`, the root process
-calls the Flow sidecar through a subprocess JSON contract after the sidecar
-environment has been installed.
+`research-flow` is a uv workspace dependency managed from the root project and
+implemented under `sidecars/research_flow/`. It is part of the runtime's
+controlled research surface: setup/status commands can inspect it, and when the
+research backend is set to `crewai`, the root process calls the Flow sidecar
+through a subprocess JSON contract after the workspace environment has been
+installed. The Python import package remains `research_flow`; the distribution
+and uv package name are canonicalized as `research-flow`.
+
+The sidecar is not a second trading runtime. It may collect normalized evidence,
+produce world-state snapshots, and prepare research packets, but it must not
+submit orders, mutate broker policy, change runtime mode, own the main DuckDB
+writer, or replace the staged specialist graph.
 
 ```bash
 pnpm run setup:research-flow
@@ -482,7 +489,13 @@ Stable releases are driven by conventional commits on `main` through `python-sem
 
 Preview builds keep SemVer compatibility by using prerelease and build metadata instead of a fourth core version segment. Integration branches such as `V1` produce `next` prereleases like `v0.9.6-next.9870+gabc1234`; feature branches produce `beta` prereleases like `v0.9.6-beta.9870+gabc1234`.
 
-Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to the matching release. Branch pushes also upload the same binaries as workflow artifacts and publish prerelease GitHub Releases for branch testing. Source install remains the most complete developer path; release binaries are for quick CLI/admin use.
+Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to
+the matching release. Stable GitHub Release bodies include the matching
+`CHANGELOG.md` section plus a direct changelog link, while branch preview
+release bodies include channel, branch, commit, workflow run, and changelog
+metadata. Branch pushes also upload the same binaries as workflow artifacts and
+publish prerelease GitHub Releases for branch testing. Source install remains
+the most complete developer path; release binaries are for quick CLI/admin use.
 
 ## Usage
 
@@ -528,9 +541,9 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader research-cycle-run --symbols AAPL,MSFT --cycles 2 --no-sleep --json`                                      | Run bounded evidence-only research cycles with preflight, source-health delta, cadence, and digest output but no broker authority                                              |
 | `agentic-trader evidence-bundle --provider-check --json`                                                                  | Package read-only QA/release evidence with active model/provider readiness                                                                                                     |
 | `pnpm run qa:v1-paper-desk`                                                                                               | Run an isolated V1 paper-desk rehearsal with proposal and evidence artifacts                                                                                                   |
-| `agentic-trader research-status --json`                                                                                   | Inspect optional research sidecar health                                                                                                                                       |
+| `agentic-trader research-status --json`                                                                                   | Inspect runtime-controlled research sidecar health                                                                                                                             |
 | `agentic-trader research-refresh --json`                                                                                  | Run one isolated sidecar snapshot pass                                                                                                                                         |
-| `agentic-trader research-flow-setup --json`                                                                               | Inspect optional CrewAI Flow sidecar readiness                                                                                                                                 |
+| `agentic-trader research-flow-setup --json`                                                                               | Inspect CrewAI Flow sidecar workspace readiness                                                                                                                                |
 | `agentic-trader review-run`                                                                                               | Review the latest persisted run                                                                                                                                                |
 
 ## Web GUI
@@ -577,6 +590,22 @@ pnpm run sonar
 
 `pnpm check` is the canonical static/build validation entrypoint. Use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA and operator-surface checks. The Makefile is a thin alias layer for developers who prefer `make setup`, `make check`, `make webgui`, `make docs`, or `make tui`.
 
+### Development Advisory Catalog
+
+The repository intentionally tracks project-local development tooling context in
+`.agents/skills/`, `skills-lock.json`, `CLAUDE.md`, `.claude/`, and stable
+`.claude-flow/` config/capability files. These are advisory assets for
+Codex/Claude/RuFlo-assisted development. They are not runtime dependencies,
+operator setup steps, trading agents, broker authority, release automation, or
+hidden hooks for Agentic Trader.
+
+Generated tool runtime state remains local and ignored, including
+`.claude-flow/data/`, logs, sessions, neural output, metrics, security JSON,
+`.ruflo/`, `.swarm/`, `.mcp.json`, memory databases, pid files, and similar
+daemon artifacts. CodeQL, CodeRabbit, Sonar, Pyright/Pylance, frontend ESLint,
+and TypeScript configs exclude the advisory catalog so those tools review the
+product code rather than the installed skill library.
+
 Sonar is split by target on purpose:
 
 | Target                          | Project key             | Use                                                              |
@@ -592,7 +621,13 @@ Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, or `pnpm ru
 
 GitHub Actions needs only `SONAR_TOKEN` as a repository secret for SonarCloud. Docs deployment uses GitHub Pages permissions, releases/binaries use the built-in `GITHUB_TOKEN`, and local Docker SonarQube tokens should stay on the developer machine.
 
-uv selects and syncs the root Python interpreter from `.python-version`, owns root dependency locking, command execution, and builds, while the tracked CrewAI Flow sidecar owns its own nested `uv.lock`. pnpm owns JavaScript workspace dependencies plus the shared command surface. The two uv projects intentionally stay separate below the root scripts so CrewAI can evolve without widening the core runtime dependency graph.
+uv selects and syncs the root Python interpreter from `.python-version`, owns
+the Python workspace lock, command execution, and builds, while the tracked
+`research-flow` package is a root workspace dependency under
+`sidecars/research_flow/`. pnpm owns JavaScript workspace dependencies plus the
+shared command surface. Runtime integration still goes through the subprocess
+JSON contract so CrewAI modules are not imported directly from core
+`agentic_trader` modules.
 
 Commit messages should follow conventional commits so release automation can infer version bumps:
 

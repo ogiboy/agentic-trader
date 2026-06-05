@@ -18,7 +18,7 @@ after the change. Missing or stale memory must not override runtime contracts.
 - Add root Python packages with `uv add <package>` so `pyproject.toml` and
   `uv.lock` stay in sync; upgrade with `uv lock --upgrade` and then restore the
   developer environment with `uv sync --locked --all-extras --group dev`
-- The tracked CrewAI Flow project lives under `sidecars/research_flow/` and uses uv independently of the root uv environment
+- The tracked CrewAI Flow project lives under `sidecars/research_flow/` as a uv workspace member; root `uv.lock` and root `.venv` own dependency resolution and installation for both core and sidecar packages
 - The root runtime may call the CrewAI Flow sidecar only through a subprocess JSON contract; it should not import CrewAI directly
 - SEC EDGAR submissions metadata and canonical companyfacts fundamentals are the first opt-in live official sources, gated by `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED` and `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`
 - Optional Firecrawl and Camofox research helpers are disabled by default under `researchd`; they produce redacted/source-attributed evidence or provider health only and must not inject raw web text into prompts
@@ -52,8 +52,8 @@ after the change. Missing or stale memory must not override runtime contracts.
 - Do not weaken strict runtime gating
 - Do not let operator chat history bleed into execution-time context assembly
 - Do not let research sidecars or CrewAI loops become hidden execution, policy mutation, or raw web-text prompt injection paths
-- Do not add CrewAI to the root dependency graph unless the sidecar boundary is intentionally redesigned
-- Do not let runtime commands implicitly sync or upgrade the sidecar environment; setup/check commands own uv sync
+- Do not import CrewAI from core runtime modules or give it broker, policy, runtime-mode, or prompt-authority; it belongs to the `research-flow` workspace package and subprocess JSON boundary
+- Do not let runtime commands implicitly sync or upgrade the workspace environment; setup/check commands own uv sync
 - Do not fetch SEC EDGAR or any future external research source without explicit provider enablement and required contact/credential configuration
 - Do not let Firecrawl/Camofox errors, snippets, browser payloads, or provider raw text bypass central redaction or source-normalization before reaching CLI/observer/Web/research snapshots
 - Do not let scanner, sidecar, chat, or Web surfaces approve a proposal implicitly; manual approval must remain auditable and broker-adapter backed
@@ -67,7 +67,7 @@ after the change. Missing or stale memory must not override runtime contracts.
 - extend current memory rather than replacing it
 - add research sidecar memory inputs as normalized, source-attributed packets only
 - evolve the CrewAI Flow sidecar through explicit JSON contracts, not direct imports from the core trading runtime
-- keep root uv migration aligned across scripts, CI, docs, and release automation
+- keep root uv workspace behavior aligned across scripts, CI, docs, and release automation
 - add provider adapters rather than changing agent workflow semantics
 - expand SEC ingestion beyond metadata submissions and companyfacts into filing parsing only after the normalized evidence contract stays green
 - grow financial intelligence through proposal review, idea screening, source materiality, liquidity, sizing, and concentration controls before adding direct execution automation

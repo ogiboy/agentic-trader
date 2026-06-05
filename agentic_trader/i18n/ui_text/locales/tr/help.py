@@ -92,7 +92,7 @@ TR_HELP_COPY: dict[str, str] = {
     "help_run_replay_id": "Replay edilecek run id. Varsayilan son kayitli run.",
     "help_export_report_output": "Export edilen run review icin output file path.",
     "help_export_report_run_id": "Export edilecek run id. Varsayilan son kayitli run.",
-    "help_runtime_mode_provider_check": "Operation modu icin yerel provider/model hazirligini kontrol et.",
+    "help_runtime_mode_provider_check": "Operation modu için yerel provider/model hazırlığını kontrol et.",
     "help_runtime_mode_target": "Hedef runtime modu: training veya operation.",
     "help_news_classify_source": "Source domain veya URL'i source tier policy icine siniflandir.",
     "help_news_company_name": "Ticker disambiguation icin istege bagli sirket adi.",

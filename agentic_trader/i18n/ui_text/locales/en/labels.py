@@ -43,7 +43,7 @@ EN_LABELS_COPY: dict[str, str] = {
     "label_confidence": "Confidence",
     "label_consensus": "Consensus",
     "label_context": "Context",
-    "label_core_dependency": "Core Dependency",
+    "label_core_dependency": "Direct Core Import",
     "label_core_ready": "Core Ready",
     "label_cpu_count": "CPU Count",
     "label_created": "Created",
