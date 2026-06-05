@@ -7,6 +7,14 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.14.3 (2026-06-05)
+
+### Chores
+
+- **deps**: Bump astral-sh/setup-uv from 8.1.0 to 8.2.0
+  ([`34eb043`](https://github.com/ogiboy/agentic-trader/commit/34eb0439f2a540295fd527292cef98a1243a0297))
+
+
 ## v0.14.2 (2026-06-04)
 
 ### Chores
