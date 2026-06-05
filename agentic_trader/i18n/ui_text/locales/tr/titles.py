@@ -33,6 +33,7 @@ TR_TITLES_COPY: dict[str, str] = {
     "title_decision_workflow": "Decision Workflow",
     "title_decision_evidence_explorer": "Decision Evidence Explorer",
     "title_llm_status": "LLM Durumu",
+    "title_live_monitor": "Agentic Trader Live Monitor",
     "title_observer_api": "Observer API",
     "title_observer_api_blocked": "Observer API Bloklandi",
     "title_operator_instruction": "Operator Talimati",

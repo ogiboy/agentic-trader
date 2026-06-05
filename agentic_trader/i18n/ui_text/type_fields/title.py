@@ -39,6 +39,7 @@ class TitleTextFields:
     title_decision_workflow: str
     title_decision_evidence_explorer: str
     title_llm_status: str
+    title_live_monitor: str
     title_observer_api: str
     title_observer_api_blocked: str
     title_operator_instruction: str

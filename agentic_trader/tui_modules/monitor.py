@@ -31,10 +31,7 @@ from agentic_trader.tui_modules.monitor_tables import (
     risk_report_table,
     trade_journal_table,
 )
-from agentic_trader.ui_text import (
-    MESSAGE_MONITOR_RETURN_SHORTCUT,
-    STYLE_KEY_COLUMN,
-)
+from agentic_trader.ui_text import t
 
 console = Console()
 
@@ -79,8 +76,8 @@ def _monitor_db(
 
 def _monitor_header() -> Panel:
     return Panel(
-        Text("Agentic Trader Live Monitor", style=STYLE_KEY_COLUMN),
-        subtitle=MESSAGE_MONITOR_RETURN_SHORTCUT,
+        Text(t("title.live.monitor"), style=t("style.key.column")),
+        subtitle=t("message.monitor.return.shortcut"),
         border_style="bright_blue",
     )
 
@@ -133,12 +130,12 @@ def _operator_data_columns(db: TradingDatabase | None) -> Columns:
             (
                 Panel(render_preferences(db.load_preferences()), border_style="green")
                 if db is not None
-                else observer_mode_panel("Preferences")
+                else observer_mode_panel(t("title.investment.preferences"))
             ),
             (
                 Panel(portfolio_renderable(db), border_style="yellow")
                 if db is not None
-                else observer_mode_panel("Portfolio")
+                else observer_mode_panel(t("title.portfolio"))
             ),
         ],
         equal=True,
@@ -155,7 +152,7 @@ def _history_columns(db: TradingDatabase | None, events: list[ServiceEvent]) -> 
                     border_style="white",
                 )
                 if db is not None
-                else observer_mode_panel("Run review and trade journal")
+                else observer_mode_panel(t("title.review.and.trace"))
             ),
             Panel(runtime_events_table(events), border_style="bright_blue"),
         ],
@@ -168,7 +165,7 @@ def _risk_renderable(db: TradingDatabase | None) -> RenderableType:
     return (
         Panel(risk_report_table(db), border_style="red")
         if db is not None
-        else observer_mode_panel("Risk report")
+        else observer_mode_panel(t("title.daily.risk.report"))
     )
 
 

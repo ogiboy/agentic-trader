@@ -71,6 +71,7 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.title_portfolio_and_risk == ui_text.TITLE_PORTFOLIO_AND_RISK
     assert catalog.title_main_menu == ui_text.TITLE_MAIN_MENU
     assert catalog.title_control_room == "Agentic Trader Control Room"
+    assert catalog.title_live_monitor == "Agentic Trader Live Monitor"
     assert catalog.message_control_room_compact_subtitle.startswith("Strict LLM gate")
     assert catalog.label_strict_llm == ui_text.LABEL_STRICT_LLM
     assert catalog.label_action == ui_text.LABEL_ACTION
@@ -397,8 +398,10 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_portfolio_and_risk == "Portfolio Ve Risk"
     assert catalog.title_main_menu == "Ana Menu"
     assert catalog.title_control_room == "Agentic Trader Kontrol Odası"
+    assert catalog.title_live_monitor == "Agentic Trader Live Monitor"
     assert catalog.message_control_room_full_subtitle.startswith("Strict LLM kapısı")
     assert catalog.label_action == "Aksiyon"
+    assert catalog.label_regions == "Bölgeler"
     assert catalog.label_regime == "Regime"
     assert catalog.title_context_summary == "Context Ozeti"
     assert catalog.label_execution_rationale == "Execution Gerekcesi"
