@@ -10,23 +10,7 @@ from agentic_trader.tui_modules.common import (
     menu_table,
     run_readonly_db_menu_action,
 )
-from agentic_trader.ui_text import (
-    LABEL_FALLBACK,
-    LABEL_MODEL,
-    LABEL_ROLE,
-    MENU_ACTION_BACK,
-    MENU_ACTION_INSPECT_LATEST_RUN_REVIEW,
-    MENU_ACTION_INSPECT_LATEST_RUN_TRACE,
-    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
-    MESSAGE_NO_PERSISTED_RUNS_TRACE,
-    PROMPT_CONTINUE,
-    PROMPT_SELECT_ACTION,
-    TITLE_AGENT_TRACE_FOR_RUN,
-    TITLE_LATEST_RUN_REVIEW,
-    TITLE_REVIEW_AND_TRACE,
-    TITLE_RUN_REVIEW,
-    TITLE_TRACE,
-)
+from agentic_trader.ui_text import t
 
 
 def show_latest_run_review(db: TradingDatabase) -> None:
@@ -34,8 +18,8 @@ def show_latest_run_review(db: TradingDatabase) -> None:
     if record is None:
         console.print(
             Panel(
-                MESSAGE_NO_PERSISTED_RUNS_REVIEW,
-                title=TITLE_RUN_REVIEW,
+                t("message.no.persisted.runs.review"),
+                title=t("title.run.review"),
                 border_style="yellow",
             )
         )
@@ -43,7 +27,7 @@ def show_latest_run_review(db: TradingDatabase) -> None:
     console.print(
         Panel(
             record.artifacts.model_dump_json(indent=2),
-            title=TITLE_LATEST_RUN_REVIEW.format(run_id=record.run_id),
+            title=t("title.latest.run.review", run_id=record.run_id),
             border_style="cyan",
         )
     )
@@ -54,16 +38,16 @@ def show_latest_run_trace(db: TradingDatabase) -> None:
     if record is None:
         console.print(
             Panel(
-                MESSAGE_NO_PERSISTED_RUNS_TRACE,
-                title=TITLE_TRACE,
+                t("message.no.persisted.runs.trace"),
+                title=t("title.trace"),
                 border_style="yellow",
             )
         )
         return
-    table = Table(title=TITLE_AGENT_TRACE_FOR_RUN.format(run_id=record.run_id))
-    table.add_column(LABEL_ROLE)
-    table.add_column(LABEL_MODEL)
-    table.add_column(LABEL_FALLBACK)
+    table = Table(title=t("title.agent.trace.for.run", run_id=record.run_id))
+    table.add_column(t("label.role"))
+    table.add_column(t("label.model"))
+    table.add_column(t("label.fallback"))
     for trace in record.artifacts.agent_traces:
         table.add_row(trace.role, trace.model_name, str(trace.used_fallback))
     console.print(table)
@@ -73,14 +57,14 @@ def review_menu(settings: Settings) -> None:
     actions = {
         "1": TuiMenuAction(
             "1",
-            MENU_ACTION_INSPECT_LATEST_RUN_REVIEW,
-            TITLE_LATEST_RUN_REVIEW,
+            t("menu.action.inspect.latest.run.review"),
+            t("title.latest.run.review"),
             show_latest_run_review,
         ),
         "2": TuiMenuAction(
             "2",
-            MENU_ACTION_INSPECT_LATEST_RUN_TRACE,
-            TITLE_AGENT_TRACE_FOR_RUN,
+            t("menu.action.inspect.latest.run.trace"),
+            t("title.agent.trace.for.run"),
             show_latest_run_trace,
         ),
     }
@@ -88,12 +72,12 @@ def review_menu(settings: Settings) -> None:
         console.clear()
         console.print(
             menu_table(
-                TITLE_REVIEW_AND_TRACE,
-                [*actions.values(), ("3", MENU_ACTION_BACK)],
+                t("title.review.and.trace"),
+                [*actions.values(), ("3", t("menu.action.back"))],
             )
         )
-        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(t("prompt.select.action"), choices=["1", "2", "3"], default="1")
         if choice == "3":
             return
         run_readonly_db_menu_action(settings, actions[choice])
-        Prompt.ask(PROMPT_CONTINUE, default="")
+        Prompt.ask(t("prompt.continue"), default="")
