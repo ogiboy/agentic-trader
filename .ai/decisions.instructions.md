@@ -44,12 +44,13 @@ ChatGPT, Codex, and similar tools may help plan and implement changes, but they 
 The `.ai/agents/` role pack documents development workflows for planner, implementer, reviewer, QA, and data-focused helpers only; it must not be interpreted as a runtime agent platform or external orchestration dependency.
 RuFlo may be used the same way: as a system-level MCP/CLI advisory layer for task routing, diff-risk, workflow guidance, memory, or sandboxed-agent experiments.
 Context7 may be used as a system-level documentation helper through the `npx ctx7` CLI when MCP discovery or login state is unreliable.
-Do not initialize RuFlo or Context7 into the repository, add their setup files to tracked project state, or let their agents/tools become part of the trading runtime unless that is made an explicit repo decision.
+Do not initialize Context7 into the repository or let external agents/tools become part of the trading runtime unless that is made an explicit repo decision.
 The default RuFlo posture is global Codex MCP first: use stable advisory tools such as status, hook inventory, diff stats, diff/file risk, and workflow guidance before any project-local CLI state.
 RuFlo swarm and agent tools are experimental until repeated serial smoke checks prove that the MCP transport stays open, spawned agents are visible, and cleanup leaves no generated repo state.
-If an external init command creates tool-state folders such as `.claude/`, `.claude-flow/`, `.swarm/`, `.mcp.json`, or `CLAUDE.md`, those files are treated as disposable scaffolding.
-Reusable guidance should be translated into self-contained `.ai/` working agreements, then the generated artifacts should be removed rather than added to git or hidden in `.gitignore`.
-The durable home for those practices is `.ai/agents/`, `.ai/workflows/`, `.ai/playbooks/`, `.ai/helpers/`, and `.ai/skills/`; those files must stand alone.
+The project now intentionally tracks a curated local development catalog in `.agents/skills/`, `skills-lock.json`, `CLAUDE.md`, `.claude/`, and the stable `.claude-flow/` config/capability files after the June 2026 manual skill install.
+Those files are advisory development surfaces only: they do not create product runtime dependencies, trading agents, broker authority, hidden release behavior, or required setup steps for operators.
+Generated runtime state still remains disposable and untracked, including `.claude-flow/data/`, `.claude-flow/logs/`, `.claude-flow/sessions/`, `.claude-flow/neural/`, `.claude-flow/metrics/`, `.claude-flow/security/*.json`, `.ruflo/`, `.swarm/`, `.mcp.json`, local memory databases, daemon pid files, and logs.
+Reusable guidance should still be translated into self-contained `.ai/` working agreements whenever it changes repo policy, and `.ai/agents/`, `.ai/workflows/`, `.ai/playbooks/`, `.ai/helpers/`, and `.ai/skills/` remain the durable Codex-facing contract.
 System-level RuFlo commands may be used actively from Codex as advisory checks when they do not initialize repository state, start daemons, spawn long-running agents, mutate memory, install dependencies, or replace local tests and source review.
 
 ### Operator-facing docs should explain the product before the repo

@@ -22,6 +22,7 @@ SCAN_ROOTS = (
 )
 CODE_SUFFIXES = {".py", ".ts", ".tsx", ".mjs", ".js", ".css", ".md", ".mdx"}
 SKIP_DIRS = {
+    ".agents", ".claude", ".claude-flow",
     ".git",
     ".mypy_cache",
     ".next",

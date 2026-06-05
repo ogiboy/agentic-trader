@@ -63,6 +63,9 @@ omit = [
   "tests/*",
   "*/__init__.py",
   ".ai/*",
+  ".agents/*",
+  ".claude/*",
+  ".claude-flow/*",
   "runtime/*",
 ]
 
@@ -72,6 +75,9 @@ show_missing = true
 
 [tool.ruff]
 extend-exclude = [
+  ".agents",
+  ".claude",
+  ".claude-flow",
   "build",
   "dist",
   "runtime",

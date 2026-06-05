@@ -23,7 +23,7 @@ Use this pack with the role docs in `.ai/agents/`:
 - `multi-agent-handoff.instructions.md`: when and how to split work across development
   agents without changing the runtime architecture.
 - `external-tooling-policy.instructions.md`: how to use system-level advisory tools without
-  making their generated state part of the repository.
+  making their runtime state part of the repository.
 - `generated-artifact-harvest.instructions.md`: one-time record of what was adopted or
   rejected from generated advisory scaffolding.
 
@@ -61,7 +61,7 @@ content changes runtime expectations.
 
 - Do not create a second runtime orchestration layer.
 - Do not auto-commit, auto-merge, or auto-upgrade dependencies.
-- Do not put provider secrets, runtime logs, tool memory, daemon state, or local
-  MCP configs into tracked project files.
+- Do not put provider secrets, runtime logs, tool memory, daemon state, local
+  MCP configs, or generated assistant runtime state into tracked project files.
 - Do not let generated tool instructions override `AGENTS.instructions.md`, `.ai/rules.instructions.md`,
   or the existing trading runtime contracts.

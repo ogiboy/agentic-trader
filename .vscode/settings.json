@@ -19,6 +19,16 @@
   },
   "isort.args": ["--profile", "black"],
   "python.analysis.autoImportCompletions": true,
+  "python.analysis.exclude": [
+    "**/.agents/**",
+    "**/.claude/**",
+    "**/.claude-flow/**"
+  ],
+  "python.analysis.ignore": [
+    "**/.agents/**",
+    "**/.claude/**",
+    "**/.claude-flow/**"
+  ],
   "python-envs.pythonProjects": [],
   "python.createEnvironment.contentButton": "show",
   "python.languageServer": "Pylance",
@@ -41,7 +51,18 @@
   "editor.cursorStyle": "underline",
   "editor.minimap.autohide": "mouseover",
   "editor.inlineSuggest.fontFamily": "\"Less Perfect DOS VGA\", default",
-  "files.encoding": "iso88599",
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": true,
+  "files.watcherExclude": {
+    "**/.agents/**": true,
+    "**/.claude/**": true,
+    "**/.claude-flow/**": true
+  },
+  "search.exclude": {
+    "**/.agents/**": true,
+    "**/.claude/**": true,
+    "**/.claude-flow/**": true
+  },
   "workbench.activityBar.compact": false,
   "workbench.fontAliasing": "default",
   "window.autoDetectColorScheme": false,

@@ -17,6 +17,9 @@ SONAR_ORGANIZATION="${SONAR_ORGANIZATION:-}"
 SONAR_REGION="${SONAR_REGION:-}"
 SONAR_SOURCES="${SONAR_SOURCES:-agentic_trader,main.py,webgui/src,docs/app,docs/components,docs/content,docs/lib,tui}"
 SONAR_TESTS="${SONAR_TESTS:-tests}"
+SONAR_EXCLUSIONS="${SONAR_EXCLUSIONS:-**/.agents/**,**/.claude/**,**/.claude-flow/**,CLAUDE.md,**/.venv/**,**/.conda-env/**,**/node_modules/**,**/.next/**,**/out/**,**/dist/**,**/build/**,**/.git/**,**/.sonar/**,**/.scannerwork/**,**/.source/**,**/__pycache__/**,**/*.pyc,**/*.tsbuildinfo,**/*.test.ts,**/*.test.tsx,**/*.test.mjs,docs/public/**,webgui/public/**,.ai/qa/artifacts/**,runtime/**,scripts/**}"
+SONAR_COVERAGE_EXCLUSIONS="${SONAR_COVERAGE_EXCLUSIONS:-${SONAR_EXCLUSIONS}}"
+SONAR_CPD_EXCLUSIONS="${SONAR_CPD_EXCLUSIONS:-**/.agents/**,**/.claude/**,**/.claude-flow/**,CLAUDE.md,docs/**,webgui/src/app/api/**,webgui/src/components/ui/**,webgui/public/**,tui/**}"
 SONAR_TOKEN_KEYCHAIN_SERVICE="${SONAR_TOKEN_KEYCHAIN_SERVICE:-codex-sonarqube-token}"
 SONAR_TOKEN_KEYCHAIN_ACCOUNT="${SONAR_TOKEN_KEYCHAIN_ACCOUNT:-${USER:-}}"
 
@@ -102,6 +105,9 @@ run_pysonar() {
 		--sonar-sources "${SONAR_SOURCES}"
 		--sonar-tests "${SONAR_TESTS}"
 		--sonar-python-version "3.12"
+		"-Dsonar.exclusions=${SONAR_EXCLUSIONS}"
+		"-Dsonar.coverage.exclusions=${SONAR_COVERAGE_EXCLUSIONS}"
+		"-Dsonar.cpd.exclusions=${SONAR_CPD_EXCLUSIONS}"
 	)
 	if [[ -f "${COVERAGE_XML}" ]]; then
 		command+=(--sonar-python-coverage-report-paths "${COVERAGE_XML}")
@@ -131,6 +137,9 @@ run_npm_scanner() {
 		"-Dsonar.host.url=${SONAR_HOST_URL}"
 		"-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
 		"-Dsonar.projectName=${SONAR_PROJECT_NAME}"
+		"-Dsonar.exclusions=${SONAR_EXCLUSIONS}"
+		"-Dsonar.coverage.exclusions=${SONAR_COVERAGE_EXCLUSIONS}"
+		"-Dsonar.cpd.exclusions=${SONAR_CPD_EXCLUSIONS}"
 	)
 	if [[ -f "${COVERAGE_XML}" ]]; then
 		command+=("-Dsonar.python.coverage.reportPaths=${COVERAGE_XML}")

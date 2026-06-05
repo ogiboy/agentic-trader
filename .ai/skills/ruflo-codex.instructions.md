@@ -11,7 +11,10 @@ without initializing project-local state or adding runtime dependencies.
 3. Use `npx ruflo@latest ...` only when the global binary is unavailable.
 4. Do not run repo initialization, auto-install, daemon, or cleanup commands
    unless the user explicitly asks for that operation.
-5. Treat repo-local RuFlo init as a separate repo decision, not as normal setup.
+5. Treat additional repo-local RuFlo init as a separate repo decision, not as
+   normal setup. The tracked `.claude/`, `.claude-flow/`, `CLAUDE.md`, and
+   `.agents/skills/` catalog already provides the accepted project-local
+   advisory surface.
 
 ## MCP Surface In Codex
 
@@ -121,11 +124,18 @@ npx ruflo@latest hooks pre-command -- "pnpm run check"
 
 ## Repo-Local Init Policy
 
-Do not run `ruflo init` inside Agentic Trader as part of normal work. Local init
-generates Claude/RuFlo project state such as `.claude/`, `.claude-flow/`,
-`.mcp.json`, and `CLAUDE.md`; these are not Agentic Trader source files.
+Do not run another `ruflo init` inside Agentic Trader as part of normal work.
+The project intentionally tracks the accepted local advisory catalog/config:
+`.agents/skills/`, `skills-lock.json`, `CLAUDE.md`, `.claude/`, and stable
+`.claude-flow/` config/capability files. These are development aids, not
+Agentic Trader runtime dependencies.
 
-Repo-local init can be reconsidered only when all of these are true:
+Runtime state remains untracked and disposable: `.claude-flow/data/`,
+`.claude-flow/logs/`, `.claude-flow/sessions/`, `.claude-flow/neural/`,
+`.claude-flow/metrics/`, `.claude-flow/security/*.json`, `.ruflo/`, `.swarm/`,
+`.mcp.json`, local memory databases, daemon pid files, and logs.
+
+Additional repo-local init can be reconsidered only when all of these are true:
 
 1. the user explicitly asks for repo-local RuFlo state,
 2. a temp-directory smoke run proves the exact command and generated file set,
@@ -133,8 +143,9 @@ Repo-local init can be reconsidered only when all of these are true:
 4. the plan identifies which minimal config, if any, will be tracked,
 5. generated runtime state remains untracked and removable.
 
-If a RuFlo command creates project files accidentally, inventory them, harvest
-useful guidance into standalone `.ai` docs, then delete the generated state.
+If a RuFlo command creates extra project files accidentally, inventory them,
+harvest useful guidance into standalone `.ai` docs, then delete or ignore the
+generated runtime state.
 
 ## Controlled Swarm Smoke
 
