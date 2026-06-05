@@ -432,6 +432,21 @@ def test_translation_facade_resolves_domain_first_keys() -> None:
     assert ui_text.t("runtime.status.title", locale="tr") == "Runtime Durumu"
 
 
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    (
+        ("title.provider.source.ladder", "Provider Source Ladder"),
+        ("label.alpaca.paper.ready", "Alpaca Paper Ready"),
+        ("style.key.column", "bold cyan"),
+        ("ui.list.separator", ", "),
+    ),
+)
+def test_translation_facade_resolves_category_first_keys(
+    key: str, expected: str
+) -> None:
+    assert ui_text.t(key, locale="en") == expected
+
+
 def test_translation_facade_formats_domain_messages() -> None:
     rendered = ui_text.t(
         "observer.mode.temporarily_unavailable",
