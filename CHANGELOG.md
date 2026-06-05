@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.14.7 (2026-06-05)
+
+### Chores
+
+- Update hatchling requirement
+  ([`0b7c7fa`](https://github.com/ogiboy/agentic-trader/commit/0b7c7fa69ab6bf411af9cb369d149609a7a5c5be))
+
 ## v0.14.6 - 2026-06-05
 
 ### Features
