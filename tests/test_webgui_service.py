@@ -98,7 +98,10 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
         captured["start_new_session"] = start_new_session
         return FakeProcess()
 
+    monkeypatch.setenv("AGENTIC_TRADER_ALPACA_API_KEY", "api-key-value")
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "secret-value")
+    monkeypatch.setenv("AGENTIC_TRADER_RUNTIME_DIR", str(tmp_path / "runtime-env"))
+    monkeypatch.setenv("AGENTIC_TRADER_WEBGUI_TOKEN", "webgui-token-value")
     monkeypatch.setattr(
         webgui_service, "_node_command_path", constant("/opt/homebrew/bin/node")
     )
@@ -128,7 +131,10 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
     env = cast("dict[str, str]", captured["env"])
     assert Path(env["AGENTIC_TRADER_PYTHON"]).name.startswith("python")
     assert env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] == "1"
-    assert env["AGENTIC_TRADER_ALPACA_SECRET_KEY"] == "secret-value"
+    assert env["AGENTIC_TRADER_RUNTIME_DIR"] == str(tmp_path / "runtime-env")
+    assert env["AGENTIC_TRADER_WEBGUI_TOKEN"] == "webgui-token-value"
+    assert "AGENTIC_TRADER_ALPACA_API_KEY" not in env
+    assert "AGENTIC_TRADER_ALPACA_SECRET_KEY" not in env
     state = webgui_service.read_webgui_service_state(settings)
     assert state is not None
     assert state.pid == FakeProcess.pid

@@ -319,15 +319,25 @@ def test_crewai_backend_redacts_non_json_process_output(
 
 
 @pytest.mark.parametrize(
-    ("errors", "expected_message"),
+    ("errors", "expected_message", "forbidden_message"),
     [
-        ({"code": "bad_contract", "detail": "missing summary"}, "bad_contract"),
-        ("sidecar timed out", "sidecar timed out"),
+        (
+            {"code": "bad_contract", "detail": "missing summary"},
+            "bad_contract",
+            "",
+        ),
+        ("sidecar timed out", "sidecar timed out", ""),
+        (
+            "Authorization: Bearer secret-sidecar-token",
+            "Authorization: Bearer <redacted>",
+            "secret-sidecar-token",
+        ),
     ],
 )
 def test_crewai_backend_preserves_non_list_contract_errors(
     errors: object,
     expected_message: str,
+    forbidden_message: str,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -368,6 +378,8 @@ def test_crewai_backend_preserves_non_list_contract_errors(
     assert result.state.status == "failed"
     assert result.state.last_error is not None
     assert expected_message in result.state.last_error
+    if forbidden_message:
+        assert forbidden_message not in result.state.last_error
 
 
 def test_research_schema_tracks_staleness_and_uncertainty() -> None:

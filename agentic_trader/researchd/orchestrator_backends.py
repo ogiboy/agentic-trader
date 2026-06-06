@@ -232,7 +232,9 @@ class CrewAiResearchBackend:
     def _failed_contract_message(payload: dict[str, object]) -> str:
         error_items = _contract_error_items(payload.get("errors"))
         if error_items:
-            return "; ".join(str(item) for item in error_items)
+            return "; ".join(
+                redact_sensitive_text(item, max_length=240) for item in error_items
+            )
         return "CrewAI Flow sidecar contract returned a failed status."
 
     @staticmethod
