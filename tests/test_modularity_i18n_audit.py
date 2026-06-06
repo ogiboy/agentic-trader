@@ -100,3 +100,5 @@ def test_audit_uses_tighter_tool_and_qa_entrypoint_budgets(
     assert metrics["tools/camofox-browser/server.js"].threshold == 450
     assert metrics["scripts/qa/smoke_qa.py"].category == "qa-entrypoint"
     assert metrics["scripts/qa/smoke_qa.py"].threshold == 650
+    assert should_fail_gate(report, fail_on_findings=True)
+    assert not should_fail_gate(report, fail_on_findings=False)
