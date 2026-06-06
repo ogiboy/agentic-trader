@@ -17,6 +17,18 @@ from agentic_trader.ui_text import t as ui_t
 
 
 def parse_ui_locale(locale: str | None) -> UILocale | None:
+    """
+    Validate and normalize a UI locale string.
+    
+    Parameters:
+        locale (str | None): Locale input to validate; may be None.
+    
+    Returns:
+        UILocale | None: The normalized locale (trimmed and lowercased) if it is one of the supported locales, or `None` when `locale` is `None`.
+    
+    Raises:
+        typer.BadParameter: If `locale` is provided but not one of the supported locales; the error message lists allowed values.
+    """
     if locale is None:
         return None
     normalized = locale.strip().lower()
@@ -49,6 +61,11 @@ def register_locale_command(
     env_file_provider: EnvFileProvider,
     emit_json: EmitJson,
 ) -> None:
+    """
+    Register a "locale" CLI subcommand on the given Typer application.
+    
+    The subcommand displays the current UI locale and supported locales, and can persist a new locale when called with --set <locale>. With --json it emits the assembled locale payload as JSON; otherwise it renders a terminal table. The command relies on the provided provider and emitter callables to read/reload settings, persist the locale, locate the env file, and emit JSON.
+    """
     @app.command("locale")
     def locale_command(
         set_locale: str | None = typer.Option(
@@ -79,6 +96,19 @@ def register_locale_command(
 
 
 def _render_locale_payload(payload: dict[str, object], *, persisted: bool) -> None:
+    """
+    Render the UI locale settings payload as a formatted table to the console.
+    
+    Displays a table with the current locale, the list of supported locales, the
+    environment variable used for UI locale, and whether the locale value was
+    persisted.
+    
+    Parameters:
+        payload (dict[str, object]): Mapping that must include the key `"locale"` whose
+            value is displayed as the current locale. Other keys in the mapping are
+            ignored by this renderer.
+        persisted (bool): Whether the locale value was persisted; shown in the table.
+    """
     table = Table(title=ui_t("title.ui_locale"))
     table.add_column(ui_t("label.field"), style=ui_t("style.key_column"))
     table.add_column(ui_t("label.value"))

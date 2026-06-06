@@ -57,6 +57,22 @@ def _register_run_command(
     persist_run: PersistRun,
     render_execution: RenderExecution,
 ) -> None:
+    """
+    Register the `run` CLI command on the provided Typer app which executes a single trading run for a given symbol, persists its artifacts, and renders the execution output.
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the command on.
+        settings_provider (Callable[[], Settings]): Function that returns current Settings.
+        ensure_ready (EnsureReady): Validator that ensures the runtime/LLM is ready; invoked before running.
+        run_once (RunOnce): Executor that performs one run and returns RunArtifacts.
+        persist_run (PersistRun): Persister that stores RunArtifacts and returns an order ID.
+        render_execution (RenderExecution): Renderer that displays execution output for an order ID and its RunArtifacts.
+    
+    Behavior:
+        - Defines a `run` command that accepts `symbol`, `interval`, and `lookback` options.
+        - On invocation, loads settings, ensures readiness, runs a single execution, persists results, and renders the execution.
+        - On any exception, prints a red health panel and exits with code 1.
+    """
     @app.command()
     def run(
         symbol: str = typer.Option(..., help=ui_t("help.symbol")),
@@ -95,6 +111,14 @@ def _register_launch_command(
     start_background_service: StartBackgroundService,
     render_execution: RenderExecution,
 ) -> None:
+    """
+    Register a Typer "launch" command that starts or schedules the launch service for provided symbols.
+    
+    The registered command parses and validates the comma-separated `symbols` input, ensures the runtime/LLM is ready, displays a launch gate and plan, and then either starts a background orchestrator or runs the service in the foreground and renders the latest execution result. On failure it prints a blocking health panel and exits with code 1.
+    
+    Raises:
+        typer.Exit: when an unexpected error occurs while preparing or running the launch flow; the command will terminate with exit code 1.
+    """
     @app.command()
     def launch(
         symbols: str = typer.Option(..., help=ui_t("help.launch_symbols")),
@@ -155,6 +179,18 @@ def _register_launch_command(
 
 
 def _parse_launch_symbols(symbols: str) -> list[str]:
+    """
+    Parse a comma-separated list of symbols into a cleaned list of uppercase symbols.
+    
+    Parameters:
+        symbols (str): Comma-separated symbols (may include whitespace).
+    
+    Returns:
+        list[str]: Symbols trimmed of surrounding whitespace and converted to uppercase.
+    
+    Raises:
+        typer.BadParameter: If no valid symbols are provided.
+    """
     symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     if not symbol_list:
         raise typer.BadParameter(ui_t("message.launch_symbol_required"))
@@ -162,6 +198,12 @@ def _parse_launch_symbols(symbols: str) -> list[str]:
 
 
 def _render_launch_gate(health: LLMHealthStatus) -> None:
+    """
+    Render a green "runtime gate open" health panel showing the runtime base URL and model name.
+    
+    Parameters:
+        health (LLMHealthStatus): Health status object whose `base_url` and `model_name` are displayed in the panel.
+    """
     console.print(
         _render_health_panel(
             ui_t("title.runtime_gate_open"),
@@ -183,6 +225,17 @@ def _render_launch_plan(
     poll_seconds: int,
     background: bool,
 ) -> None:
+    """
+    Render a formatted launch plan panel to the console.
+    
+    Parameters:
+        symbols (list[str]): Trading symbols to include in the plan; rendered as a comma-separated list.
+        interval (str): Time interval string used for each symbol (e.g., "1d").
+        lookback (str): Lookback period string used when fetching historical data (e.g., "180d").
+        continuous (bool): Whether the service should run continuously between cycles.
+        poll_seconds (int): Number of seconds to wait between polling cycles.
+        background (bool): Whether the launch is intended to run in background mode.
+    """
     console.print(
         Panel(
             ui_t("message.launch_plan").format(
@@ -210,6 +263,24 @@ def _start_launch_background(
     continuous: bool,
     max_cycles: int | None,
 ) -> None:
+    """
+    Start the launch orchestrator as a background process and print its PID.
+    
+    Starts a background service with the provided runtime settings and launch parameters, then prints a green status panel containing the returned process ID.
+    
+    Parameters:
+        start_background_service (StartBackgroundService): Callable that starts the background orchestrator; it must accept the provided keyword arguments and return the background process ID (PID).
+        settings (Settings): Runtime settings used to configure the background service.
+        symbols (list[str]): List of ticker symbols to monitor.
+        interval (str): Interval string describing how frequently to run each cycle (e.g., "1d").
+        lookback (str): Lookback window string used when fetching historical data (e.g., "180d").
+        poll_seconds (int): Seconds between poll cycles when running continuously.
+        continuous (bool): If `False`, background mode is invalid and this function raises a parameter error.
+        max_cycles (int | None): Optional maximum number of cycles the background service should execute; `None` means no limit.
+    
+    Raises:
+        typer.BadParameter: If `continuous` is `False`.
+    """
     if not continuous:
         raise typer.BadParameter(ui_t("message.background_requires_continuous"))
     pid = start_background_service(

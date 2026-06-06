@@ -11,6 +11,18 @@ from agentic_trader.json_utils import object_mapping, object_mapping_list
 
 
 def render_finance_ops(payload: dict[str, object]) -> None:
+    """
+    Render the finance operations summary and related tables to the console.
+    
+    Prints a titled Panel showing `payload["summary"]` (falls back to a localized unavailable message) with a green border when `payload["ready"]` is truthy, otherwise a yellow border. Then prints the finance checks table, the accounting context table, and—if present—the ledger categories table.
+    
+    Parameters:
+    	payload (dict[str, object]): Input mapping that may contain:
+    		- checks: Iterable of check objects (defaults to []).
+    		- accounting: Mapping (or object convertible via `object_mapping`) with accounting details and optional `ledger_categories`.
+    		- summary: Summary string to display in the Panel.
+    		- ready: Truthy value to indicate successful readiness (controls Panel border color).
+    """
     checks = payload.get("checks", [])
     accounting = object_mapping(payload.get("accounting"))
     console.print(
@@ -28,6 +40,17 @@ def render_finance_ops(payload: dict[str, object]) -> None:
 
 
 def render_position_plan_repair(payload: dict[str, object]) -> None:
+    """
+    Render a position-plan repair summary panel and a detailed repairs table to the console.
+    
+    Renders a titled summary Panel whose border is green when `payload["applied"]` is truthy and yellow otherwise, followed by a table of repairs with columns: symbol, status, proposal, entry, stop, take, and reason. Numeric price fields are formatted with `format_optional_float`; the summary text falls back to a localized "unavailable" message when `payload["summary"]` is not provided.
+    
+    Parameters:
+    	payload (dict[str, object]): Payload containing:
+    		- "applied": optional flag indicating whether repairs were applied (truthy => green border).
+    		- "repairs": optional iterable of repair objects to display; each object may include "symbol", "status", "proposal_id", "entry_price", "stop_loss", "take_profit", and "reason".
+    		- "summary": optional summary text to show in the Panel; when absent a localized fallback message is used.
+    """
     applied = bool(payload.get("applied"))
     table = Table(title=ui_t("title.position_plan_repair"))
     table.add_column(ui_t("label.symbol"))
@@ -69,6 +92,20 @@ def format_optional_float(value: object) -> str:
 
 
 def finance_checks_table(checks: object) -> Table:
+    """
+    Builds a rich.Table summarizing finance operation checks.
+    
+    Parameters:
+        checks (object): Iterable or mapping of check records. Each record may contain:
+            - "name": display name (defaults to "-")
+            - "passed": truthy value to render a green "pass", otherwise a red "fail"
+            - "blocking": shown as-is (defaults to True)
+            - "details": additional information (defaults to "")
+    
+    Returns:
+        Table: A rich.Table titled with the localized finance checks title and columns
+        for check, status, blocking, and details; one row is added per input record.
+    """
     table = Table(title=ui_t("title.finance_operations_checks"))
     table.add_column(ui_t("label.check"))
     table.add_column(ui_t("label.status"))
@@ -85,6 +122,23 @@ def finance_checks_table(checks: object) -> Table:
 
 
 def finance_accounting_table(accounting: Mapping[str, object]) -> Table:
+    """
+    Builds a two-column table summarizing accounting context for finance operations.
+    
+    Parameters:
+    	accounting (Mapping[str, object]): Mapping with accounting details. Expected keys include
+    		- "currency": currency code (defaults to "USD")
+    		- "mark_created_at": timestamp or None
+    		- "mark_source": source identifier
+    		- "mark_status": status string
+    		- "cost_model": mapping with "fees" and optional "slippage_bps"
+    		- "rejection_evidence": any rejection details
+    
+    Returns:
+    	Table: A rich Table with "Field" and "Value" columns containing rows for currency, marked at time,
+    	mark source, mark status, fees, slippage (formatted as "<n> bps" or "-" if unavailable),
+    	and rejection evidence.
+    """
     cost_model = object_mapping(accounting.get("cost_model"))
     mark_source = str(accounting.get("mark_source") or "-")
     mark_status = str(accounting.get("mark_status") or "-")
@@ -115,6 +169,15 @@ def finance_accounting_table(accounting: Mapping[str, object]) -> Table:
 
 
 def finance_ledger_table(ledger_categories: object) -> Table | None:
+    """
+    Builds a rich Table of ledger categories.
+    
+    Parameters:
+        ledger_categories (object): Data to be mapped into ledger category rows (accepted formats handled by object_mapping_list).
+    
+    Returns:
+        Table | None: A `rich.Table` with columns `category`, `v1_source`, and `purpose` containing one row per mapped category, or `None` if no categories are present.
+    """
     rows = object_mapping_list(ledger_categories)
     if not rows:
         return None

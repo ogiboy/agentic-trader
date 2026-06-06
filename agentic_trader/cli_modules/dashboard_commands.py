@@ -129,6 +129,21 @@ def build_evidence_bundle(
     include_latest_smoke: bool = True,
     check_provider: bool = False,
 ) -> dict[str, object]:
+    """
+    Builds an evidence bundle manifest by collecting dashboard snapshots and other diagnostic payloads.
+    
+    Parameters:
+    	settings (Settings): Application settings used to build payloads.
+    	deps (DashboardCommandDeps): Dependency bundle supplying callbacks that produce the various payload sections included in the evidence bundle.
+    	output_dir (Path | None): Directory to write the bundle into. If `None`, a default temporary or configured location is used.
+    	label (str | None): Optional label to embed in the manifest or bundle filename.
+    	log_limit (int): Maximum number of log entries to include from the service events.
+    	include_latest_smoke (bool): When true, include the most recent smoke test artifact in the bundle if available.
+    	check_provider (bool): When true, perform provider-specific checks when collecting the dashboard snapshot.
+    
+    Returns:
+    	manifest (dict[str, object]): Manifest describing the built bundle. Contains at least a "files" mapping of labels to file paths and a "bundle_dir" path indicating where the bundle was written.
+    """
     return _build_evidence_bundle(
         settings,
         collectors=EvidenceBundleCollectors(
@@ -209,6 +224,11 @@ def build_observer_api_payload(
 
 
 def _register_logs_command(app: typer.Typer, deps: DashboardCommandDeps) -> None:
+    """
+    Register the `logs` CLI command that outputs recent runtime/service events.
+    
+    Adds a `logs` command to the provided Typer app. The command accepts a `limit` option to control how many events are returned and a `--json` flag to emit the events as a JSON array instead of pretty-printing them.
+    """
     @app.command()
     def logs(
         limit: int = typer.Option(
@@ -227,6 +247,17 @@ def _register_logs_command(app: typer.Typer, deps: DashboardCommandDeps) -> None
 def _register_dashboard_snapshot_command(
     app: typer.Typer, deps: DashboardCommandDeps
 ) -> None:
+    """
+    Register the "dashboard-snapshot" Typer command which emits a dashboard snapshot as JSON.
+    
+    Parameters:
+        app (typer.Typer): The Typer application to register the command on.
+        deps (DashboardCommandDeps): Dependency bundle used to build and emit the dashboard snapshot.
+    
+    The registered command accepts two options:
+        log_limit: Maximum number of recent runtime events to include (1–100).
+        provider_check: Whether to perform a provider check when building the snapshot.
+    """
     @app.command("dashboard-snapshot")
     def dashboard_snapshot(
         log_limit: int = typer.Option(
@@ -252,6 +283,14 @@ def _register_dashboard_snapshot_command(
 def _register_evidence_bundle_command(
     app: typer.Typer, deps: DashboardCommandDeps
 ) -> None:
+    """
+    Register the `evidence-bundle` CLI command on the provided Typer app.
+    
+    The command builds an evidence bundle using current settings and the provided options:
+    `--output-dir`, `--label`, `--log-limit`, `--include-latest-smoke/--no-latest-smoke`,
+    `--provider-check/--no-provider-check`, and `--json`. When `--json` is used the command
+    emits the manifest as JSON; otherwise it renders the manifest to the console.
+    """
     @app.command("evidence-bundle")
     def evidence_bundle_command(
         output_dir: Path | None = typer.Option(
@@ -296,6 +335,16 @@ def _register_evidence_bundle_command(
 
 
 def _render_evidence_bundle_manifest(manifest: dict[str, object]) -> None:
+    """
+    Render an evidence bundle manifest to the console.
+    
+    Prints a green panel announcing the bundle directory and a table listing artifact labels and their file paths from the manifest.
+    
+    Parameters:
+        manifest (dict[str, object]): Evidence bundle manifest. Must contain:
+            - "files": mapping of artifact label (str) to file path (str).
+            - "bundle_dir": path (str) of the written bundle directory.
+    """
     files = cast(dict[str, str], manifest["files"])
     table = Table(title=ui_t("title.qa_evidence_bundle"))
     table.add_column(ui_t("label.artifact"), style="cyan")
@@ -332,6 +381,18 @@ OBSERVER_API_ENDPOINTS: tuple[str, ...] = (
 def _register_observer_api_command(
     app: typer.Typer, deps: DashboardCommandDeps
 ) -> None:
+    """
+    Register the "observer-api" CLI command on the given Typer application.
+    
+    The registered command starts a local observer API server using the provided
+    host, port, and log limit, and enforces a safety check that blocks non-loopback
+    binding unless explicitly allowed and a token is configured. On failure it
+    prints a descriptive panel and exits the command with a non-zero status.
+    
+    Parameters:
+        app: The Typer application to register the command on.
+        deps: Dependency bundle providing settings and callbacks used by the command.
+    """
     @app.command("observer-api")
     def observer_api_command(
         host: str = typer.Option("127.0.0.1", help=ui_t("help.observer_api_host")),
@@ -381,6 +442,13 @@ def _register_observer_api_command(
 
 
 def _render_observer_api_listening(*, host: str, port: int) -> None:
+    """
+    Render a panel announcing the observer API listening address and the supported endpoints.
+    
+    Parameters:
+        host (str): The host/address the API server will bind to.
+        port (int): The port number the API server will listen on.
+    """
     endpoints = "\n".join(f"- {endpoint}" for endpoint in OBSERVER_API_ENDPOINTS)
     console.print(
         Panel(
@@ -396,6 +464,16 @@ def _render_observer_api_listening(*, host: str, port: int) -> None:
 
 
 def _render_service_events(events: list[object]) -> None:
+    """
+    Render a list of runtime/service events as a table to the console.
+    
+    Parameters:
+        events (list[object]): Iterable of event-like objects. Each object's
+            attributes `created_at`, `level`, `event_type`, `cycle_count`,
+            `symbol`, and `message` are read for the table; missing or falsy
+            `cycle_count`/`symbol` values are shown as "-" and other missing
+            attributes are displayed as their stringified default "-".
+    """
     table = Table(title=ui_t("title.runtime_events"))
     table.add_column(ui_t("label.created"))
     table.add_column(ui_t("label.level"))

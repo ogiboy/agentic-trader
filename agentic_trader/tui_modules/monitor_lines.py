@@ -157,13 +157,13 @@ def broker_gate_lines(
 
 def last_outcome_lines(activity: AgentActivityView) -> list[str]:
     """
-    Format the last outcome information from an agent activity into labeled UI lines.
-
+    Format last outcome information from an agent activity into labeled UI lines.
+    
     Parameters:
         activity (AgentActivityView): Activity view containing last outcome type and message.
-
+    
     Returns:
-        list[str]: Two labeled lines — the last outcome type (or "-" if missing) and the last outcome message — when a last outcome message exists; otherwise a single labeled line indicating that the last outcome is still awaited.
+        list[str]: If `activity.last_outcome_message` is not None, two labeled lines: the last outcome type (or "-" if missing) and the last outcome message; otherwise a single labeled line indicating the last outcome is still awaited.
     """
     if activity.last_outcome_message is not None:
         return [

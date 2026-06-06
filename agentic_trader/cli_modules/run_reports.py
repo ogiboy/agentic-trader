@@ -12,6 +12,15 @@ from agentic_trader.ui_text import t as ui_t
 
 
 def render_run_markdown(record: RunRecord) -> str:
+    """
+    Builds a Markdown-formatted report for the given run.
+    
+    Parameters:
+        record (RunRecord): The run record containing metadata and artifacts to render.
+    
+    Returns:
+        markdown (str): A Markdown string containing the run header and sections for fundamentals, decisions, manager notes, and execution review.
+    """
     artifacts = record.artifacts
     lines = _run_header_lines(record)
     lines.extend(_fundamental_lines(artifacts))
@@ -22,6 +31,17 @@ def render_run_markdown(record: RunRecord) -> str:
 
 
 def render_run_review(record: RunRecord) -> None:
+    """
+    Render a rich-formatted review of a run to the console.
+    
+    Prints a two-column layout containing run metadata and analysis, followed by panels for
+    manager override notes, manager conflicts, and the serialized review note.
+    
+    Parameters:
+        record (RunRecord): Run data including metadata and artifacts (e.g., coordinator,
+            fundamental/decision artifacts, manager decisions, and the review) used to
+            populate the rendered tables and panels.
+    """
     metadata = _run_review_metadata(record)
     analysis = _run_review_analysis(record)
     console.print(Columns([metadata, analysis]))
@@ -43,6 +63,15 @@ def render_run_review(record: RunRecord) -> None:
 
 
 def _run_review_metadata(record: RunRecord) -> Table:
+    """
+    Builds a Rich Table showing run metadata (created time, symbol, interval, and approval) titled with the localized "run review" label and the run ID.
+    
+    Parameters:
+        record (RunRecord): Run record whose metadata will be displayed.
+    
+    Returns:
+        Table: A Rich Table containing rows for created_at, symbol, interval, and approved.
+    """
     metadata = Table(title=ui_t("title.run_review") + " / " + record.run_id)
     metadata.add_column(ui_t("label.field"))
     metadata.add_column(ui_t("label.value"))
@@ -54,6 +83,15 @@ def _run_review_metadata(record: RunRecord) -> Table:
 
 
 def _run_review_analysis(record: RunRecord) -> Table:
+    """
+    Builds a table summarizing agent decisions and notes for each stage of the run.
+    
+    Parameters:
+        record (RunRecord): Run record whose artifacts are used to populate the table rows.
+    
+    Returns:
+        analysis (Table): Rich Table with columns for stage, decision, and notes containing one row each for coordinator, fundamental, regime, strategy, risk, consensus, manager, and execution.
+    """
     artifacts = record.artifacts
     analysis = Table(title=ui_t("title.agent_decisions"))
     analysis.add_column(ui_t("label.stage"))
@@ -104,6 +142,16 @@ def _run_review_analysis(record: RunRecord) -> Table:
 
 
 def manager_conflicts_panel(manager: ManagerDecision) -> Panel:
+    """
+    Render a rich Panel describing manager conflicts and any resolution notes.
+    
+    Parameters:
+        manager (ManagerDecision): Decision object containing `conflicts` (iterable of conflict entries with severity, conflict_type, summary, specialist_view, manager_resolution)
+            and optional `resolution_notes`.
+    
+    Returns:
+        Panel: A Rich Panel titled with the localized manager conflicts title. If there are no conflicts the panel contains a green-styled body with manager resolution notes or a default acceptance note; if conflicts exist the panel contains a yellow-styled body listing each conflict with specialist and manager views and any resolution notes.
+    """
     if not manager.conflicts:
         body = "\n".join(f"- {note}" for note in manager.resolution_notes) or (
             "- Manager accepted the specialist plan without additional overrides."
@@ -127,6 +175,12 @@ def manager_conflicts_panel(manager: ManagerDecision) -> Panel:
 
 
 def render_run_trace(record: RunRecord) -> None:
+    """
+    Render a tabular agent-trace overview and individual detailed panels for each trace in the given run.
+    
+    Parameters:
+        record (RunRecord): Run record whose artifacts contain agent traces. Renders a summary table with columns for role, model, fallback flag, and an output preview, then prints a detailed panel per trace showing the trace context and full output. Panels use a cyan border for traces that did not use a fallback and a yellow border for traces that did.
+    """
     table = Table(title=ui_t("title.agent_trace") + " / " + record.run_id)
     table.add_column(ui_t("label.role"))
     table.add_column(ui_t("label.model"))
@@ -156,6 +210,12 @@ def render_run_trace(record: RunRecord) -> None:
 
 
 def render_run_replay(replay: RunReplay) -> None:
+    """
+    Render a console report for a RunReplay showing its summary, manager override notes, conflicts, and stage details.
+    
+    Parameters:
+        replay (RunReplay): Replay data for a single run; used to build and print the replay summary table, manager override notes panel, any manager conflict panel, and the replay stages table.
+    """
     summary = _run_replay_summary(replay)
     console.print(summary)
     console.print(
@@ -170,6 +230,15 @@ def render_run_replay(replay: RunReplay) -> None:
 
 
 def _run_replay_summary(replay: RunReplay) -> Table:
+    """
+    Builds a Rich Table summarizing a memory-aware replay for a run.
+    
+    Parameters:
+        replay (RunReplay): Replay object containing run metadata, final decision, consensus, and snapshot details.
+    
+    Returns:
+        Table: A Rich Table with rows for created time, symbol, interval, approval status, final side and rationale, consensus alignment level, and a multi-timeframe snapshot (formatted as "mtf_alignment @ higher_timeframe (mtf_confidence)").
+    """
     summary = Table(title=ui_t("title.memory_aware_replay") + " / " + replay.run_id)
     summary.add_column(ui_t("label.field"))
     summary.add_column(ui_t("label.value"))
@@ -188,6 +257,14 @@ def _run_replay_summary(replay: RunReplay) -> Table:
 
 
 def _render_replay_conflicts(replay: RunReplay) -> None:
+    """
+    Render a manager-conflict summary panel for the given replay; no output is produced if there are no conflicts.
+    
+    When conflicts are present, prints a yellow panel listing each conflict's severity, type, and summary, followed by the specialist view and the manager's resolution. If manager resolution notes exist, they are printed as a bulleted subsection titled "Resolution Notes".
+    
+    Parameters:
+        replay (RunReplay): Replay object whose `manager_conflicts` and optional `manager_resolution_notes` will be rendered.
+    """
     if not replay.manager_conflicts:
         return
     lines: list[str] = []
@@ -211,6 +288,20 @@ def _render_replay_conflicts(replay: RunReplay) -> None:
 
 
 def _render_replay_stages(replay: RunReplay) -> None:
+    """
+    Render a table of replay stages to the console.
+    
+    Each table row corresponds to a stage in `replay.stages` and shows:
+    - role
+    - model name
+    - whether a fallback was used
+    - number of retrieved memories
+    - number of tool outputs
+    - an output preview (JSON-dumped if the output is a dict, newlines replaced with spaces, truncated to 120 characters)
+    
+    Parameters:
+        replay (RunReplay): Replay object whose `stages` will be displayed.
+    """
     stage_table = Table(title=ui_t("title.replay_stages"))
     stage_table.add_column(ui_t("label.role"))
     stage_table.add_column(ui_t("label.model"))
@@ -236,6 +327,15 @@ def _render_replay_stages(replay: RunReplay) -> None:
 
 
 def _run_header_lines(record: RunRecord) -> list[str]:
+    """
+    Builds the Markdown header and coordinator metadata lines for a run review.
+    
+    Parameters:
+        record (RunRecord): The run record whose metadata and coordinator summary will be rendered.
+    
+    Returns:
+        list[str]: A list of Markdown-formatted lines containing the run title, metadata (created, symbol, interval, approved) and coordinator focus and summary.
+    """
     artifacts = record.artifacts
     return [
         "# " + ui_t("title.run_review") + ": " + record.run_id,
@@ -332,6 +432,15 @@ def _manager_lines(artifacts: RunArtifacts) -> list[str]:
 
 
 def _execution_review_lines(artifacts: RunArtifacts) -> list[str]:
+    """
+    Builds Markdown lines for the Execution and Review sections from the provided run artifacts.
+    
+    Parameters:
+        artifacts (RunArtifacts): Artifacts containing execution and review data.
+    
+    Returns:
+        list[str]: A list of Markdown-formatted lines representing the "Execution" and "Review" sections.
+    """
     return [
         "## Execution",
         f"- Approved: {artifacts.execution.approved}",
@@ -396,10 +505,28 @@ def value_or_dash(value: object) -> str:
 
 
 def join_or_dash(values: list[str] | tuple[str, ...]) -> str:
+    """
+    Join a sequence of strings with the localized list separator, or return a dash when the sequence is empty.
+    
+    Uses ui_t("list.separator") as the delimiter.
+    
+    Returns:
+        str: The joined string when `values` is non-empty, `'-'` otherwise.
+    """
     return ui_t("list.separator").join(values) if values else "-"
 
 
 def _markdown_bullets(values: list[str], *, fallback: str) -> list[str]:
+    """
+    Format a list of strings as Markdown bullet lines.
+    
+    Parameters:
+        values (list[str]): Items to convert into bullet lines.
+        fallback (str): Text to use when `values` is empty.
+    
+    Returns:
+        list[str]: Each item prefixed with "- "; if `values` is empty returns a single list containing the fallback bullet.
+    """
     if not values:
         return [f"- {fallback}"]
     return [f"- {value}" for value in values]

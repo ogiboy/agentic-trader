@@ -193,6 +193,11 @@ def test_trade_context_surfaces_canonical_analysis(tmp_path: Path) -> None:
 
 
 def test_ink_review_surfaces_fundamental_truth() -> None:
+    """
+    Verify the JavaScript fundamental assessment renderer produces the expected textual lines for a given input.
+    
+    Runs a Node snippet that imports `getFundamentalAssessmentLines` with a sample assessment object and asserts the returned lines match the exact expected list of strings.
+    """
     script = """
 import { getFundamentalAssessmentLines } from './tui/src/review-lines.mjs';
 const lines = getFundamentalAssessmentLines({
@@ -225,6 +230,11 @@ console.log(JSON.stringify(lines));
 
 
 def test_ink_review_reads_canonical_analysis_snapshot() -> None:
+    """
+    Verify that the JavaScript canonical-analysis renderer formats a snapshot into expected review lines.
+    
+    Runs a Node subprocess that imports `getCanonicalAnalysisLines` from the TUI module, passes a mocked canonical analysis `snapshot`, parses the resulting JSON lines, and asserts the output contains the expected summary, completeness, missing sections, source attributions, missing-source formatting, and sources-shown count.
+    """
     script = """
 import { getCanonicalAnalysisLines } from './tui/src/review-lines.mjs';
 const lines = getCanonicalAnalysisLines({

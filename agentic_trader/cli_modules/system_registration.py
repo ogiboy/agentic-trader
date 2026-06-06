@@ -184,6 +184,17 @@ def register_cli_system_commands(
     emit_json: JsonEmitter,
     service_namespace: ServiceNamespace | None = None,
 ) -> None:
+    """
+    Register and wire the "system-service" command group and its subcommands on a Typer app.
+    
+    Creates and attaches the following sub-apps to `app`: "model-service", "webgui-service", "camofox-service", and "tool-ownership", and configures those subcommands with shared dependencies constructed from the provided providers.
+    
+    Parameters:
+        app (typer.Typer): Parent Typer application to attach subcommands to.
+        settings_provider (SettingsProvider): Callable that returns runtime settings used by command handlers.
+        emit_json (JsonEmitter): Callable used by commands to emit JSON-formatted output.
+        service_namespace (ServiceNamespace | None): Optional mapping or object providing service callables; if `None`, the default service registry is used.
+    """
     model_service_app = typer.Typer(help=ui_t("help.model_service_app"))
     app.add_typer(model_service_app, name="model-service")
     webgui_service_app = typer.Typer(help=ui_t("help.webgui_service_app"))

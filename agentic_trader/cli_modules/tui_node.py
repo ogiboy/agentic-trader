@@ -88,6 +88,14 @@ def register_tui_command(app: typer.Typer) -> None:
 
 
 def open_ink_tui() -> None:
+    """
+    Launches the Ink-based TUI, installing Node dependencies if necessary.
+    
+    This function locates the repository's "tui" directory, resolves an appropriate Node package manager and its install/start commands, and ensures TUI Node dependencies are present before starting the TUI. If the TUI directory or a supported Node toolchain cannot be resolved, a status panel is shown and the main menu is returned to instead of launching the TUI. When installation is required, a status panel is shown and the resolved install command is executed. The TUI is started with environment variables pointing to the agentic-trader CLI and the current Python executable.
+    
+    Raises:
+        subprocess.CalledProcessError: If the install or start subprocess exits with a non-zero status.
+    """
     tui_dir = Path(__file__).resolve().parents[2] / "tui"
     if not tui_dir.exists():
         console.print(

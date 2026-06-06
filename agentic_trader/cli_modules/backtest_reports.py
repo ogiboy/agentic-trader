@@ -85,6 +85,18 @@ def run_backtest_command(
 def _training_backtest_allow_fallback(
     settings: Settings, *, ensure_ready: EnsureReady
 ) -> bool:
+    """
+    Determine whether a training diagnostic fallback should be allowed by running a readiness check.
+    
+    Runs `ensure_ready(settings)`. If that callable raises `RuntimeError` and `settings.runtime_mode` is `"training"`, prints a yellow diagnostic panel describing the fallback and returns `True`. If no error is raised, or if the error occurs outside training mode (the error is re-raised), returns `False`.
+    
+    Parameters:
+        settings (Settings): Backtest settings used to decide runtime mode.
+        ensure_ready (EnsureReady): Callable that validates readiness for the given `settings` and may raise `RuntimeError`.
+    
+    Returns:
+        bool: `True` if a `RuntimeError` occurred and fallback is enabled for training mode, `False` otherwise.
+    """
     try:
         ensure_ready(settings)
     except RuntimeError as exc:
@@ -112,6 +124,21 @@ def _run_baseline_comparison(
     output: str | None,
     run_comparison: RunComparison,
 ) -> None:
+    """
+    Run a baseline-versus-agent backtest comparison and present the results.
+    
+    Executes the provided comparison callable with the given backtest parameters, renders the resulting comparison report to the terminal, and if `output` is provided writes a text summary and prints an export confirmation.
+    
+    Parameters:
+        settings (Settings): Backtest runtime settings.
+        symbol (str): Trading symbol to backtest.
+        interval (str): Data interval (e.g., "1h", "5m").
+        lookback (str): Lookback specification for the backtest.
+        warmup_bars (int): Number of warmup bars to use before measuring performance.
+        allow_fallback (bool): If True, allow diagnostic fallback behavior during readiness checks.
+        output (str | None): Path to write a text summary; if None, no file is written.
+        run_comparison (RunComparison): Callable that performs the baseline-vs-agent comparison and returns a comparison report.
+    """
     comparison = run_comparison(
         settings=settings,
         symbol=symbol,
@@ -139,6 +166,17 @@ def _run_memory_ablation(
     output: str | None,
     run_ablation: RunAblation,
 ) -> None:
+    """
+    Run a memory-ablation backtest, render its report to the terminal, and optionally write a text summary to disk.
+    
+    Parameters:
+        allow_fallback (bool): If True, allow diagnostic fallback when readiness checks fail.
+        output (str | None): Path to write a text summary; if None, no file is written.
+        run_ablation (Callable[..., BacktestAblationReport]): Callable that performs the ablation and returns its report.
+    
+    Description:
+        Executes the provided `run_ablation` with the given backtest parameters, renders the resulting ablation report, and if `output` is provided writes a summary file and prints a confirmation message.
+    """
     ablation = run_ablation(
         settings=settings,
         symbol=symbol,
@@ -166,6 +204,19 @@ def _run_walk_forward(
     output: str | None,
     run_walk_forward: RunWalkForward,
 ) -> None:
+    """
+    Execute a walk-forward backtest for the specified market parameters, render the resulting report, and optionally write a text summary to `output`.
+    
+    Parameters:
+        settings (Settings): Runtime/settings object used for the backtest.
+        symbol (str): Market symbol to backtest (e.g., "BTC/USD").
+        interval (str): Data interval for backtesting (e.g., "1h").
+        lookback (str): Lookback period identifier used for the backtest configuration.
+        warmup_bars (int): Number of initial bars used to warm up indicators/state.
+        allow_fallback (bool): If True, allow diagnostic fallback behavior during the run.
+        output (str | None): File path to write a text summary; if None, no file is written.
+        run_walk_forward (RunWalkForward): Callable that performs the walk-forward backtest and returns a BacktestReport.
+    """
     report = run_walk_forward(
         settings=settings,
         symbol=symbol,
@@ -183,10 +234,26 @@ def _run_walk_forward(
 
 
 def _print_backtest_exported(message: str) -> None:
+    """
+    Display a green panel indicating that a backtest summary was exported.
+    
+    Parameters:
+        message (str): The text to show inside the exported confirmation panel.
+    """
     console.print(Panel(message, title=ui_t("title.exported"), border_style="green"))
 
 
 def render_backtest_report(report: BacktestReport) -> None:
+    """
+    Render a walk-forward backtest summary and recent trades to the console.
+    
+    Displays a table with the backtest's symbol and parameters (interval, lookback, warmup bars),
+    counts (cycles, trades, closed trades), performance metrics (win rate, expectancy, total return,
+    max drawdown, exposure) and fallback cycles, then renders the recent trade list.
+    
+    Parameters:
+        report (BacktestReport): Backtest results to display.
+    """
     summary = Table(title=ui_t("title.walk_forward_backtest") + " / " + report.symbol)
     summary.add_column(ui_t("label.field"))
     summary.add_column(ui_t("label.value"))
@@ -207,6 +274,18 @@ def render_backtest_report(report: BacktestReport) -> None:
 
 
 def _render_backtest_trades(report: BacktestReport) -> None:
+    """
+    Render a table of recent trades from a backtest report to the console.
+    
+    Displays up to the last 12 trades from `report.trades` in a rich Table with columns for
+    entry time, exit time, side, entry price, exit price, P&L, and exit reason. Missing or
+    incomplete values are shown as "-" placeholders. Numeric fields are formatted for display
+    (entry price with four decimal places, exit price with four decimal places when present,
+    P&L with two decimal places).
+    
+    Parameters:
+        report (BacktestReport): Backtest report object containing the `trades` sequence to render.
+    """
     trades = Table(title=ui_t("title.backtest_trades"))
     trades.add_column(ui_t("label.entry"))
     trades.add_column(ui_t("label.exit"))
@@ -232,6 +311,12 @@ def _render_backtest_trades(report: BacktestReport) -> None:
 
 
 def render_backtest_comparison(report: BacktestComparisonReport) -> None:
+    """
+    Render a comparison table of agent vs baseline backtest metrics to the console.
+    
+    Parameters:
+    	report (BacktestComparisonReport): Comparison results for a symbol, containing agent and baseline metric values (trades, closed trades, win rate, expectancy, total return, max drawdown, exposure, ending equity) and precomputed deltas. The function prints a Rich table summarizing these values.
+    """
     table = Table(title=ui_t("title.backtest_comparison") + " / " + report.symbol)
     table.add_column(ui_t("label.metric"))
     table.add_column(ui_t("label.agent"))
@@ -289,6 +374,13 @@ def render_backtest_comparison(report: BacktestComparisonReport) -> None:
 
 
 def render_backtest_ablation(report: BacktestAblationReport) -> None:
+    """
+    Render a memory-ablation comparison table for the given backtest report.
+    
+    Parameters:
+        report (BacktestAblationReport): Comparison report containing `with_memory` and `without_memory`
+            results along with computed deltas for the specified symbol.
+    """
     table = Table(title=ui_t("title.backtest_memory_ablation") + " / " + report.symbol)
     table.add_column(ui_t("label.metric"))
     table.add_column(ui_t("label.with_memory"))
@@ -366,6 +458,16 @@ def write_backtest_ablation_summary(
 def write_walk_forward_backtest_summary(
     output: str | Path, report: BacktestReport
 ) -> str:
+    """
+    Render a walk-forward backtest summary and write it to a file.
+    
+    Parameters:
+        output (str | Path): Destination file path to write the summary to.
+        report (BacktestReport): Walk-forward backtest results containing symbol, interval, lookback, warmup, cycles, trade counts and performance metrics.
+    
+    Returns:
+        str: Stringified path of the file written.
+    """
     rendered = "\n".join(
         [
             f"# Walk-Forward Backtest: {report.symbol}",

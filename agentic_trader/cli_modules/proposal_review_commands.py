@@ -26,7 +26,15 @@ from agentic_trader.schemas import TradeProposalRecord
 
 
 def proposal_create(**options: str) -> None:
-    """Create a pending trade proposal for manual review without sending an order."""
+    """
+    Create a pending trade proposal for manual review without sending an order.
+    
+    Builds a proposal draft from the provided CLI options and attempts to persist it as a pending trade proposal. On success either emits the proposal as JSON (when `options["json_output"]` is truthy) or prints a localized success panel with the proposal id, symbol, side, and reference price. If persistence fails with a `ValueError`, emits a localized error as JSON when `options["json_output"]` is truthy; otherwise prints a localized error panel. In both failure cases the command exits with code 2.
+    
+    Parameters:
+        options (dict[str, str]): CLI options used to construct the proposal draft. Recognized keys include:
+            - "json_output": when truthy, cause success and error output to be emitted as JSON instead of printed panels.
+    """
     settings = _settings()
     draft = trade_proposal_draft_from_options(cast(dict[str, object], options))
     try:
@@ -64,7 +72,17 @@ def proposal_approve(
     ),
     json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
-    """Approve a pending trade proposal and submit it to the paper broker."""
+    """
+    Approve a pending trade proposal and submit it to the paper broker.
+    
+    Parameters:
+        proposal_id (str): Identifier of the trade proposal to approve.
+        review_notes (str): Optional reviewer notes to record with the approval.
+        json_output (bool): When true, emit the resulting payload as JSON instead of human-readable output.
+    
+    Notes:
+        Exits with code 2 on failure; when `json_output` is true an error JSON is emitted before exiting.
+    """
     settings = _settings()
     try:
         payload = approve_proposal_payload(
@@ -151,7 +169,17 @@ def proposal_refresh(
     ),
     json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
-    """Refresh an executed trade proposal's broker metadata."""
+    """
+    Refreshes a trade proposal's broker metadata and displays the updated proposal and execution outcome.
+    
+    When `json_output` is true the command emits the raw payload as JSON; otherwise it prints a human-readable panel showing the proposal id, status, order id and outcome status. On failures that block the refresh (e.g. `RuntimeError` or `ValueError`) the command exits.
+    
+    Parameters:
+        json_output (bool): If true emit JSON payload instead of printing a panel.
+    
+    Raises:
+        typer.Exit: Exits with code 2 when the refresh is blocked by an error.
+    """
     settings = _settings()
     try:
         payload = refresh_proposal_payload(

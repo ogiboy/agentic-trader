@@ -112,7 +112,9 @@ def _register_instruct_command(app: typer.Typer, deps: OperatorChatCommandDeps) 
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         """
-        Interpret a natural-language operator instruction and optionally persist a resulting preference update.
+        Interpret a natural-language operator instruction and, when requested, apply and display any resulting investment-preference update.
+        
+        When run, the command converts the provided `message` into an `OperatorInstruction`. If `apply` is true and the instruction indicates a preference update, that update is persisted. Output is either a JSON object (when `json_output` is true) containing the interpreted instruction and any applied update, or a human-readable rendering of the instruction and, if applied, the updated preferences.
         """
         settings = deps.settings_provider()
         deps.ensure_ready(settings)
@@ -157,6 +159,14 @@ def _register_instruct_command(app: typer.Typer, deps: OperatorChatCommandDeps) 
 
 
 def _render_instruction(instruction: OperatorInstruction) -> None:
+    """
+    Render an OperatorInstruction as a formatted table and print it to the console.
+    
+    Displays the instruction's summary, whether it requests a preference update, whether it requires confirmation, the rationale, and a pretty-printed JSON representation of the preference update.
+    
+    Parameters:
+        instruction (OperatorInstruction): Instruction to render; its `preference_update` will be serialized for display.
+    """
     table = Table(title=ui_t("title.operator_instruction"))
     table.add_column(ui_t("label.field"))
     table.add_column(ui_t("label.value"))

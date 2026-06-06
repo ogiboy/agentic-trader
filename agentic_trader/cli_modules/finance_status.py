@@ -94,6 +94,27 @@ def position_plan_coverage_payload(
     open_db_provider: OpenDbProvider = open_db,
     broker_adapter_provider: BrokerAdapterProvider = get_broker_adapter,
 ) -> dict[str, object]:
+    """
+    Compute how currently open positions align with configured position plans.
+    
+    Opens the database (read-only) or, when using the "alpaca_paper" backend, queries the broker adapter to obtain live positions, then compares the set of open position symbols to the set of planned symbols to determine coverage, missing plans, and extra plans.
+    
+    Parameters:
+        settings (Settings): Runtime settings that determine which backend to query.
+        open_db_provider (callable): Callable that opens a TradingDatabase given `settings` and `read_only` (defaults to `open_db`).
+        broker_adapter_provider (callable): Callable that returns a BrokerAdapter given `db` and `settings` (defaults to `get_broker_adapter`).
+    
+    Returns:
+        dict[str, object]: Payload with:
+            - "available": `True` if data was loaded successfully, `False` on error.
+            - "error": Error message string when unavailable, otherwise `None`.
+            - "source": One of "broker_adapter", "runtime_database", or "unavailable".
+            - "open_symbols": Sorted list of symbols with nonzero open quantity.
+            - "planned_symbols": Sorted list of planned symbols that are currently open (intersection).
+            - "missing_symbols": Sorted list of open symbols that have no plan.
+            - "extra_plan_symbols": Sorted list of planned symbols that are not currently open.
+            - "coverage_ratio": Fraction of open symbols covered by plans, rounded to 4 decimals (defaults to 1.0 when there are no open symbols).
+    """
     source = "unavailable"
     try:
         db = open_db_provider(settings, read_only=True)
@@ -192,6 +213,24 @@ def risk_report_from_portfolio(
     positions: list[PositionSnapshot],
     report_date: str | None = None,
 ) -> DailyRiskReport:
+    """
+    Builds a DailyRiskReport from a portfolio snapshot and a list of positions, computing exposure, concentration and warning messages.
+    
+    Parameters:
+        settings (Settings): Runtime settings used to evaluate thresholds (e.g. max_open_positions, max_gross_exposure_pct, max_position_pct).
+        snapshot (PortfolioSnapshot): Account-level snapshot containing cash, equity, P&L and open position count.
+        positions (list[PositionSnapshot]): List of position snapshots; used to compute market-value based metrics and top positions.
+        report_date (str | None): Optional report date in YYYY-MM-DD format; when omitted the current UTC date is used.
+    
+    Returns:
+        DailyRiskReport: Report populated with:
+          - report metadata (`report_date`, `generated_at`)
+          - snapshot fields (`cash`, `market_value`, `equity`, `realized_pnl`, `unrealized_pnl`, `open_positions`)
+          - computed metrics (`gross_exposure_pct`, `largest_position_pct`, `portfolio_hhi`)
+          - `top_position_symbols` (up to 5 symbols by absolute market value)
+          - zeroed placeholders (`fills_today`, `marks_recorded`, `daily_realized_pnl`, `drawdown_from_peak_pct`)
+          - `warnings`: messages added when thresholds are exceeded for open position count, gross exposure vs equity, largest position vs equity, or concentration HHI (> 0.25).
+    """
     resolved_date = report_date or datetime.now(timezone.utc).date().isoformat()
     gross_exposure = sum(abs(position.market_value) for position in positions)
     largest_position = max(

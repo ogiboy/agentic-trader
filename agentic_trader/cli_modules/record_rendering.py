@@ -19,6 +19,11 @@ from agentic_trader.schemas import (
 
 
 def render_preferences(preferences: InvestmentPreferences) -> None:
+    """
+    Render investment preferences as a two-column CLI table.
+    
+    Displays regions, exchanges, currencies, and sectors joined by ui_t("list.separator") (uses "-" when a list is empty), and shows scalar fields: risk_profile, trade_style, behavior_preset, agent_profile, agent_tone, strictness_preset, intervention_style, and notes (notes display "-" when falsy). The resulting table is printed to the console.
+    """
     table = Table(title=ui_t("title.investment_preferences"))
     table.add_column(ui_t("label.setting"))
     table.add_column(ui_t("label.value"))
@@ -50,6 +55,12 @@ def render_preferences(preferences: InvestmentPreferences) -> None:
 
 
 def render_trade_journal(entries: list[TradeJournalEntry]) -> None:
+    """
+    Render a list of trade journal entries to the console as a table, or show an empty-state panel when there are no entries.
+    
+    Parameters:
+    	entries (list[TradeJournalEntry]): Trade journal entries to display. If the list is empty, a yellow panel with a "no entries" message and the trade journal title is printed instead.
+    """
     if not entries:
         console.print(
             Panel(
@@ -84,6 +95,17 @@ def render_trade_journal(entries: list[TradeJournalEntry]) -> None:
 
 
 def render_risk_report(report: DailyRiskReport) -> None:
+    """
+    Render a daily risk report to the console using rich tables and panels.
+    
+    Displays the report date and key metrics (cash, market value, equity, realized/unrealized P&L,
+    open positions, fills, marks, daily realized P&L, exposure and drawdown percentages) in a two-column table,
+    and prints a warnings panel when the report contains warnings; otherwise prints a green "no elevated warnings" panel.
+    
+    Parameters:
+        report (DailyRiskReport): The daily risk report to display. The report's `report_date` is used in the table title,
+            and `report.warnings` determines whether a warnings panel is shown.
+    """
     table = Table(title=ui_t("title.daily_risk_report") + " / " + report.report_date)
     table.add_column(ui_t("label.field"))
     table.add_column(ui_t("label.value"))
@@ -129,6 +151,19 @@ def render_unavailable_run_record(
     empty_message: str,
     empty_title: str,
 ) -> bool:
+    """
+    Render observer/empty-state panels for a run record when the record or its payload is unavailable.
+    
+    Parameters:
+        payload (dict[str, object]): A payload containing availability information. Must contain an "available" key (truthy if data is available) and, when unavailable, an "error" value used to format `unavailable_message`.
+        record (RunRecord | None): The run record to render when available; if `None` the function displays `empty_message`.
+        unavailable_message (str): Message template shown when `payload["available"]` is falsy. The template is formatted with an `error` keyword.
+        empty_message (str): Message shown when `record` is `None` but `payload` indicates availability.
+        empty_title (str): Title used for the empty-state panel.
+    
+    Returns:
+        bool: `True` if an unavailable or empty-state panel was printed, `False` if rendering should continue (i.e., data is available and `record` is not `None`).
+    """
     if not bool(payload["available"]):
         console.print(
             Panel(
@@ -153,6 +188,18 @@ def render_unavailable_run_record(
 def render_unavailable_trade_context(
     payload: dict[str, object], record: TradeContextRecord | None
 ) -> bool:
+    """
+    Render a user-facing panel when trade context data is unavailable or missing.
+    
+    Parameters:
+        payload (dict): Payload containing availability info; expected keys:
+            - "available" (truthy/falsey): whether the trade context is available.
+            - "error" (str): error message used when unavailable.
+        record (TradeContextRecord | None): The trade context record to render, or None when absent.
+    
+    Returns:
+        bool: `True` if a warning/empty-state panel was printed (unavailable or missing), `False` otherwise.
+    """
     if not payload["available"]:
         console.print(
             Panel(
@@ -181,6 +228,13 @@ def render_trade_context(
     *,
     canonical_analysis_lines: Callable[[CanonicalAnalysisSnapshot | None], list[str]],
 ) -> None:
+    """
+    Render and print a detailed view of a trade context including a summary table, routed models, a context summary panel, and a canonical analysis panel.
+    
+    Parameters:
+        record (TradeContextRecord): Trade context data to display (identifiers, consensus, rationales, execution metadata, routed models, retrieved/shared memory summaries, and review warnings).
+        canonical_analysis_lines (Callable[[CanonicalAnalysisSnapshot | None], list[str]]): Function that converts the record's canonical analysis snapshot into displayable lines for the canonical analysis panel.
+    """
     summary = Table(
         title=ui_t("title.trade_context_detail").format(trade_id=record.trade_id)
     )

@@ -14,6 +14,19 @@ MODEL_SERVICE_LABEL = t("label.model_service")
 
 
 def render_setup_status(payload: dict[str, object]) -> None:
+    """
+    Prints a table summarizing system setup status and, if present, renders tool ownership and tool readiness sections.
+    
+    Parameters:
+        payload (dict[str, object]): A mapping containing setup information used to populate the table. Expected keys:
+            - "platform": platform identifier shown under the Platform field.
+            - "workspace_root": workspace path shown under the Workspace field.
+            - "core_ready": core readiness value shown under the Core Ready field.
+            - "optional_ready": optional runtime readiness value shown under the Optional Runtime Ready field.
+            - "model_service", "camofox_service", "webgui_service": optional dicts whose "message" values are shown under their respective service rows (falls back to "-" if missing).
+            - "tool_ownership": optional dict; when present, the function will render a tool ownership section using its value.
+            - other keys used later by the tool readiness renderer (e.g., "tools", "recommended_commands") may be read by the subsequent tool readiness rendering.
+    """
     summary = Table(title=t("title.setup_status"))
     summary.add_column(t("label.field"))
     summary.add_column(t("label.value"))
@@ -36,6 +49,18 @@ def render_setup_status(payload: dict[str, object]) -> None:
 
 
 def _render_tool_readiness(payload: dict[str, object]) -> None:
+    """
+    Render a table of tool readiness and a panel of recommended next commands.
+    
+    Parameters:
+        payload (dict[str, object]): Rendering context containing:
+            - "tools": list[dict[str, object]] where each tool dict must include
+              "label", "category", and "status"; optional keys: "notes" (list[str]),
+              "ownership_mode", "path", and "install_hint".
+            - "recommended_commands": list[str] of commands shown in the recommended
+              next commands panel.
+    
+    """
     tools = cast(list[dict[str, object]], payload["tools"])
     table = Table(title=t("title.tool_readiness"))
     table.add_column(t("label.tool"))
@@ -65,6 +90,20 @@ def _render_tool_readiness(payload: dict[str, object]) -> None:
 
 
 def render_tool_ownership(payload: dict[str, object]) -> None:
+    """
+    Render a table of tool ownership decisions.
+    
+    Builds and prints a Rich Table titled with the localized "tool ownership" label and one row per decision.
+    
+    Parameters:
+    	payload (dict[str, object]): Mapping that may contain a "decisions" key with a list of decision mappings. Each decision may include:
+    		- "tool": display name of the tool
+    		- "mode": ownership mode
+    		- "source": origin of the decision
+    		- "updated_at": timestamp of the last update
+    		- "note": human-readable meaning or comment
+    
+    """
     table = Table(title=t("title.tool_ownership"))
     table.add_column(t("label.tool"))
     table.add_column(t("label.mode"))
@@ -84,6 +123,12 @@ def render_tool_ownership(payload: dict[str, object]) -> None:
 
 
 def render_model_service_status(payload: dict[str, object]) -> None:
+    """
+    Render and print the model service status table, the list of available models, and the service stderr tail if present.
+    
+    Parameters:
+        payload (dict[str, object]): Mapping with model service information. The function reads the following keys (falling back to "-" when absent): "provider", "command_available", "command_path", "configured_base_url", "configured_model", "service_reachable", "model_available", "generation_checked", "generation_available", "generation_message", "app_owned", "pid", "base_url", "message", "runtime_base_url_matches_app_service". Also reads "available_models" (iterable of model names) to display in a panel and "stderr_tail" (list of lines) to display as a tail panel when present.
+    """
     table = Table(title=MODEL_SERVICE_LABEL)
     table.add_column(t("label.field"))
     table.add_column(t("label.value"))
@@ -117,6 +162,15 @@ def render_model_service_status(payload: dict[str, object]) -> None:
 
 
 def render_webgui_service_status(payload: dict[str, object]) -> None:
+    """
+    Render the web GUI service status and its stderr tail to the console.
+    
+    Parameters:
+        payload (dict[str, object]): Status dictionary for the web GUI service. Expected keys read from
+            the payload: "command_available", "command_path", "package_available", "service_reachable",
+            "app_owned", "pid", "host", "port", "url", "message", and optionally "stderr_tail".
+            Missing keys are represented as "-" in the output.
+    """
     table = Table(title=t("title.web_gui_service"))
     table.add_column(t("label.field"))
     table.add_column(t("label.value"))
@@ -138,6 +192,17 @@ def render_webgui_service_status(payload: dict[str, object]) -> None:
 
 
 def render_camofox_service_status(payload: dict[str, object]) -> None:
+    """
+    Render a table summarizing the Camofox browser helper service status and its stderr tail.
+    
+    Parameters:
+        payload (dict[str, object]): Mapping containing service status fields. Recognized keys include:
+            - "command_available", "command_path", "package_available", "dependency_available",
+              "access_key_configured", "service_reachable", "health_ok", "app_owned",
+              "pid", "host", "port", "base_url", "tool_dir", "message"
+            Missing keys are displayed as "-" in the table. If "stderr_tail" is present and non-empty,
+            its lines are rendered in a separate titled panel.
+    """
     table = Table(title=t("title.camofox_browser_helper"))
     table.add_column(t("label.field"))
     table.add_column(t("label.value"))
@@ -163,6 +228,19 @@ def render_camofox_service_status(payload: dict[str, object]) -> None:
 
 
 def render_operator_launcher_status(payload: dict[str, object]) -> None:
+    """
+    Render the operator launcher status table and present available launcher surface options.
+    
+    Parameters:
+        payload (dict[str, object]): Status payload containing expected keys:
+            - "default_runtime_plan": dict with plan fields "symbols", "interval", "lookback", "poll_seconds"
+            - "model_service": dict with "model_available", "base_url", "configured_base_url", "message"
+            - "camofox_service": dict with "health_ok", "base_url", "message"
+            - "webgui_service": dict with "app_owned", "service_reachable", "url", "message"
+            - "setup": dict with "core_ready"
+            - "runtime_active": truthy when the runtime daemon is active
+            - "runtime_state": fallback runtime state to display when not active
+    """
     plan = cast(dict[str, object], payload["default_runtime_plan"])
     model_service = cast(dict[str, object], payload["model_service"])
     camofox_service = cast(dict[str, object], payload["camofox_service"])
@@ -230,6 +308,12 @@ def render_operator_launcher_status(payload: dict[str, object]) -> None:
 
 
 def _webgui_status_label(webgui_service: dict[str, object]) -> str:
+    """
+    Choose a localized status label for the web GUI service.
+    
+    Returns:
+        str: `t("status.app_owned")` if `webgui_service["app_owned"]` is truthy, `t("status.external")` if `webgui_service["service_reachable"]` is truthy, otherwise the service's `message` coerced to a string.
+    """
     if webgui_service.get("app_owned"):
         return t("status.app_owned")
     if webgui_service.get("service_reachable"):

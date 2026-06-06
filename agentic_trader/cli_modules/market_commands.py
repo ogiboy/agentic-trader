@@ -86,6 +86,19 @@ def register_market_commands(app: typer.Typer, deps: MarketCommandDeps) -> None:
 def _register_news_intelligence_command(
     app: typer.Typer, deps: MarketCommandDeps
 ) -> None:
+    """
+    Register the "news-intelligence" CLI command that builds and displays a news research plan for a symbol.
+    
+    When invoked the command:
+    - Calls deps.news_research_plan(...) to produce a payload and converts any ValueError into a typer.BadParameter.
+    - Optionally augments the payload with a `classified_source` entry when `--classify-source` is provided (includes `source` and `tier` from deps.classify_source_tier).
+    - Emits the payload as JSON when `--json` is set via deps.emit_json.
+    - Otherwise renders a panel showing `prompt_policy` and a table of `query_templates` (columns: kind, query, materiality_hint).
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the command on.
+        deps (MarketCommandDeps): Dependency container providing payload builders, emit_json, and helper functions.
+    """
     @app.command("news-intelligence")
     def news_intelligence(
         symbol: str = typer.Option(..., help=ui_t("help.symbol")),
@@ -142,6 +155,11 @@ def _register_research_cycle_commands(
 def _register_research_cycle_plan_command(
     app: typer.Typer, deps: MarketCommandDeps
 ) -> None:
+    """
+    Register the "research-cycle-plan" Typer command which builds and presents a research cycle plan.
+    
+    The command accepts CLI options for symbols, cadence_seconds, max_proposals_per_cycle and a --json flag. It parses the symbols, obtains a plan payload from deps.research_cycle_plan_payload using the provided options, converts a raised ValueError into a typer.BadParameter, and either emits the payload as JSON via deps.emit_json (when --json is set) or renders the plan with _render_research_cycle_plan.
+    """
     @app.command("research-cycle-plan")
     def research_cycle_plan(
         symbols: str = typer.Option(
@@ -182,6 +200,14 @@ def _register_research_cycle_plan_command(
 def _register_research_cycle_run_command(
     app: typer.Typer, deps: MarketCommandDeps
 ) -> None:
+    """
+    Register the "research-cycle-run" CLI command on the provided Typer app.
+    
+    The command runs one or more research cycles for the given comma-separated symbols
+    with configurable cadence, cycle count, proposal limits, persistence, and optional
+    sleep between cycles. If JSON output is requested, the command emits the raw
+    payload; otherwise it prints a summary showing the number of executed cycles.
+    """
     @app.command("research-cycle-run")
     def research_cycle_run(
         symbols: str = typer.Option(
@@ -248,6 +274,21 @@ def _parse_symbols(symbols: str) -> list[str]:
 
 
 def _render_research_cycle_plan(payload: dict[str, object]) -> None:
+    """
+    Render a formatted research cycle plan to the console.
+    
+    Parameters:
+        payload (dict): Mapping with keys:
+            - "safety_policy": text to show in the top panel.
+            - "cycle": identifier used in the panel title.
+            - "phases": list of phase mappings; each phase may include:
+                - "name": phase name (shown as "-" if missing).
+                - "purpose": phase purpose (shown as "-" if missing).
+                - "produce": iterable of strings describing outputs (defaults to empty).
+    
+    The function prints a panel containing the safety policy and a table of phases with columns
+    for phase name, purpose, and a comma-separated list of produced items.
+    """
     console.print(
         Panel(
             str(payload["safety_policy"]),
@@ -272,6 +313,15 @@ def _render_research_cycle_plan(payload: dict[str, object]) -> None:
 def _register_calendar_status_command(
     app: typer.Typer, deps: MarketCommandDeps
 ) -> None:
+    """
+    Register the "calendar-status" CLI command on the provided Typer application.
+    
+    The command accepts an optional symbol and a `--json` flag. It queries calendar/session information via the provided dependencies, emits the raw payload when `--json` is set, prints an "unavailable" panel and exits when no session is available, and otherwise validates and renders the market session status.
+    
+    Parameters:
+        app (typer.Typer): Typer application to which the command will be registered.
+        deps (MarketCommandDeps): Dependency container used to fetch settings, payloads, renderers, and emit JSON.
+    """
     @app.command("calendar-status")
     def calendar_status(
         symbol: str | None = typer.Option(
@@ -301,6 +351,16 @@ def _register_calendar_status_command(
 
 
 def _render_market_session(session: MarketSessionStatus) -> None:
+    """
+    Render a market session status as a two-column table and print it to the console.
+    
+    Displays the session's venue, asset class, timezone, session state, whether it is tradable now, and any note. The table title includes the session's symbol.
+    
+    Parameters:
+        session (MarketSessionStatus): Market session to render; expected to provide
+            `symbol`, `venue`, `asset_class`, `timezone`, `session_state`,
+            `tradable_now`, and `note`.
+    """
     table = Table(title=ui_t("title.market_session").format(symbol=session.symbol))
     table.add_column(ui_t("label.field"))
     table.add_column(ui_t("label.value"))
@@ -314,6 +374,15 @@ def _render_market_session(session: MarketSessionStatus) -> None:
 
 
 def _register_news_brief_command(app: typer.Typer, deps: MarketCommandDeps) -> None:
+    """
+    Register the "news-brief" CLI command that displays a short news summary for a symbol.
+    
+    When invoked, the command fetches a news payload from the provided dependencies. If `--json` is used, the raw payload is emitted via the dependency's JSON emitter; otherwise the command prints a table showing mode, availability, and the number of headlines, then renders each headline.
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the command on.
+        deps (MarketCommandDeps): Dependency container used to fetch payloads and emit JSON.
+    """
     @app.command("news-brief")
     def news_brief(
         symbol: str | None = typer.Option(None, help=ui_t("help.news_brief_symbol")),
@@ -339,6 +408,17 @@ def _register_news_brief_command(app: typer.Typer, deps: MarketCommandDeps) -> N
 
 
 def _render_headlines(headlines: list[dict[str, object]]) -> None:
+    """
+    Render a list of news headlines to the console as styled panels.
+    
+    If `headlines` is empty, prints a yellow panel with a "no headlines" message titled with the news tool label. Otherwise prints one cyan-bordered panel per headline whose body is "<publisher> | <title>" and whose panel title is the headline's `symbol`.
+    
+    Parameters:
+    	headlines (list[dict[str, object]]): Sequence of headline objects. Each headline is expected to contain the keys:
+    	- `publisher`: publisher name shown in the panel body
+    	- `title`: headline title shown in the panel body
+    	- `symbol`: value used as the panel title
+    """
     if not headlines:
         console.print(
             Panel(
@@ -359,6 +439,17 @@ def _render_headlines(headlines: list[dict[str, object]]) -> None:
 
 
 def _register_market_cache_commands(app: typer.Typer, deps: MarketCommandDeps) -> None:
+    """
+    Register CLI commands for managing and inspecting cached market OHLCV data.
+    
+    Defines two Typer subcommands:
+    - "cache-market-data": fetches OHLCV for a given symbol with specified interval and lookback, stores it in the cache, and prints a summary panel with bar count, cache directory, interval, lookback, and snapshot count.
+    - "market-cache": shows metadata about the market snapshot cache or emits the cache payload as JSON when `--json` is provided.
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the commands on.
+        deps (MarketCommandDeps): Dependency container providing settings, fetchers, payload builders, and JSON emission.
+    """
     @app.command("cache-market-data")
     def cache_market_data(
         symbol: str = typer.Option(..., help=ui_t("help.symbol")),
@@ -394,6 +485,12 @@ def _register_market_cache_commands(app: typer.Typer, deps: MarketCommandDeps) -
     def market_cache(
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
+        """
+        Show market snapshot cache contents; emit the cache payload as JSON when requested.
+        
+        Parameters:
+            json_output (bool): If True, emit the cache payload as JSON instead of rendering human-friendly output.
+        """
         settings = deps.get_settings()
         payload = deps.market_cache_payload(settings)
         if json_output:
@@ -403,6 +500,21 @@ def _register_market_cache_commands(app: typer.Typer, deps: MarketCommandDeps) -
 
 
 def _render_market_cache(payload: dict[str, object]) -> None:
+    """
+    Render a table of cached market snapshot files and a summary panel showing cache status.
+    
+    Parameters:
+        payload (dict): A mapping containing cache information with these keys:
+            - "entries": list of dicts each with "filename", "size_bytes", and "modified_at".
+            - "cache_dir": path or name of the cache directory.
+            - "mode": cache mode string.
+            - "count": total number of snapshots.
+    
+    Description:
+        Prints a table (up to the first 20 entries) with filename, size, and last-modified values.
+        If no entries are present a single placeholder row is printed. After the table, prints a
+        panel summarizing the cache directory, mode, and snapshot count.
+    """
     table = Table(title=ui_t("title.market_snapshot_cache"))
     table.add_column(ui_t("label.filename"))
     table.add_column(ui_t("label.size"))

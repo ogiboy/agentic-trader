@@ -208,10 +208,12 @@ def parse_strategy_status(value: str | None) -> StrategyStatus | None:
 
 def render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
     """
-    Render a table of trade proposals to the console.
-
+    Render trade proposals as a Rich table to the console.
+    
+    If `proposals` is empty, print a yellow panel with the localized "no trade proposals" message and title instead of a table.
+    
     Parameters:
-        proposals (list[TradeProposalRecord]): Trade proposal records to display. If the list is empty, a yellow panel indicating "No trade proposals recorded yet." is printed instead.
+        proposals (list[TradeProposalRecord]): Trade proposal records to display.
     """
     if not proposals:
         console.print(
@@ -295,6 +297,19 @@ def render_idea_score(
     preset: str,
     json_output: bool,
 ) -> None:
+    """
+    Compute and present an idea score for a single candidate using a named preset.
+    
+    If `json_output` is True, emits a JSON payload containing the candidate score, strategy context, and execution policy. Otherwise prints a formatted panel showing the symbol, signal, numeric score, reasons, and warnings.
+    
+    Parameters:
+        candidate (IdeaCandidate): The idea candidate to score.
+        preset (str): The preset name to use; validated and normalized before scoring.
+        json_output (bool): If True emit JSON output, otherwise render a console panel.
+    
+    Raises:
+        typer.BadParameter: If no score is available for the candidate with the given preset.
+    """
     parsed_preset = parse_idea_preset(preset)
     ranked = rank_candidates([candidate], preset=parsed_preset, limit=1)
     if not ranked:

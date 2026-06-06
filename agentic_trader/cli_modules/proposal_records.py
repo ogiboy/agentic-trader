@@ -83,6 +83,19 @@ def create_candidate_record(
 
 
 def raise_candidate_create_error(exc: ValueError, *, json_output: bool) -> NoReturn:
+    """
+    Handle a candidate creation failure by reporting the error and terminating the CLI.
+    
+    If `json_output` is True, emit a machine-readable JSON error and exit with code 2.
+    Otherwise, print a red panel with the localized "candidate rejected" title and exit with code 2.
+    
+    Parameters:
+        exc (ValueError): The exception describing the rejection reason.
+        json_output (bool): If True, emit the error as JSON instead of printing a console panel.
+    
+    Raises:
+        typer.Exit: Always raised to terminate the command with exit code 2; the original exception is chained.
+    """
     if json_output:
         emit_json_error(exc)
         raise typer.Exit(code=2) from exc
@@ -97,6 +110,15 @@ def emit_candidate_created(
     *,
     json_output: bool,
 ) -> None:
+    """
+    Emit a success message announcing a created proposal candidate.
+    
+    If `json_output` is True, output the candidate as JSON; otherwise print a green, titled success panel containing the candidate ID, symbol, uppercased signal, and score.
+    
+    Parameters:
+        candidate (ProposalCandidateRecord): The created proposal candidate to report.
+        json_output (bool): When True emit JSON output; when False render a console panel.
+    """
     if json_output:
         emit_json(candidate.model_dump(mode="json"))
         return

@@ -269,15 +269,16 @@ def _iter_matching_files(root: Path, *, suffixes: set[str]) -> Iterable[Path]:
 
 def _line_threshold(path: Path, rel_path: str) -> tuple[str, int]:
     """
-    Selects a category label and line-count threshold for a file based on its path.
-
+    Choose a category label and corresponding line-count threshold for a file based on its path.
+    
+    Special-case repository-relative paths and file suffixes are matched (tests, entrypoints, copy catalog files, language docs, frontend/backend modules, etc.) to determine an appropriate category and the maximum recommended line count for that category.
+    
     Parameters:
-        path (Path): File system path to the file.
-        rel_path (str): Repository-relative POSIX-style path for the file.
-
+        path (Path): File system Path for the file.
+        rel_path (str): Repository-relative POSIX-style path used for pattern matching.
+    
     Returns:
-        tuple[str, int]: A pair (category, threshold) where `category` is a short label
-        describing the file type and `threshold` is the line-count limit for that category.
+        tuple[str, int]: A pair (category, threshold) where `category` is a short label describing the file type and `threshold` is the line-count limit for that category.
     """
     if ".test." in path.name:
         return "test", 700

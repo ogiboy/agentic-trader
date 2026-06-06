@@ -47,6 +47,16 @@ def safe_open_read_db(settings: Settings) -> TradingDatabase | None:
 
 
 def observer_mode_panel(feature: str, error: str | None = None) -> Panel:
+    """
+    Create a yellow-bordered Panel informing that a specific feature is temporarily unavailable in observer mode.
+    
+    Parameters:
+        feature (str): Feature name inserted into the localized unavailability message.
+        error (str | None): Optional error or diagnostic text appended to the panel body when provided.
+    
+    Returns:
+        Panel: A Panel titled with `t("label.observer_mode")` whose body contains the localized unavailability message (and the appended error text if given).
+    """
     body = t("observer.mode.temporarily_unavailable", feature=feature)
     if error:
         body += f"\n\n{error}"
@@ -54,6 +64,12 @@ def observer_mode_panel(feature: str, error: str | None = None) -> Panel:
 
 
 def render_runtime_state(state: ServiceStateSnapshot | None) -> None:
+    """
+    Render the current runtime status to the module console as a rich panel or table.
+    
+    Parameters:
+    	state (ServiceStateSnapshot | None): Current service runtime snapshot or `None` when no runtime state is available. When `None` a message panel is printed; otherwise a key/value table of runtime and snapshot fields is printed.
+    """
     view = build_runtime_status_view(state)
     if view.state is None:
         console.print(
@@ -99,6 +115,13 @@ def render_runtime_state(state: ServiceStateSnapshot | None) -> None:
 
 
 def render_runtime_events(events: list[ServiceEvent]) -> None:
+    """
+    Render runtime events in the console as a table or a message when none are available.
+    
+    Prints a table of the given ServiceEvent objects. If `events` is empty, prints a yellow panel titled with the runtime events title indicating that there are no runtime events.
+    Parameters:
+        events (list[ServiceEvent]): List of runtime events to display; an empty list triggers the no-events panel.
+    """
     if not events:
         console.print(
             Panel(
@@ -112,6 +135,15 @@ def render_runtime_events(events: list[ServiceEvent]) -> None:
 
 
 def runtime_events_table(events: list[ServiceEvent]) -> Table:
+    """
+    Builds a Rich Table representing runtime events with columns for creation time, level, type, cycle, and symbol.
+    
+    Parameters:
+        events (list[ServiceEvent]): Sequence of runtime events to include in the table. If empty, the table contains a single row of dashes.
+    
+    Returns:
+        Table: A configured Rich Table titled with the runtime events label. Each event becomes a row; missing `cycle_count` or `symbol` values are represented as `"-"`.
+    """
     table = Table(title=t("title.runtime_events"))
     table.add_column(t("label.created"))
     table.add_column(t("label.level"))
@@ -135,6 +167,18 @@ def runtime_events_table(events: list[ServiceEvent]) -> Table:
 def agent_activity_table(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Table:
+    """
+    Builds a table showing agent decision workflow stages, their status, and messages.
+    
+    Parameters:
+        state (ServiceStateSnapshot | None): Current runtime snapshot used to derive agent activity; may be `None`.
+        events (list[ServiceEvent]): Ordered list of runtime events used to construct the activity view.
+    
+    Returns:
+        Table: A rich Table titled with the decision workflow, containing columns for stage, status, and message.
+            If no stage statuses are present, the table contains a single row of dashes and a localized
+            message indicating there are no live agent stage events.
+    """
     table = Table(title=t("title.decision_workflow"))
     table.add_column(t("label.stage"))
     table.add_column(t("label.status"))
@@ -151,6 +195,17 @@ def agent_activity_table(
 def current_activity_panel(
     settings: Settings, state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Panel:
+    """
+    Render a panel summarizing the current runtime cycle, agent decision workflow, broker gate status, and last outcome.
+    
+    Parameters:
+        settings (Settings): Application configuration and runtime settings used to gather runtime and broker payloads.
+        state (ServiceStateSnapshot | None): Current service state snapshot used to build runtime and activity views; may be None.
+        events (list[ServiceEvent]): Recent service events used to build the agent activity view.
+    
+    Returns:
+        panel (Panel): A Rich Panel containing joined lines for the runtime cycle, agent activity, broker gate (including paper operations), and last outcome.
+    """
     view = build_runtime_status_view(state)
     activity = build_agent_activity_view(state, events)
     broker = broker_runtime_payload(settings)
@@ -170,6 +225,15 @@ def current_activity_panel(
 
 
 def runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
+    """
+    Builds a key/value table summarizing the current runtime state.
+    
+    Parameters:
+    	state (ServiceStateSnapshot | None): The latest service state snapshot or None when not available.
+    
+    Returns:
+    	Table: A Rich Table containing labeled runtime fields (runtime state, live process, last recorded state, timestamps, heartbeat age, cycle count, current symbol, pid, stop/continuous/background flags, launch/restart counts, terminal state/at, status note, last recorded message and error). If `state` is absent, the table contains a single row indicating no runtime state.
+    """
     table = Table(title=t("title.runtime_status"))
     table.add_column(t("label.key"))
     table.add_column(t("label.value"))
@@ -214,6 +278,16 @@ def system_status_table(
     runtime_state: ServiceStateSnapshot | None = None,
     health: LLMHealthStatus | None = None,
 ) -> Table:
+    """
+    Create a two-column status table summarizing system and LLM health information.
+    
+    Parameters:
+        settings: Application runtime configuration used to read runtime directory, mode, model, base URL and strict LLM flag.
+        db: Optional read-only trading database; when provided, the table includes the latest order identifier.
+    
+    Returns:
+        Table: A table with key/value rows including runtime directory, runtime mode (from `runtime_state` when provided, otherwise from `settings`), model name, base URL, whether the LLM service is reachable, whether the model is available, the `strict_llm` setting, and the latest order ID when `db` is supplied.
+    """
     health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
     table = Table(title=t("title.system_status"))

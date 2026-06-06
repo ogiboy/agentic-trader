@@ -33,6 +33,21 @@ def register_research_commands(
     settings_provider: Callable[[], Settings],
     emit_json: Callable[[object], None],
 ) -> None:
+    """
+    Register research-related CLI subcommands on the provided Typer app.
+    
+    Registers the following commands: `research-status`, `research-cycle-control`,
+    `research-refresh`, and the setup inspection commands (`research-flow-setup` /
+    `research-crewai-setup`), wiring them to the given settings provider and JSON
+    emitter.
+    
+    Parameters:
+        app (typer.Typer): Typer application to attach the commands to.
+        settings_provider (Callable[[], Settings]): Zero-argument callable that
+            returns the current Settings when invoked.
+        emit_json (Callable[[object], None]): Callable used to emit JSON payloads
+            for commands that support JSON output.
+    """
     _register_research_status_command(app, settings_provider, emit_json)
     _register_research_cycle_control_command(app, settings_provider)
     _register_research_refresh_command(app, settings_provider, emit_json)
@@ -44,6 +59,16 @@ def _register_research_status_command(
     settings_provider: Callable[[], Settings],
     emit_json: Callable[[object], None],
 ) -> None:
+    """
+    Register the "research-status" CLI command on the given Typer application.
+    
+    The registered command builds a research sidecar payload (optionally probing external sources), then either emits the payload as JSON using `emit_json` when `--json` is set, or renders the sidecar state to the console.
+    
+    Parameters:
+        app: Typer application to register the command on.
+        settings_provider: Callable that returns current Settings; invoked when the command runs.
+        emit_json: Callable that accepts a payload object and outputs JSON; used when `--json` is requested.
+    """
     @app.command("research-status")
     def research_status(
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
@@ -65,6 +90,14 @@ def _register_research_cycle_control_command(
     app: typer.Typer,
     settings_provider: Callable[[], Settings],
 ) -> None:
+    """
+    Register the `research-cycle-control` CLI command on the provided Typer app.
+    
+    The command exposes options to pause, resume, or trigger the research cycle immediately, an optional reason, and a JSON output flag. When invoked it uses the provided settings from `settings_provider` to perform the requested cycle control action.
+    
+    Parameters:
+        settings_provider (Callable[[], Settings]): A zero-argument callable that returns current runtime settings; it is called when the CLI command executes to obtain configuration used by the cycle control operation.
+    """
     @app.command("research-cycle-control")
     def research_cycle_control(
         pause: bool = typer.Option(
@@ -106,6 +139,18 @@ def _register_research_refresh_command(
     settings_provider: Callable[[], Settings],
     emit_json: Callable[[object], None],
 ) -> None:
+    """
+    Register the `research-refresh` CLI command which collects the research sidecar snapshot, optionally persists it, and emits or renders the result.
+    
+    Registers a subcommand `research-refresh` with options:
+    - `--json`: emit the assembled payload as JSON via `emit_json`.
+    - `--persist/--no-persist` (default `--persist`): when enabled, persist the collected snapshot and include the persisted record in the payload.
+    
+    Parameters:
+        app: Typer application to register the command on.
+        settings_provider: Callable that returns the current Settings when invoked.
+        emit_json: Callable used to emit the final payload when `--json` is specified.
+    """
     @app.command("research-refresh")
     def research_refresh(
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
@@ -153,6 +198,18 @@ def _register_research_setup_commands(
     settings_provider: Callable[[], Settings],
     emit_json: Callable[[object], None],
 ) -> None:
+    """
+    Register two CLI subcommands for inspecting Research/CrewAI setup.
+    
+    Each subcommand ("research-flow-setup" and "research-crewai-setup") obtains settings via `settings_provider()`,
+    computes the CrewAI setup payload, and either emits the payload as JSON using `emit_json` when `--json` is set
+    or renders the setup status via `render_research_flow_setup`.
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the commands on.
+        settings_provider (Callable[[], Settings]): Callable that returns the current Settings when invoked.
+        emit_json (Callable[[object], None]): Function to emit a JSON-serializable payload to output.
+    """
     @app.command("research-flow-setup")
     def research_flow_setup(
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
@@ -167,6 +224,12 @@ def _register_research_setup_commands(
     def research_crewai_setup(
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
+        """
+        Display the CrewAI flow setup status, emitting JSON when requested or rendering a human-readable view.
+        
+        Parameters:
+            json_output (bool): If true, emit the setup status as JSON instead of rendering to the console.
+        """
         payload = crewai_setup_status(settings_provider())
         if json_output:
             emit_json(payload)
@@ -227,6 +290,31 @@ def latest_research_digest_replay_payload(settings: Settings) -> dict[str, objec
 
 
 def render_research_sidecar_state(payload: dict[str, object]) -> None:
+    """
+    Render research sidecar status and provider health tables to the console.
+    
+    Parameters:
+        payload (dict[str, object]): A dictionary representing the research sidecar state. Expected keys:
+            - mode: current mode name
+            - enabled: whether the sidecar is enabled
+            - backend: backend identifier or name
+            - status: human-readable status
+            - updated_at: timestamp of last update
+            - watched_symbols: list[str] of symbols being watched
+            - last_successful_update_at: optional timestamp of last successful update
+            - last_error: optional error message or details
+            - cycleControl: dict with keys:
+                - status: cycle control status
+                - trigger_now_requested: truthy value when a trigger-now is requested
+            - latestDigestReplay: dict with key:
+                - available: truthy when a digest replay is available
+            - provider_health: list[dict[str, object]] where each provider dict contains:
+                - provider_id, provider_type, enabled, freshness, message
+    
+    The function prints two rich.Table views to the global console:
+    1. A summary table of sidecar fields (mode, enabled, backend, status, timestamps, watched symbols, cycle control and digest replay availability).
+    2. A provider health table with one row per provider showing id, type, enabled, freshness and message.
+    """
     table = Table(title=ui_t("title.research_sidecar_status"))
     table.add_column(ui_t("label.field"))
     table.add_column(ui_t("label.value"))
@@ -275,6 +363,28 @@ def render_research_sidecar_state(payload: dict[str, object]) -> None:
 
 
 def render_research_flow_setup(payload: dict[str, object]) -> None:
+    """
+    Render CrewAI flow setup status and recommended commands to the console.
+    
+    Renders a two-part UI:
+    - A table titled "research_crewai_flow_setup" showing setup fields (availability, version info,
+      flow directory, environment and scaffold presence, Python version, lockfile and core dependency).
+    - A panel titled "recommended_commands" listing each recommended command on its own line.
+    
+    Parameters:
+        payload (dict[str, object]): Mapping containing setup information. Expected keys:
+            - available (bool): Whether the sidecar/flow is available.
+            - version_source (str | None): Source used to determine the flow version.
+            - version (str | None): Detected flow version.
+            - uv_available (bool): Whether the UV (unit/version) is available.
+            - flow_dir (str | None): Path to the flow directory.
+            - flow_scaffold_exists (bool): Whether a flow scaffold exists.
+            - environment_exists (bool): Whether the runtime environment is present.
+            - python_version (str | None): Detected Python version for the flow.
+            - lockfile_exists (bool): Whether a lockfile is present.
+            - core_dependency (str | None): Core dependency identifier/version.
+            - recommended_commands (list[str]): Commands to suggest to the user.
+    """
     version_source = str(payload.get("version_source") or "-")
     version = str(payload["version"] or "-")
     python_version = str(payload["python_version"] or "-")

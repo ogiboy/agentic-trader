@@ -26,7 +26,17 @@ def run_operator_launcher(
     render_webgui_status: RenderPayload,
     render_health_panel: RenderHealthPanel,
 ) -> None:
-    """Interactive no-argument product launcher."""
+    """
+    Present an interactive launcher UI that displays current launcher status and prompts the user to select an action.
+    
+    Parameters:
+        settings_provider (SettingsProvider): Callable that returns runtime settings.
+        launcher_status_provider (LauncherStatusProvider): Callable that produces launcher status data given settings; its result will be converted to JSON for rendering.
+        start_webgui (StartWebGui): Callable used to start the web GUI when the corresponding action is selected.
+        render_launcher_status (RenderPayload): Callable that renders the launcher status payload.
+        render_webgui_status (RenderPayload): Callable that renders the web GUI status payload returned by `start_webgui`.
+        render_health_panel (RenderHealthPanel): Callable used to build/render health panel messages (used for exit and error reporting).
+    """
 
     settings = settings_provider()
     while True:
@@ -69,6 +79,18 @@ def _start_webgui_from_launcher(
     render_webgui_status: RenderPayload,
     render_health_panel: RenderHealthPanel,
 ) -> None:
+    """
+    Attempt to start the web GUI and render either its status or an error health panel.
+    
+    Parameters:
+        settings (Settings): Runtime settings passed to the web GUI starter.
+        start_webgui (StartWebGui): Callable that starts the web GUI and returns a status model.
+        render_webgui_status (RenderPayload): Callable to render the web GUI status payload.
+        render_health_panel (RenderHealthPanel): Callable to render a health panel (title, message, ...).
+    
+    Raises:
+        typer.Exit: Raised with code 1 if starting the web GUI fails; the original exception is chained.
+    """
     try:
         status = start_webgui(settings)
     except Exception as exc:

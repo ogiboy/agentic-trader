@@ -90,7 +90,14 @@ def strategy_catalog(
     ),
     json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
-    """Show repo-native strategy profiles and their V1 readiness gates."""
+    """
+    Show repository-native strategy profiles and their V1 readiness gates.
+    
+    Parameters:
+        status (str | None): Optional status filter to restrict listed profiles.
+        preset (str | None): Optional preset filter to restrict listed profiles.
+        json_output (bool): If True, emit the catalog payload as JSON instead of rendering a table.
+    """
 
     parsed_status = parse_strategy_status(status)
     parsed_preset = parse_idea_preset(preset) if preset else None
@@ -119,7 +126,17 @@ def strategy_profile(
     name: str = typer.Argument(..., help=ui_t("help.strategy_profile_name")),
     json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
-    """Show one strategy profile with evidence, risk, and validation gates."""
+    """
+    Display a strategy profile including its summary, evidence requirements, risk controls, and validation checks.
+    
+    When `json_output` is true, emit a JSON payload containing the profile and execution policy instead of rendering a panel.
+    
+    Parameters:
+        json_output (bool): If true, output the profile as JSON.
+    
+    Raises:
+        typer.BadParameter: If the named strategy profile cannot be loaded.
+    """
 
     try:
         profile = get_strategy_profile(name)

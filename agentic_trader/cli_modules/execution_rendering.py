@@ -13,6 +13,15 @@ from agentic_trader.ui_text import t as ui_t
 
 
 def render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
+    """
+    Render UI panels showing an execution summary, pipeline stage details, fallback/LLM path status, and the raw run artifacts.
+    
+    Displays a two-column layout with an execution summary table (order id, approval, side, confidence, pricing, and decision-path label) alongside a pipeline table listing each stage's source and notes. Shows a status panel that indicates which components used fallback logic (or that all stages used the LLM path), and finally prints the JSON-serialized `artifacts` in a titled panel.
+    
+    Parameters:
+        order_id (str): Identifier for the execution/order displayed in the summary.
+        artifacts (RunArtifacts): Object containing execution metadata and pipeline stage information.
+    """
     fallback_components = artifacts.fallback_components()
     console.print(
         Columns(
@@ -34,6 +43,16 @@ def render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
 def _execution_summary_table(
     order_id: str, artifacts: RunArtifacts, fallback_components: list[str]
 ) -> Table:
+    """
+    Builds a rich Table summarizing execution details for a given order.
+    
+    Parameters:
+        artifacts (RunArtifacts): Object containing execution and stage data used to populate the table.
+        fallback_components (list[str]): Names of pipeline components that fell back; if non-empty the decision-path row is labeled as a fallback.
+    
+    Returns:
+        Table: A rich Table with rows for order id, approval status, side, confidence (formatted to 2 decimals), entry/stop/take_profit (formatted to 4 decimals), and a decision-path label (either a fallback label or an LLM label).
+    """
     summary = Table(title=ui_t("title.execution_summary"))
     summary.add_column(ui_t("label.field"))
     summary.add_column(ui_t("label.value"))
@@ -52,6 +71,20 @@ def _execution_summary_table(
 
 
 def _pipeline_table(artifacts: RunArtifacts) -> Table:
+    """
+    Builds a rich Table describing each pipeline stage with its source and notes.
+    
+    Parameters:
+        artifacts (RunArtifacts): Execution artifacts containing stage entries
+            (`coordinator`, `regime`, `strategy`, `risk`, `manager`). Each stage
+            entry must expose `source` and optional `fallback_reason`.
+    
+    Returns:
+        Table: A `rich.table.Table` titled with the pipeline label and three columns
+        (stage, source, notes). Each row corresponds to a pipeline stage; the
+        notes column contains the stage's `fallback_reason` when present, or a
+        localized "structured LLM" label otherwise.
+    """
     pipeline = Table(title=ui_t("title.pipeline"))
     pipeline.add_column(ui_t("label.stage"))
     pipeline.add_column(ui_t("label.source"))
@@ -85,6 +118,16 @@ def _pipeline_table(artifacts: RunArtifacts) -> Table:
 
 
 def _render_execution_path_panel(fallback_components: list[str]) -> None:
+    """
+    Render a status panel indicating whether any pipeline components used a fallback path.
+    
+    Displays a yellow warning panel listing the component names when `fallback_components` is non-empty;
+    otherwise displays a green panel indicating all agent stages used the LLM path.
+    
+    Parameters:
+        fallback_components (list[str]): Names of pipeline components that fell back to an alternative
+            execution path; an empty list indicates no fallbacks were used.
+    """
     if fallback_components:
         console.print(
             Panel(

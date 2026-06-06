@@ -126,6 +126,15 @@ def register_record_commands(app: typer.Typer, deps: RecordCommandDeps) -> None:
 
 
 def _register_preferences_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
+    """
+    Register the "preferences" CLI command on the given Typer app.
+    
+    The command displays investment preferences (or emits the raw payload as JSON when `--json` is passed). If persisted preferences are temporarily unavailable the command prints an observer-mode message and exits without error.
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the command on.
+        deps (RecordCommandDeps): Dependency container providing settings, payload factory, JSON emitter and render utilities.
+    """
     @app.command("preferences")
     def preferences_command(
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
@@ -153,6 +162,14 @@ def _register_preferences_command(app: typer.Typer, deps: RecordCommandDeps) -> 
 
 
 def _register_journal_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
+    """
+    Register the "journal" CLI command on the provided Typer application.
+    
+    The command fetches a trade-journal payload using the provided dependencies, validates payload entries as TradeJournalEntry models, and either emits raw JSON (when --json is used), shows an observer-mode message when persisted data is temporarily unavailable, or renders the trade journal to the console.
+    Parameters:
+        app (typer.Typer): Typer application to register the command on.
+        deps (RecordCommandDeps): Dependency container used to obtain settings, produce the journal payload, emit JSON, and render output.
+    """
     @app.command("journal")
     def journal(
         limit: int = typer.Option(
@@ -184,6 +201,15 @@ def _register_journal_command(app: typer.Typer, deps: RecordCommandDeps) -> None
 
 
 def _register_risk_report_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
+    """
+    Register the "risk-report" CLI command on the given Typer app.
+    
+    The registered command accepts an optional report date and a JSON flag. When invoked it fetches settings, obtains a payload from the injected `risk_report_payload`, validates the report if present, emits raw JSON when requested, prints an observer-mode message and exits when data is unavailable, and otherwise renders the validated daily risk report.
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the command on.
+        deps (RecordCommandDeps): Dependency container providing settings, payload factory, JSON emitter, and rendering helpers.
+    """
     @app.command("risk-report")
     def risk_report(
         report_date: str | None = typer.Option(
@@ -218,6 +244,11 @@ def _register_risk_report_command(app: typer.Typer, deps: RecordCommandDeps) -> 
 
 
 def _register_run_review_commands(app: typer.Typer, deps: RecordCommandDeps) -> None:
+    """
+    Register the "review-run" and "trace-run" CLI commands on the provided Typer application.
+    
+    Each command fetches a run record payload from the dependency container, optionally emits the raw payload as JSON when requested, renders an informative observer-mode message and exits if persisted data is temporarily unavailable or missing, and otherwise renders the run review or run trace view.
+    """
     @app.command("review-run")
     def review_run(
         run_id: str | None = typer.Option(None, help=ui_t("help.run_id")),
@@ -245,6 +276,13 @@ def _register_run_review_commands(app: typer.Typer, deps: RecordCommandDeps) -> 
         run_id: str | None = typer.Option(None, help=ui_t("help.run_id")),
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
+        """
+        Show a run trace for a persisted run or emit its payload as JSON.
+        
+        Parameters:
+            run_id (str | None): Identifier of the run to trace; when omitted, uses the latest persisted run.
+            json_output (bool): If set, output the underlying payload as JSON instead of rendering the trace.
+        """
         settings = deps.get_settings()
         payload = deps.run_record_payload(settings, run_id=run_id)
         record = _run_record_from_payload(payload)
@@ -272,6 +310,15 @@ def _run_record_from_payload(payload: dict[str, object]) -> RunRecord | None:
 
 
 def _register_trade_context_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
+    """
+    Register the "trade-context" CLI command on the provided Typer application.
+    
+    The command fetches a trade context record (optionally filtered by `trade_id`) and either emits the raw payload as JSON or renders the trade context for interactive display; if persisted data is temporarily unavailable it presents an observer-mode message and exits.
+    
+    Parameters:
+        app (typer.Typer): Typer application to attach the command to.
+        deps (RecordCommandDeps): Dependency container providing settings, payload factories, rendering helpers, and JSON emission.
+    """
     @app.command("trade-context")
     def trade_context(
         trade_id: str | None = typer.Option(None, help=ui_t("help.trade_context_id")),
@@ -300,6 +347,13 @@ def _trade_context_record_from_payload(
 
 
 def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) -> None:
+    """
+    Register the "replay-run" and "export-report" CLI commands on the given Typer app.
+    
+    Adds two commands:
+    - "replay-run": fetches a run replay payload, supports optional JSON output, prints an observer-mode message if persisted replay data is unavailable, and renders the replay when present.
+    - "export-report": retrieves a run record (by id or latest), writes a rendered markdown report to the specified output path, and prints a confirmation panel; exits with an error if no persisted run is found.
+    """
     @app.command("replay-run")
     def replay_run(
         run_id: str | None = typer.Option(None, help=ui_t("help.run_replay_id")),
@@ -342,6 +396,18 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
         output: str = typer.Option(..., help=ui_t("help.export_report_output")),
         run_id: str | None = typer.Option(None, help=ui_t("help.export_report_run_id")),
     ) -> None:
+        """
+        Export a persisted run record as a Markdown file.
+        
+        Selects the run identified by `run_id` when provided, otherwise uses the latest persisted run. Writes the rendered Markdown to `output` and prints a success message. If no run is available, prints a warning and exits with code 1.
+        
+        Parameters:
+            output (str): Filesystem path to write the rendered Markdown report (UTF-8).
+            run_id (str | None): Optional identifier of the run to export; when `None`, the latest run is used.
+        
+        Raises:
+            typer.Exit: Exits with code 1 when no persisted run is found.
+        """
         settings = deps.get_settings()
         db = deps.open_db(settings, read_only=True)
         record = db.get_run(run_id) if run_id is not None else db.latest_run()
@@ -367,6 +433,24 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
 
 
 def _register_backtest_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
+    """
+    Register the `backtest` command on the given Typer app.
+    
+    Registers a CLI command that runs a backtest with the provided options and delegates execution to `run_backtest_command` using the supplied dependency functions.
+    
+    Parameters:
+        app: Typer application to register the command on.
+        deps: Dependency container providing settings retrieval and backtest helpers.
+    
+    Command options (forwarded to the backtest runner):
+        symbol (str): Trading symbol to backtest (required).
+        interval (str): Data interval to use (default "1d").
+        lookback (str): Historical lookback period (default "2y").
+        warmup_bars (int): Number of warmup bars to use before measurement (minimum 60, default 120).
+        compare_baseline (bool): Whether to run a baseline comparison.
+        compare_memory (bool): Whether to include memory-based comparison.
+        output (str | None): Optional output path for backtest artifacts.
+    """
     @app.command("backtest")
     def backtest(
         symbol: str = typer.Option(..., help=ui_t("help.symbol")),

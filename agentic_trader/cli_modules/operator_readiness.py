@@ -385,7 +385,16 @@ def operator_workflow_command(
 def hardware_profile_command(
     json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
-    """Show local hardware and model-capacity hints before long paper runs."""
+    """
+    Display a local hardware and model-capacity report or emit the same payload as JSON.
+    
+    When called without flags, prints a table summarizing CPU count, memory, accelerator,
+    configured model name and estimated size, recommended parallel agents, token hint,
+    and selected profile. If `json_output` is true, writes the full structured payload as JSON.
+    
+    Parameters:
+        json_output (bool): If true, emit the payload as JSON instead of printing the table.
+    """
     settings = _settings()
     payload = build_hardware_profile_payload(settings)
     if json_output:
@@ -424,6 +433,19 @@ def register_operator_readiness_commands(
     cpu_count_provider: CpuCountProvider | None = None,
     total_memory_provider: TotalMemoryProvider | None = None,
 ) -> None:
+    """
+    Register the operator readiness CLI commands on a Typer application and optionally override internal provider hooks.
+    
+    Parameters:
+        app (typer.Typer): Typer application to register the "operator-workflow" and "hardware-profile" commands on.
+        settings_provider (callable | None): Optional replacement for the module's settings provider used to obtain runtime settings.
+        accelerator_provider (callable | None): Optional replacement for the accelerator detection provider used to supply accelerator payloads.
+        cpu_count_provider (callable | None): Optional replacement for the CPU count provider used to supply CPU count probes.
+        total_memory_provider (callable | None): Optional replacement for the total memory provider used to supply total-memory probes.
+    
+    Notes:
+        When a provider argument is provided, the corresponding module-level provider is replaced so callers can inject test doubles or alternative probes.
+    """
     global \
         _settings_provider, \
         _accelerator_provider, \

@@ -11,14 +11,12 @@ console = Console()
 
 def render_preferences(preferences: InvestmentPreferences) -> Table:
     """
-    Builds a Rich Table showing investment preference settings.
-
-    List-valued fields (regions, exchanges, currencies, sectors) are joined
-    with the localized list separator; empty lists and missing notes are rendered
-    as "-". Column headers and labels use the translation helper `t(...)`.
-
+    Builds a Rich Table that displays fields from an InvestmentPreferences object.
+    
+    List-valued fields (regions, exchanges, currencies, sectors) are joined using the localized list separator; empty lists and missing notes are rendered as "-".
+    
     Returns:
-        table (Table): Rich Table with two columns ("setting", "value") populated from the given preferences.
+        Table: Rich Table with two columns ("setting", "value") populated from the given preferences.
     """
     table = Table(title=t("title.investment.preferences"))
     table.add_column(t("label.setting"))
@@ -72,12 +70,12 @@ def render_recent_runs(db: TradingDatabase) -> None:
 
 def recent_runs_table(db: TradingDatabase) -> Table:
     """
-    Builds a Rich Table listing up to eight recent runs.
-
-    If no runs are available the table contains a single row of "-" placeholders for each column.
-
+    Create a Rich Table listing up to eight recent runs.
+    
+    If the database has no recent runs the table contains a single row of "-" placeholders for each column.
+    
     Returns:
-        Table: A Rich Table with columns for run id, created time, symbol, interval, and approved; rows contain recent run data with `approved` converted to a string.
+    	Table: A Rich Table with columns for run id, created time, symbol, interval, and approval status; rows represent recent run records.
     """
     runs = db.list_recent_runs(limit=8)
     table = Table(title=t("title.recent.runs"))

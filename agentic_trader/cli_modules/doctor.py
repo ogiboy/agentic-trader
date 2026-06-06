@@ -92,6 +92,27 @@ def _latest_order_status(
 
 
 def render_doctor_payload(payload: dict[str, object]) -> None:
+    """
+    Render a human-readable environment check table and a runtime readiness panel from a doctor payload.
+    
+    Parameters:
+        payload (dict[str, object]): Dictionary with environment and health information. Expected keys:
+            - "provider": LLM provider identifier.
+            - "model": Model name or identifier.
+            - "base_url": Base URL used to reach the LLM service.
+            - "runtime_dir": Runtime directory path.
+            - "runtime_mode": Current runtime mode.
+            - "database": Database connection or path description.
+            - "db_status": Database status string ("ok" or error message).
+            - "model_routing": Model routing configuration (serializable object).
+            - "ollama_reachable": Whether the Ollama service is reachable (truthy/falsey).
+            - "model_available": Whether the configured model is available (truthy/falsey).
+            - "llm_status": Additional LLM health/status information.
+            - "latest_order": Formatted latest order string or "unavailable".
+    
+    Side effects:
+        Prints a formatted table and a colored panel to the global console.
+    """
     table = Table(title=ui_t("title.environment_check"))
     table.add_column(ui_t("label.key"))
     table.add_column(ui_t("label.value"))
@@ -120,6 +141,18 @@ def render_doctor_payload(payload: dict[str, object]) -> None:
 
 
 def _render_runtime_readiness(payload: dict[str, object]) -> None:
+    """
+    Render a runtime readiness panel based on LLM and model availability.
+    
+    Parameters:
+        payload (dict[str, object]): Status map containing at least:
+            - "llm_reachable" (bool): whether the LLM service is reachable.
+            - "model_available" (bool): whether the configured model is available.
+    
+    Description:
+        Prints a green "Ready" panel when both `llm_reachable` and `model_available`
+        are true; otherwise prints a red "Blocked" panel.
+    """
     if payload["llm_reachable"] and payload["model_available"]:
         console.print(
             Panel(

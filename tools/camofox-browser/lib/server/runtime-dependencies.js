@@ -52,6 +52,12 @@ import { createTabMetrics } from './tab-metrics.js';
 import { cleanupStaleFirefoxProfiles } from '../tmp-cleanup.js';
 import { createMutableRuntimeState } from './runtime-state.js';
 
+/**
+ * Build and initialize the full Camofox server runtime, wiring together metrics, plugin events, browser lifecycle, session/tab management, routing, error handling, concurrency controls, and proxying.
+ * @param {Object} config - Server configuration object.
+ * @param {Object} log - Logger used by the runtime.
+ * @returns {Object} An API object exposing the initialized server app and middleware, lifecycle and session/tab management functions, metrics and counters, proxy pool and request timeout settings, route context and error/safety helpers, health state, and concurrency utilities.
+ */
 export async function createCamofoxServerRuntime({ config, log }) {
   const CONFIG = config;
 

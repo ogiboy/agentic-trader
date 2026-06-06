@@ -64,6 +64,21 @@ def _selected_research_action(
     trigger_now: bool,
     reason: str | None,
 ) -> ResearchCycleControlAction | None:
+    """
+    Determine which single research control action was selected from boolean flags.
+    
+    Parameters:
+        pause (bool): Whether the "pause" action was requested.
+        resume (bool): Whether the "resume" action was requested.
+        trigger_now (bool): Whether the "trigger_now" action was requested.
+        reason (str | None): Optional operator-provided reason; only valid when an action is selected.
+    
+    Returns:
+        ResearchCycleControlAction | None: The selected action (`"pause"`, `"resume"`, or `"trigger_now"`) or `None` if no action flags were set.
+    
+    Raises:
+        typer.BadParameter: If more than one action flag is set, or if a `reason` is provided without selecting any action.
+    """
     selected_actions: list[ResearchCycleControlAction] = []
     if pause:
         selected_actions.append("pause")
@@ -93,6 +108,12 @@ def research_cycle_control_payload(
 
 
 def render_research_cycle_control(control: ResearchCycleOperatorControl) -> None:
+    """
+    Render the research cycle operator control status as a formatted console panel.
+    
+    Parameters:
+    	control (ResearchCycleOperatorControl): Current operator control state whose status and trigger-now flag are displayed.
+    """
     console.print(
         Panel(
             ui_t("message.research_cycle_control_status").format(

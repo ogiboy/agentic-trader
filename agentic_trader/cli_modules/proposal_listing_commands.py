@@ -30,7 +30,17 @@ def trade_proposals(
     ),
     json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
-    """Display the manual-review trade proposal queue."""
+    """
+    Show the manual-review trade proposal queue.
+    
+    Parameters:
+    	status (str | None): Optional status filter; parsed into an internal proposal status.
+    	limit (int): Maximum number of proposals to request (1–200).
+    	json_output (bool): If true, emit the raw payload as JSON and do not render UI.
+    
+    Notes:
+    	If the backend reports proposals are temporarily unavailable, a warning panel is printed and the command exits with code 0.
+    """
     settings = _settings()
     parsed_status = parse_proposal_status(status)
     payload = trade_proposals_payload(settings, status=parsed_status, limit=limit)

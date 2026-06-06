@@ -37,6 +37,23 @@ class EvidenceBundleCollectors:
 
 
 def _claim_timestamped_dir(root: Path, label: str) -> Path:
+    """
+    Create a new, uniquely named subdirectory under `root` using `label` as the base name.
+    
+    The directory `root` is ensured to exist. Attempts to create a subdirectory named
+    `label` and, if that already exists, `label-2`, `label-3`, etc., until a new
+    directory is successfully created.
+    
+    Parameters:
+        root (Path): Directory under which the new subdirectory will be created.
+        label (str): Base name for the new subdirectory.
+    
+    Returns:
+        Path: The path to the newly created subdirectory.
+    
+    Raises:
+        RuntimeError: If a unique subdirectory name cannot be created after 999 attempts.
+    """
     root.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, 1000):
         suffix = "" if attempt == 1 else f"-{attempt}"

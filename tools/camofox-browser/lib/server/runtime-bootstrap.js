@@ -1,6 +1,12 @@
 import { mountCamofoxRoutes } from '../routes/index.js';
 import { mountRuntimeMonitors, startServerBootstrap } from './startup.js';
 
+/**
+ * Initialize the application by wiring HTTP routes, mounting runtime monitors, and bootstrapping the server.
+ *
+ * @param {Object} runtime - Runtime container with the app instance, route context, operational hooks, metrics, and dependencies required to mount routes/monitors and start the server (for example: app, routeContext, logging, session and browser lifecycle handlers, metrics/counters, config, plugin hooks, and validators).
+ * @returns {Object} The server bootstrap result returned by startServerBootstrap.
+ */
 export async function startCamofoxRuntime(runtime) {
   mountCamofoxRoutes(runtime.app, runtime.routeContext);
 

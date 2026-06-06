@@ -28,6 +28,26 @@ def run_stop_service_command(
     database_factory: DatabaseFactory,
     terminate_process: TerminateProcess,
 ) -> None:
+    """
+    Coordinate stopping the background service recorded in persistent state.
+    
+    Reads the current service snapshot and:
+    - If no active snapshot or no PID is recorded, prints a "not running" panel and exits.
+    - If a PID is recorded but the process is not alive, updates persisted state to reflect the stopped service, inserts a stale-recovery event, prints a recovery panel, and exits.
+    - If the PID appears alive, requests the running service to stop (via provided request hooks and the database), and optionally force-terminates the process.
+    
+    Parameters:
+        settings: Runtime settings passed to state/database helpers.
+        force: If True, forcibly terminate the running process after requesting a graceful stop.
+        read_state: Callable that returns the current persisted service snapshot or None.
+        process_alive: Callable that returns True if a given PID appears alive.
+        request_service_stop: Callable invoked to request the service stop at the application level.
+        database_factory: Callable that returns a database handle used to persist state/events.
+        terminate_process: Callable invoked to terminate a process by PID when force is True.
+    
+    Raises:
+        typer.Exit: Exits with code 0 for "not running" and "stale state recovered" outcomes.
+    """
     state = read_state(settings)
     if state is None or state.pid is None:
         _print_panel(
@@ -74,6 +94,17 @@ def _recover_stale_service_state(
     pid: int,
     database_factory: DatabaseFactory,
 ) -> None:
+    """
+    Persist an updated stopped service state and record a recovery event for a stale runtime PID.
+    
+    Updates the persisted service state to mark it stopped (clearing runtime-specific fields) and inserts a warning event describing that a previously recorded PID was recovered. Always closes the database handle created from `database_factory`, even if an error occurs.
+    
+    Parameters:
+        settings (Settings): Application settings used to create the database handle.
+        state (ServiceStateSnapshot): Snapshot of the previous service state; most persisted fields are copied from this snapshot.
+        pid (int): The stale runtime PID that was recovered; included in the recovery message.
+        database_factory (DatabaseFactory): Callable that accepts `settings` and returns a `TradingDatabase` instance used for persistence.
+    """
     db = database_factory(settings)
     try:
         message = ui_t("message.service_stale_runtime_recovered_event").format(pid=pid)

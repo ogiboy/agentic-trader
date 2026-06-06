@@ -219,7 +219,15 @@ ENV_LOCAL_FILE = PROJECT_ROOT / ".env.local"
 
 
 def object_mapping(value: object) -> Mapping[str, object]:
-    """Return value as an object-keyed mapping when it already is one."""
+    """
+    Return the input unchanged when it is a mapping keyed by strings.
+    
+    Parameters:
+        value (object): Input value to interpret as a mapping.
+    
+    Returns:
+        mapping (Mapping[str, object]): The original mapping if `value` is already keyed by strings.
+    """
 
     return _object_mapping(value)
 
@@ -231,12 +239,27 @@ def object_list(value: object) -> list[object]:
 
 
 def object_mapping_list(value: object) -> list[Mapping[str, object]]:
-    """Return mapping rows from a non-string sequence."""
+    """
+    Coerce a value into a list of mapping rows.
+    
+    Parameters:
+        value (object): A mapping or a non-string sequence of mapping-like objects to be converted.
+    
+    Returns:
+        list[Mapping[str, object]]: A list of mappings with string keys and object values extracted from the input.
+    """
 
     return _object_mapping_list(value)
 
 
 def upsert_env_local_value(key: str, value: str) -> None:
+    """
+    Write or update a key/value pair in the module's local environment file and set it in the current process environment.
+    
+    Parameters:
+        key (str): Environment variable name to write or update in ENV_LOCAL_FILE.
+        value (str): Value to assign to the environment variable.
+    """
     set_key(ENV_LOCAL_FILE, key, value, quote_mode="never")
     os.environ[key] = value
 
@@ -246,16 +269,42 @@ def _accelerator_payload() -> dict[str, object]:
 
 
 def _total_memory_bytes() -> int | None:
+    """
+    Get the system's total physical (RAM) memory in bytes, if available.
+    
+    Returns:
+        int | None: Total physical memory in bytes, or `None` if the value cannot be determined.
+    """
     return _operator_total_memory_bytes()
 
 
 def resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
+    """
+    Resolve available TUI node commands from a TUI directory.
+    
+    Parameters:
+        tui_dir (Path): Path to the directory that contains TUI node entry scripts or binaries.
+    
+    Returns:
+        NodeCommandSet | None: A set/mapping of discovered TUI node commands with their resolved execution info, or `None` if no commands could be resolved or resolution failed.
+    """
     return _resolve_tui_node_commands(tui_dir, which=shutil.which)
 
 
 def build_dashboard_snapshot_payload(
     settings: Settings, *, log_limit: int = 14, check_provider: bool = False
 ) -> dict[str, object]:
+    """
+    Builds a payload dictionary representing the current dashboard snapshot for the given settings.
+    
+    Parameters:
+        settings (Settings): Application settings used to generate snapshot data.
+        log_limit (int): Maximum number of recent log entries to include in the snapshot.
+        check_provider (bool): If True, include provider availability/health information in the payload.
+    
+    Returns:
+        dict[str, object]: A payload mapping containing dashboard snapshot fields (status, metrics, recent logs, and optional provider checks).
+    """
     return _build_dashboard_snapshot_payload(
         _sys.modules[__name__],
         settings,
@@ -273,6 +322,20 @@ def build_evidence_bundle(
     include_latest_smoke: bool = True,
     check_provider: bool = False,
 ) -> dict[str, object]:
+    """
+    Builds an evidence bundle payload for dashboarding and diagnostics.
+    
+    Parameters:
+        settings (Settings): Application settings used to collect environment and runtime data.
+        output_dir (Path | None): Optional directory where evidence artifacts should be written; if None, no files are written.
+        label (str | None): Optional human-readable label to attach to the bundle.
+        log_limit (int): Maximum number of recent log entries to include.
+        include_latest_smoke (bool): Include the latest smoke-test evidence when True.
+        check_provider (bool): When True, include provider availability/check results in the bundle.
+    
+    Returns:
+        dict[str, object]: A payload dictionary containing evidence metadata and collected artifacts suitable for dashboard display or archival.
+    """
     return _build_evidence_bundle(
         _sys.modules[__name__],
         settings,
@@ -287,6 +350,19 @@ def build_evidence_bundle(
 def build_observer_api_payload(
     settings: Settings, *, path: str, log_limit: int = 14
 ) -> tuple[int, dict[str, object]]:
+    """
+    Build the observer API response payload for a given API path.
+    
+    Prepares the payload and corresponding HTTP status code that represent the observer view for `path`, using the provided `settings`.
+    
+    Parameters:
+        settings (Settings): Application settings used to build the payload.
+        path (str): Observer API path to produce the payload for.
+        log_limit (int): Maximum number of log entries to include in the payload.
+    
+    Returns:
+        tuple[int, dict[str, object]]: `(status_code, payload)` where `status_code` is the HTTP status code and `payload` is a dictionary containing the observer response data.
+    """
     return _build_observer_api_payload(
         _sys.modules[__name__], settings, path=path, log_limit=log_limit
     )
@@ -296,6 +372,12 @@ register_cli_app(app=app, namespace=_sys.modules[__name__])
 
 
 def main() -> None:
+    """
+    Start the package's Typer command-line interface.
+    
+    This function invokes the module-level Typer application (`app`) to process CLI
+    arguments and dispatch the requested command.
+    """
     app()
 
 

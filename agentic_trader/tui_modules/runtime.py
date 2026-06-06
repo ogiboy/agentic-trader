@@ -41,6 +41,15 @@ def strict_one_shot(
 def run_one_shot_symbol(
     settings: Settings, symbol: str, interval: str, lookback: str
 ) -> None:
+    """
+    Run a single one-shot trading cycle for the given symbol, stream stage updates to the console, persist the run results, and display a final result panel.
+    
+    Parameters:
+    	settings (Settings): Runtime configuration and services for executing the cycle.
+    	symbol (str): Market symbol/ticker to run the cycle for (e.g., "AAPL" or "BTC-USD").
+    	interval (str): Data interval to use for the run (e.g., "1d", "1h").
+    	lookback (str): Lookback window used for data selection (e.g., "180d").
+    """
     latest_message = ui_t("message.preparing_symbol").format(symbol=symbol)
     with console.status(style_key(latest_message), spinner="dots") as status:
 
@@ -50,6 +59,15 @@ def run_one_shot_symbol(
             message: str,
             current_status: Status = status,
         ) -> None:
+            """
+            Update the runtime progress message and refresh the Rich status display.
+            
+            Parameters:
+            	stage (str): Name of the current stage.
+            	event (str): Ignored; provided for callback compatibility.
+            	message (str): Human-readable stage message to display.
+            	current_status (Status): Rich `Status` instance to update (defaults to module `status`).
+            """
             del event
             nonlocal latest_message
             latest_message = ui_t("message.stage_update").format(
@@ -82,6 +100,17 @@ def run_one_shot_symbol(
 def launch_service(
     settings: Settings, symbols: Sequence[str], interval: str, lookback: str
 ) -> None:
+    """
+    Start the orchestrator as a background service for the given symbols and optionally open a live monitor.
+    
+    Prompts the user for service launch options, starts a background orchestrator configured with the provided symbols, interval, and lookback window, displays the spawned process ID, and opens the live monitor if the user requests it.
+    
+    Parameters:
+        settings (Settings): Application runtime configuration and environment.
+        symbols (Sequence[str]): Symbols to run the service for (e.g., ["AAPL", "MSFT"]).
+        interval (str): Time interval for data/candles (e.g., "1d", "1h").
+        lookback (str): Lookback window for historical data (e.g., "180d").
+    """
     continuous, poll_seconds, max_cycles = prompt_service_launch_options(settings)
     pid = start_background_service(
         settings=settings,
@@ -103,6 +132,18 @@ def launch_service(
 
 
 def prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | None]:
+    """
+    Prompt the user for service launch options and return the chosen control parameters.
+    
+    Parameters:
+        settings (Settings): Application settings; `settings.default_poll_seconds` is used as the default poll interval.
+    
+    Returns:
+        tuple[bool, int, int | None]: A tuple (continuous, poll_seconds, max_cycles) where
+            - `continuous` is True if continuous mode was selected,
+            - `poll_seconds` is the polling interval in seconds,
+            - `max_cycles` is the parsed maximum cycle count when `continuous` is True, or `None` if not set.
+    """
     continuous = Confirm.ask(ui_t("prompt.continuous_mode"), default=False)
     poll_seconds = IntPrompt.ask(
         ui_t("prompt.poll_interval_seconds"),
@@ -117,11 +158,25 @@ def prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | 
 
 
 def open_live_monitor_if_requested(settings: Settings) -> None:
+    """
+    Prompt the user to open the live monitor and launch it if confirmed.
+    
+    Parameters:
+        settings (Settings): Application settings used to configure and run the live monitor.
+    """
     if Confirm.ask(ui_t("prompt.open_live_monitor_now"), default=True):
         run_live_monitor(settings, refresh_seconds=1.0)
 
 
 def runtime_control_table() -> Table:
+    """
+    Builds a Rich Table containing the runtime control menu keys and corresponding actions.
+    
+    The table has two columns ("key" and "action") using translated labels and styles, and is populated with rows "1" through "9" that map to the available runtime commands (system checks, one-shot cycle, orchestrator start/stop, live monitor, provider diagnostics, v1 readiness, broker status, and back).
+    
+    Returns:
+        Table: The populated Rich Table ready for rendering.
+    """
     table = Table(title=ui_t("title.runtime_control"))
     table.add_column(ui_t("label.key"), style=ui_t("style.key_column"))
     table.add_column(ui_t("label.action"))
@@ -150,6 +205,15 @@ def runtime_status_action(settings: Settings) -> None:
 
 
 def load_runtime_preferences(settings: Settings) -> InvestmentPreferences | None:
+    """
+    Load investment preferences from the runtime database, or show an observer-mode warning if the database is unavailable.
+    
+    If the runtime database cannot be opened, prints a yellow observer-mode warning panel and returns `None`.
+    
+    Returns:
+        InvestmentPreferences: The preferences loaded from the runtime database.
+        `None` if the database could not be opened.
+    """
     db = safe_open_read_db(settings)
     try:
         if db is None:
@@ -199,6 +263,16 @@ def persist_stop_request(settings: Settings) -> None:
 
 
 def runtime_stop_action(settings: Settings) -> None:
+    """
+    Check the running background service and request it to stop if active.
+    
+    If no service is recorded or the recorded PID is missing, prints a warning panel indicating the service is not active.
+    If the recorded PID exists but the process is not alive, prints a warning panel about the stale runtime PID (includes the PID).
+    If the process is alive, sends an in-process stop request, persists the stop request to the runtime database, and prints a confirmation panel including the PID.
+    
+    Parameters:
+        settings (Settings): Runtime configuration/context used to read service state and persist the stop request.
+    """
     state = read_service_state(settings)
     if state is None or state.pid is None:
         console.print(
@@ -231,6 +305,11 @@ def runtime_stop_action(settings: Settings) -> None:
 
 
 def runtime_monitor_action(settings: Settings) -> None:
+    """
+    Prompt the user for a monitor refresh interval (in seconds) and start the live monitor.
+    
+    Prompts for a numeric refresh interval, coerces the input to a float, uses 1.0 if the value is less than or equal to 0 or cannot be parsed, and then calls the live monitor with the resolved interval.
+    """
     try:
         refresh_seconds = float(
             Prompt.ask(ui_t("prompt.refresh_seconds"), default="1.0")
@@ -243,6 +322,14 @@ def runtime_monitor_action(settings: Settings) -> None:
 
 
 def runtime_menu(settings: Settings) -> None:
+    """
+    Show an interactive runtime control menu and dispatch the selected runtime action.
+    
+    Displays the runtime control table, prompts the user to choose an action, invokes the corresponding handler with `settings`, and repeats until the user selects the "back" option (choice "9").
+    
+    Parameters:
+        settings (Settings): Application settings and context passed to the selected runtime action handlers.
+    """
     actions = {
         "1": runtime_status_action,
         "2": runtime_one_shot_action,

@@ -96,7 +96,19 @@ def proposal_candidate_promote(
     review_notes: str = typer.Option("", help=ui_t("help.promotion_notes")),
     json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
-    """Promote a proposal candidate into a pending manual-review trade proposal."""
+    """
+    Promote a stored proposal candidate into a pending manual-review trade proposal.
+    
+    On success this emits either a formatted console success panel showing the candidate and
+    proposal IDs, or a machine-readable JSON payload when `json_output` is true. On failure
+    the command emits a JSON error (if `json_output`) or prints an error panel, then exits
+    with status code 2.
+    
+    Parameters:
+        candidate_id (str): ID of the proposal candidate to promote.
+        review_notes (str): Optional reviewer notes to attach to the promoted proposal.
+        json_output (bool): If true, emit machine-readable JSON output instead of console UI.
+    """
     settings = _settings()
     try:
         payload = promote_candidate_payload(

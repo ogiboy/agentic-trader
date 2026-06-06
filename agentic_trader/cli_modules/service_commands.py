@@ -76,6 +76,12 @@ def register_service_commands(app: typer.Typer, deps: ServiceCommandDeps) -> Non
 
 
 def _register_monitor_command(app: typer.Typer, deps: ServiceCommandDeps) -> None:
+    """
+    Attach to and display the live runtime monitor.
+    
+    Parameters:
+    	refresh_seconds (float): Dashboard refresh interval in seconds; values less than 0.2 are not allowed.
+    """
     @app.command()
     def monitor(
         refresh_seconds: float = typer.Option(
@@ -94,6 +100,12 @@ def _register_monitor_command(app: typer.Typer, deps: ServiceCommandDeps) -> Non
 
 
 def _register_stop_service_command(app: typer.Typer, deps: ServiceCommandDeps) -> None:
+    """
+    Request a graceful stop for the background orchestrator.
+    
+    Parameters:
+    	force (bool): If `True`, force immediate termination of the service process instead of requesting a graceful stop.
+    """
     @app.command("stop-service")
     def stop_service(
         force: bool = typer.Option(False, help=ui_t("help.stop_service_force")),
@@ -121,9 +133,12 @@ def _register_restart_service_command(
     ) -> None:
         """
         Restart the managed background orchestrator using its last recorded launch configuration.
-
+        
         Parameters:
-            grace_seconds (float): Seconds to wait for a graceful stop before forcing relaunch.
+            grace_seconds (float): Seconds to wait for a graceful stop before forcing a relaunch.
+        
+        Raises:
+            typer.Exit: Exits with code 1 if restarting the background service fails.
         """
         settings = deps.get_settings()
         try:
@@ -150,6 +165,19 @@ def _register_restart_service_command(
 
 
 def _register_service_run_command(app: typer.Typer, deps: ServiceCommandDeps) -> None:
+    """
+    Entrypoint for the hidden background worker command that launches the service run loop.
+    
+    Parses the comma-separated `symbols` string into an uppercase list (empty entries are discarded) and invokes the injected service runner with the provided timing and control options. Raises a `typer.BadParameter` if no valid symbols are supplied.
+    
+    Parameters:
+        symbols (str): Comma-separated symbol identifiers (whitespace ignored; each symbol is uppercased).
+        interval (str): Data interval string used by the service (e.g., "1d").
+        lookback (str): Historical lookback period string (e.g., "180d").
+        poll_seconds (int): Seconds between polling cycles.
+        max_cycles (int | None): Optional maximum number of cycles to run; `None` means unlimited.
+        continuous (bool): Whether the service should run continuously between cycles.
+    """
     @app.command("service-run", hidden=True)
     def service_run(
         symbols: str = typer.Option(...),
@@ -187,7 +215,11 @@ def _register_menu_command(app: typer.Typer, deps: ServiceCommandDeps) -> None:
 def _register_latest_order_command(app: typer.Typer, deps: ServiceCommandDeps) -> None:
     @app.command("latest-order")
     def latest_order() -> None:
-        """Show the latest paper order."""
+        """
+        Display the most recent paper order in a tabular format.
+        
+        If a latest order exists, prints a table titled with the localized label containing the order's fields. If no order is recorded, prints a localized yellow notice and exits the CLI with code 0.
+        """
         settings = deps.get_settings()
         db = deps.database_factory(settings)
         try:

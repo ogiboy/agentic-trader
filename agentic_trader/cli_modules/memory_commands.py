@@ -56,6 +56,19 @@ def register_memory_commands(app: typer.Typer, deps: MemoryCommandDeps) -> None:
 def _register_memory_explorer_command(
     app: typer.Typer, deps: MemoryCommandDeps
 ) -> None:
+    """
+    Register the "memory-explorer" CLI command on the provided Typer app.
+    
+    The registered command accepts options for `symbol`, `interval`, `lookback`, `limit`, `use_latest_run`, and `--json`. When invoked it:
+    - Retrieves settings from `deps` and requests a memory explorer payload.
+    - If `--json` is passed, emits the raw payload as JSON.
+    - If the service reports unavailable, prints a warning panel and exits.
+    - Otherwise validates returned match entries into `HistoricalMemoryMatch` instances and renders them.
+    
+    Parameters:
+        app: The Typer application to register the command on.
+        deps: Dependency container providing settings, payload providers, JSON emitter, and other utilities used by the command.
+    """
     @app.command("memory-explorer")
     def memory_explorer(
         symbol: str | None = typer.Option(None, help=ui_t("help.symbol")),
@@ -102,6 +115,20 @@ def _register_memory_explorer_command(
 def _register_retrieval_inspection_command(
     app: typer.Typer, deps: MemoryCommandDeps
 ) -> None:
+    """
+    Register the "retrieval-inspection" subcommand on the given Typer app.
+    
+    The command accepts an optional run_id and a --json flag. When invoked it:
+    - obtains settings from deps and fetches a retrieval inspection payload;
+    - if --json is set, emits the raw payload as JSON;
+    - if the payload is unavailable, prints a yellow panel explaining the temporary unavailability and exits with code 0;
+    - if the payload contains no stages, prints a yellow panel indicating no context and exits with code 0;
+    - otherwise renders the retrieval inspection view for the payload's stages and run_id.
+    
+    Parameters:
+        app: The Typer application to register the command on.
+        deps: Dependency container providing settings retrieval, payload fetchers, JSON emitter, and other helpers.
+    """
     @app.command("retrieval-inspection")
     def retrieval_inspection(
         run_id: str | None = typer.Option(None, help=ui_t("help.run_id")),
@@ -137,6 +164,11 @@ def _register_retrieval_inspection_command(
 
 
 def _register_memory_policy_command(app: typer.Typer, deps: MemoryCommandDeps) -> None:
+    """
+    Register the "memory-policy" CLI command which displays the current memory write policies.
+    
+    When invoked the command obtains a snapshot of the memory write policies. If the `--json` flag is provided the snapshot is emitted as JSON; otherwise the command prints a table with columns for domain, allowed actors (comma-separated), and note.
+    """
     @app.command("memory-policy")
     def memory_policy(
         json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
@@ -160,6 +192,14 @@ def _register_memory_policy_command(app: typer.Typer, deps: MemoryCommandDeps) -
 
 
 def _render_memory_matches(matches: Sequence[HistoricalMemoryMatch]) -> None:
+    """
+    Render a sequence of historical memory matches to the console as a formatted table.
+    
+    If `matches` is empty, display a yellow panel indicating no historical memories instead.
+    
+    Parameters:
+        matches (Sequence[HistoricalMemoryMatch]): Ordered collection of historical memory match records to display.
+    """
     if not matches:
         console.print(
             Panel(
@@ -208,6 +248,21 @@ def _retrieval_stage_counts(
 
 
 def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
+    """
+    Assemble formatted lines describing the contents of a retrieval stage for display.
+    
+    Parameters:
+    	stage (dict[str, object]): Mapping representing a retrieval stage. Expected keys:
+    		- "retrieved_memories": list[str]
+    		- "retrieval_explanations": list[dict] (explanation objects consumed by _retrieval_explanation_lines)
+    		- "memory_notes": list[str]
+    		- "shared_memory_bus": list[dict] with keys "role" and "summary"
+    		- "recent_runs": list[str]
+    		- "tool_outputs": list[str]
+    
+    Returns:
+    	lines (list[str]): A list of display-ready lines grouped into titled sections; if the stage has no content returns a single localized fallback message.
+    """
     retrieved_memories = cast(list[str], stage["retrieved_memories"])
     retrieval_explanations = cast(
         list[dict[str, object]], stage["retrieval_explanations"]
@@ -241,6 +296,15 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
 def _retrieval_explanation_lines(
     explanations: list[dict[str, object]],
 ) -> list[str]:
+    """
+    Build formatted summary lines from retrieval explanation entries.
+    
+    Parameters:
+    	explanations (list[dict[str, object]]): Items expected to contain optional 'run_id' and an 'explanation' mapping with keys 'eligibility_reason', 'freshness', 'outcome_tag', and 'diversity_bucket'.
+    
+    Returns:
+    	lines (list[str]): One formatted string per entry with an explanation, e.g. "run_id: reason=<...> freshness=<...> outcome=<...> bucket=<...>".
+    """
     lines: list[str] = []
     for item in explanations:
         run_id = str(item.get("run_id") or "-")
@@ -261,6 +325,14 @@ def _retrieval_explanation_lines(
 def _render_retrieval_inspection(
     stages: list[dict[str, object]], run_id: object
 ) -> None:
+    """
+    Render a retrieval inspection summary table and detailed panels for each retrieval stage.
+    
+    Parameters:
+        stages (list[dict[str, object]]): A sequence of retrieval stage dictionaries containing keys used by the renderer
+            (e.g., "role", retrieved lists and explanation entries).
+        run_id (object): Identifier for the run being inspected; inserted into the table title.
+    """
     table = Table(
         title=ui_t("title.retrieval_inspection_for_run").format(run_id=run_id)
     )

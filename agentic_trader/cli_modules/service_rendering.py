@@ -16,6 +16,16 @@ from agentic_trader.ui_text import t as ui_t
 
 
 def read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
+    """
+    Return the last `limit` lines of a text file, with sensitive content redacted.
+    
+    Parameters:
+        path (Path | None): Path to the file to read. If `None` or the file does not exist, an empty list is returned.
+        limit (int): Maximum number of trailing lines to return (default 12).
+    
+    Returns:
+        list[str]: The final `limit` lines from the file (or an empty list), each processed with `redact_sensitive_text(..., max_length=1000)`. Files are read as UTF-8 with replacement for decoding errors.
+    """
     if path is None or not path.exists():
         return []
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -49,6 +59,14 @@ def render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
 
 
 def render_service_state(state: ServiceStateSnapshot | None) -> None:
+    """
+    Render a formatted service status view to the console.
+    
+    If `state` is None or contains no runtime snapshot, prints a yellow panel indicating that no runtime state is available. Otherwise, prints a localized table of service status fields (including service name, runtime mode and state, live process flag, timestamps such as updated/started/heartbeat, heartbeat age, continuous/poll/cycle counts, symbols, interval/lookback, max cycles, current symbol, PID, stop-requested flag, status note, last recorded message, and last recorded error).
+    
+    Parameters:
+        state (ServiceStateSnapshot | None): Runtime snapshot to render; pass `None` to show the "no runtime state" panel.
+    """
     view = build_runtime_status_view(state)
     if view.state is None:
         console.print(
