@@ -7,6 +7,27 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.15.0 (2026-06-06)
+
+### Features
+
+- Complete modularity i18n gate
+  ([`2b2edb2`](https://github.com/ogiboy/agentic-trader/commit/2b2edb245a42adc96e37286f062143a5e11701f1))
+
+### Bug Fixes
+
+- Restore sonar new-code gate
+  ([`0881da7`](https://github.com/ogiboy/agentic-trader/commit/0881da7269a629e6592e89ee529b1096d741d40e))
+- Align sonar cpd exclusions
+  ([`0d79896`](https://github.com/ogiboy/agentic-trader/commit/0d7989642f0eb068bad5ac822a02f4471db1037e))
+- Allow release guard for reviewed bot commit
+  ([`f09158e`](https://github.com/ogiboy/agentic-trader/commit/f09158e5d6c62ba8d6706dbc82afbb8afb6e0905))
+
+### Other Changes
+
+- Update tests/test_modularity_i18n_audit.py
+  ([`1c7a7ba`](https://github.com/ogiboy/agentic-trader/commit/1c7a7ba7288145d20062279f30dcfc2fded78790))
+
 ## v0.14.12 (2026-06-06)
 
 ### Bug Fixes
