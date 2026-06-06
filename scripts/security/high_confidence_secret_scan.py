@@ -74,8 +74,9 @@ def main() -> int:
                 line_number = text.count("\n", 0, match.start()) + 1
                 findings.append(f"{path}:{line_number}: {label}")
     if findings:
-        print("High-confidence secret or live endpoint findings:")
-        print("\n".join(findings))
+        print(
+            f"High-confidence secret or live endpoint findings detected: {len(findings)}"
+        )
         return 1
     print("No high-confidence tracked-source secrets or live endpoints found.")
     return 0
