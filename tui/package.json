@@ -6,7 +6,8 @@
   "type": "module",
   "description": "Ink-based operator console for Agentic Trader",
   "scripts": {
-    "start": "node index.mjs"
+    "start": "node index.mjs",
+    "test": "vitest run --root .. tui"
   },
   "dependencies": {
     "ink": "^7.0.5",

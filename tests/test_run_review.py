@@ -194,7 +194,7 @@ def test_trade_context_surfaces_canonical_analysis(tmp_path: Path) -> None:
 
 def test_ink_review_surfaces_fundamental_truth() -> None:
     script = """
-import { getFundamentalAssessmentLines } from './tui/review-lines.mjs';
+import { getFundamentalAssessmentLines } from './tui/src/review-lines.mjs';
 const lines = getFundamentalAssessmentLines({
   overall_bias: 'supportive',
   risk_flags: ['high_debt_risk'],
@@ -226,7 +226,7 @@ console.log(JSON.stringify(lines));
 
 def test_ink_review_reads_canonical_analysis_snapshot() -> None:
     script = """
-import { getCanonicalAnalysisLines } from './tui/review-lines.mjs';
+import { getCanonicalAnalysisLines } from './tui/src/review-lines.mjs';
 const lines = getCanonicalAnalysisLines({
   snapshot: {
     summary: 'Canonical summary',

@@ -290,7 +290,7 @@ def _line_threshold(path: Path, rel_path: str) -> tuple[str, int]:
     if rel_path.startswith("scripts/") and not rel_path.startswith("scripts/lib/"):
         if path.suffix in {".js", ".mjs"}:
             return "lifecycle-entrypoint", 280
-    if "/copy/" in f"/{rel_path}" or rel_path == "tui/copy.mjs":
+    if "/copy/" in f"/{rel_path}" or rel_path in {"tui/copy.mjs", "tui/src/copy.mjs"}:
         return "copy-catalog", 450
     if rel_path == "agentic_trader/cli.py":
         return "python-cli-facade", 1800
