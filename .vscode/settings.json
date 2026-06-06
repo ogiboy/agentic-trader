@@ -82,4 +82,7 @@
   "workbench.activityBar.compact": false,
   "workbench.fontAliasing": "default",
   "window.autoDetectColorScheme": false,
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
 }
