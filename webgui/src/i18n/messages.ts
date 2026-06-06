@@ -30,6 +30,7 @@ function controlRoomMessages(copy: ControlRoomCopy, locale: WebguiLocale) {
   };
   const proposalMessages: Omit<ControlRoomCopy['proposals'], 'stopTake'> = {
     actions: proposals.actions,
+    context: proposals.context,
     fields: proposals.fields,
     notePlaceholder: proposals.notePlaceholder,
     panels: proposals.panels,

@@ -1,7 +1,7 @@
 import { Box, Text } from "ink";
 import React from "react";
 import { cliExecutable } from "./cli-runtime.mjs";
-import { dashboardStatusLine, dashboardTitle, tuiCopy } from "./copy.mjs";
+import { dashboardStatusLine, getTuiCopy } from "./copy.mjs";
 import { getPageView } from "./pages.mjs";
 
 const e = React.createElement;
@@ -22,16 +22,17 @@ export function DashboardView({
   instructionMode,
   instructionResult,
 }) {
+  const copy = getTuiCopy(data?.ui?.locale);
   if (error) {
     return e(
       Box,
       { flexDirection: "column" },
-      e(Text, { color: "red", bold: true }, dashboardTitle),
-      e(Text, { color: "red" }, `${tuiCopy.errorLabel}: ${error}`),
+      e(Text, { color: "red", bold: true }, copy.dashboardTitle),
+      e(Text, { color: "red" }, `${copy.errorLabel}: ${error}`),
       e(
         Text,
         { color: "gray" },
-        `${tuiCopy.cliExecutableLabel}: ${cliExecutable}`,
+        `${copy.cliExecutableLabel}: ${cliExecutable}`,
       ),
     );
   }
@@ -40,7 +41,7 @@ export function DashboardView({
     return e(
       Box,
       { flexDirection: "column" },
-      e(Text, { color: "green", bold: true }, dashboardTitle),
+      e(Text, { color: "green", bold: true }, copy.dashboardTitle),
       e(Text, { color: "gray" }, loadingText),
     );
   }
@@ -69,13 +70,14 @@ export function DashboardView({
       result: instructionResult,
     },
     compact,
+    copy,
   });
 
   return e(
     Box,
     { flexDirection: "column", width: "100%" },
-    e(Text, { color: "green", bold: true }, dashboardTitle),
-    e(Text, { color: "gray" }, dashboardStatusLine({ busy, page })),
+    e(Text, { color: "green", bold: true }, copy.dashboardTitle),
+    e(Text, { color: "gray" }, dashboardStatusLine({ busy, page, copy })),
     actionMessage
       ? e(
           Text,
@@ -93,6 +95,6 @@ export function DashboardView({
       },
       view,
     ),
-    e(Text, { color: "gray" }, `${tuiCopy.lastRefresh}: ${data.loadedAt}`),
+    e(Text, { color: "gray" }, `${copy.lastRefresh}: ${data.loadedAt}`),
   );
 }

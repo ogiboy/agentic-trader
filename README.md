@@ -570,6 +570,8 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 
 ```bash
 pnpm check
+pnpm run qa:modularity
+pnpm run qa:modularity:report
 make check
 pnpm run app:doctor
 pnpm run app:up -- --dry-run

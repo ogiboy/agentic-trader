@@ -14,6 +14,7 @@ import
     positionPlanCoverageLines,
     unavailableSectionLines,
   } from '../control-room.helpers';
+import { usePortfolioContextCopy } from './intl-copy';
 import { JsonPreview, KeyValueList, Panel, TextList } from './Primitives';
 
 /**
@@ -26,6 +27,7 @@ export function PortfolioView({
   dashboard,
 }: Readonly<{ dashboard: DashboardData }>) {
   const t = useTranslations('controlRoom.portfolio');
+  const contextCopy = usePortfolioContextCopy();
   const currency = accountCurrency(dashboard);
   const financeOps = asRecord(dashboard.financeOps);
   const portfolio = asRecord(dashboard.portfolio);
@@ -40,15 +42,18 @@ export function PortfolioView({
   const portfolioUnavailable = unavailableSectionLines(
     portfolio,
     t('unavailable.portfolio'),
+    contextCopy,
   );
   const riskUnavailable = unavailableSectionLines(
     riskReport,
     t('unavailable.riskReport'),
+    contextCopy,
   );
   const journalLines =
     unavailableSectionLines(
       journal,
       t('unavailable.tradeJournal'),
+      contextCopy,
     ) ||
     (journalEntries.length
       ? journalEntries.map(
@@ -157,7 +162,7 @@ export function PortfolioView({
         <TextList items={journalLines} />
       </Panel>
       <Panel title={t('panels.exitPlanCoverage')} accent='rose'>
-        <TextList items={positionPlanCoverageLines(dashboard)} />
+        <TextList items={positionPlanCoverageLines(dashboard, contextCopy)} />
       </Panel>
       <Panel title={t('panels.preferences')} accent='cyan'>
         <KeyValueList

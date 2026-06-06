@@ -19,7 +19,7 @@ SONAR_SOURCES="${SONAR_SOURCES:-agentic_trader,main.py,webgui/src,docs/app,docs/
 SONAR_TESTS="${SONAR_TESTS:-tests}"
 SONAR_EXCLUSIONS="${SONAR_EXCLUSIONS:-**/.agents/**,**/.claude/**,**/.claude-flow/**,CLAUDE.md,**/.venv/**,**/.conda-env/**,**/node_modules/**,**/.next/**,**/out/**,**/dist/**,**/build/**,**/.git/**,**/.sonar/**,**/.scannerwork/**,**/.source/**,**/__pycache__/**,**/*.pyc,**/*.tsbuildinfo,**/*.test.ts,**/*.test.tsx,**/*.test.mjs,docs/public/**,webgui/public/**,.ai/qa/artifacts/**,runtime/**,scripts/**}"
 SONAR_COVERAGE_EXCLUSIONS="${SONAR_COVERAGE_EXCLUSIONS:-${SONAR_EXCLUSIONS}}"
-SONAR_CPD_EXCLUSIONS="${SONAR_CPD_EXCLUSIONS:-**/.agents/**,**/.claude/**,**/.claude-flow/**,CLAUDE.md,docs/**,webgui/src/app/api/**,webgui/src/components/ui/**,webgui/public/**,tui/**}"
+SONAR_CPD_EXCLUSIONS="${SONAR_CPD_EXCLUSIONS:-**/.agents/**,**/.claude/**,**/.claude-flow/**,CLAUDE.md,docs/**,webgui/src/app/api/**,webgui/src/components/ui/**,webgui/src/components/control-room/copy/**,webgui/public/**,tui/**}"
 SONAR_TOKEN_KEYCHAIN_SERVICE="${SONAR_TOKEN_KEYCHAIN_SERVICE:-codex-sonarqube-token}"
 SONAR_TOKEN_KEYCHAIN_ACCOUNT="${SONAR_TOKEN_KEYCHAIN_ACCOUNT:-${USER:-}}"
 

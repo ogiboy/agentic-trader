@@ -94,7 +94,7 @@ Now:
   sidecar/security work; static green checks are not enough when the change
   affects first-run behavior, app-owned helper services, agent-cycle claims,
   memory persistence, visual surfaces, or security boundaries
-- continue the maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, shared JSON/time helpers, and service-specific modules as touched; keep names domain-oriented, track progress through the modularity/i18n audit, and preserve existing contracts rather than doing a risky one-shot rewrite
+- continue the maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, shared JSON/time helpers, and service-specific modules as touched; keep names domain-oriented, keep `pnpm run qa:modularity` green, use `pnpm run qa:modularity:report` for exploratory cleanup, and preserve existing contracts rather than doing a risky one-shot rewrite
 - keep modularity/i18n project-wide, not WebGUI-only: Python CLI/Rich/Ink,
   WebGUI, docs, tests, helpers, assets, constants, styles, and copy should be
   organized under the module or surface that owns them, with shared utilities

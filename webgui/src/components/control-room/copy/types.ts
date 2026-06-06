@@ -137,6 +137,17 @@ export type ControlRoomCopy = {
       unrealizedPnl: string;
       warnings: string;
     };
+    context: Record<
+      | 'positionPlanCoverage'
+      | 'positionPlanEmpty'
+      | 'positionPlanUnavailable'
+      | 'positionPlanOpenPositions'
+      | 'positionPlanExitPlans'
+      | 'positionPlanMissingPlans'
+      | 'unavailable'
+      | 'unknownError',
+      string
+    >;
     noWarnings: string;
     panels: {
       deskAccountingNotes: string;
@@ -168,6 +179,18 @@ export type ControlRoomCopy = {
       message: string;
       state: string;
     };
+    context: Record<
+      | 'confidence'
+      | 'empty'
+      | 'killSwitchActive'
+      | 'liveBackendBlocked'
+      | 'brokerStateBlocked'
+      | 'quantity'
+      | 'source'
+      | 'unavailable'
+      | 'unknownError',
+      string
+    >;
     notePlaceholder: string;
     panels: {
       deskSafety: string;
@@ -186,6 +209,44 @@ export type ControlRoomCopy = {
       runId: string;
       symbol: string;
     };
+    context: Record<
+      | 'canonicalCompleteness'
+      | 'canonicalDisclosures'
+      | 'canonicalEmpty'
+      | 'canonicalFundamentalSource'
+      | 'canonicalMacroSource'
+      | 'canonicalMarketSource'
+      | 'canonicalMissingSections'
+      | 'canonicalNewsEvents'
+      | 'canonicalSource'
+      | 'canonicalSummary'
+      | 'marketAnomalies'
+      | 'marketCoverage'
+      | 'marketEmpty'
+      | 'marketHorizon'
+      | 'marketInterval'
+      | 'marketLookbackInterval'
+      | 'marketQuality'
+      | 'marketReturn'
+      | 'marketDrawdown'
+      | 'marketSummary'
+      | 'marketWindow'
+      | 'tradeConsensus'
+      | 'tradeEmpty'
+      | 'tradeExecutionAdapter'
+      | 'tradeExecutionBackend'
+      | 'tradeExecutionOutcome'
+      | 'tradeExecutionRationale'
+      | 'tradeId'
+      | 'tradeManagerRationale'
+      | 'tradeRejectionReason'
+      | 'tradeReviewSummary'
+      | 'tradeRoutedModels'
+      | 'tradeRunId'
+      | 'unavailable'
+      | 'unknownError',
+      string
+    >;
     panels: {
       canonicalAnalysis: string;
       latestReview: string;

@@ -5,6 +5,7 @@ import {
   getRecentRunsLines,
   renderLinesFallback,
 } from '../line-formatters.mjs';
+import { tuiCopy } from '../copy.mjs';
 import { panel } from './panel.mjs';
 
 const e = React.createElement;
@@ -28,46 +29,48 @@ function SettingsPage({
   instructionMode,
   instructionResult,
   compact = false,
+  copy = tuiCopy,
 }) {
+  const settingsCopy = copy.settingsPage;
   const preferences = data.preferences;
   const recentRuns = data.recentRuns;
   const rawPreferenceLines = renderLinesFallback(
-    'PREFERENCES',
+    settingsCopy.preferences,
     preferences.available,
     preferences.error,
-    'Preferences are temporarily unavailable.',
+    settingsCopy.preferencesUnavailable,
   ) || [
-    `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
-    `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
-    `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
-    `Sectors: ${(preferences.sectors || []).join(', ') || '-'}`,
-    `Risk: ${preferences.risk_profile}`,
-    `Style: ${preferences.trade_style}`,
-    `Behavior: ${preferences.behavior_preset}`,
-    `Agent Profile: ${preferences.agent_profile}`,
-    `Agent Tone: ${preferences.agent_tone}`,
-    `Strictness: ${preferences.strictness_preset}`,
-    `Intervention: ${preferences.intervention_style}`,
-    `Notes: ${preferences.notes || '-'}`,
+    `${settingsCopy.regions}: ${(preferences.regions || []).join(', ') || '-'}`,
+    `${settingsCopy.exchanges}: ${(preferences.exchanges || []).join(', ') || '-'}`,
+    `${settingsCopy.currencies}: ${(preferences.currencies || []).join(', ') || '-'}`,
+    `${settingsCopy.sectors}: ${(preferences.sectors || []).join(', ') || '-'}`,
+    `${settingsCopy.risk}: ${preferences.risk_profile}`,
+    `${settingsCopy.style}: ${preferences.trade_style}`,
+    `${settingsCopy.behavior}: ${preferences.behavior_preset}`,
+    `${settingsCopy.agentProfile}: ${preferences.agent_profile}`,
+    `${settingsCopy.agentTone}: ${preferences.agent_tone}`,
+    `${settingsCopy.strictness}: ${preferences.strictness_preset}`,
+    `${settingsCopy.intervention}: ${preferences.intervention_style}`,
+    `${settingsCopy.notes}: ${preferences.notes || '-'}`,
   ];
   const preferenceLines =
     compact && preferences.available !== false
       ? [
-          `Regions / Exchanges: ${(preferences.regions || []).join(', ') || '-'} / ${(preferences.exchanges || []).join(', ') || '-'}`,
-          `Currencies / Sectors: ${(preferences.currencies || []).join(', ') || '-'} / ${(preferences.sectors || []).join(', ') || '-'}`,
-          `Risk / Style: ${preferences.risk_profile} / ${preferences.trade_style}`,
-          `Behavior / Strictness: ${preferences.behavior_preset} / ${preferences.strictness_preset}`,
-          `Profile / Tone: ${preferences.agent_profile} / ${preferences.agent_tone}`,
-          `Intervention: ${preferences.intervention_style}`,
-          `Notes: ${preferences.notes || '-'}`,
+          `${settingsCopy.regionsExchanges}: ${(preferences.regions || []).join(', ') || '-'} / ${(preferences.exchanges || []).join(', ') || '-'}`,
+          `${settingsCopy.currenciesSectors}: ${(preferences.currencies || []).join(', ') || '-'} / ${(preferences.sectors || []).join(', ') || '-'}`,
+          `${settingsCopy.riskStyle}: ${preferences.risk_profile} / ${preferences.trade_style}`,
+          `${settingsCopy.behaviorStrictness}: ${preferences.behavior_preset} / ${preferences.strictness_preset}`,
+          `${settingsCopy.profileTone}: ${preferences.agent_profile} / ${preferences.agent_tone}`,
+          `${settingsCopy.intervention}: ${preferences.intervention_style}`,
+          `${settingsCopy.notes}: ${preferences.notes || '-'}`,
         ]
       : rawPreferenceLines;
   const recentRunLines = getRecentRunsLines(recentRuns);
   const instructionLines = getInstructionResultLines(instructionResult);
   const composerLines = [
-    `Mode: ${instructionMode}`,
-    instructionBusy ? 'Working...' : 'Enter submit  |  [ ] switch mode',
-    draft || '(type a safe operator instruction here)',
+    `${settingsCopy.mode}: ${instructionMode}`,
+    instructionBusy ? settingsCopy.working : settingsCopy.enterSubmit,
+    draft || settingsCopy.typeInstruction,
   ];
 
   return e(
@@ -80,7 +83,7 @@ function SettingsPage({
         Box,
         { width: '50%', paddingRight: 1 },
         panel(
-          'PREFERENCES',
+          settingsCopy.preferences,
           preferenceLines.slice(0, compact ? 7 : 12),
           'blue',
         ),
@@ -89,7 +92,7 @@ function SettingsPage({
         Box,
         { width: '50%', paddingLeft: 1 },
         panel(
-          'RECENT RUNS',
+          settingsCopy.recentRuns,
           recentRunLines.slice(0, compact ? 5 : 8),
           'yellow',
         ),
@@ -101,13 +104,17 @@ function SettingsPage({
       e(
         Box,
         { width: '100%' },
-        panel('OPERATOR INSTRUCTION', instructionLines, 'green'),
+        panel(settingsCopy.operatorInstruction, instructionLines, 'green'),
       ),
     ),
     e(
       Box,
       { width: '100%', marginTop: 1 },
-      e(Box, { width: '100%' }, panel('COMPOSER', composerLines, 'magenta')),
+      e(
+        Box,
+        { width: '100%' },
+        panel(settingsCopy.composer, composerLines, 'magenta'),
+      ),
     ),
   );
 }

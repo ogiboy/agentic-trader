@@ -1,7 +1,17 @@
-import { CONTROL_ROOM_CONTEXT_COPY } from './copy/context';
+import { EN_CONTROL_ROOM_COPY } from './copy/en';
+import type { ControlRoomCopy } from './copy/types';
 import { formatList, formatNumber, formatPercent } from './formatting';
 import { asRecord, asRecordArray, asString, isRecord } from './payload';
 import type { DashboardData, DashboardRecord } from './types';
+
+type PortfolioContextCopy = ControlRoomCopy['portfolio']['context'];
+type ProposalContextCopy = ControlRoomCopy['proposals']['context'];
+type ReviewContextCopy = ControlRoomCopy['review']['context'];
+type UnavailableContextCopy = Pick<ReviewContextCopy, 'unavailable' | 'unknownError'>;
+
+const DEFAULT_PORTFOLIO_CONTEXT_COPY = EN_CONTROL_ROOM_COPY.portfolio.context;
+const DEFAULT_PROPOSAL_CONTEXT_COPY = EN_CONTROL_ROOM_COPY.proposals.context;
+const DEFAULT_REVIEW_CONTEXT_COPY = EN_CONTROL_ROOM_COPY.review.context;
 
 export function accountCurrency(dashboard: DashboardData): string {
   const financeOps = asRecord(dashboard.financeOps);
@@ -22,33 +32,37 @@ export function accountCurrency(dashboard: DashboardData): string {
 
 export function tradeContextLines(
   record: unknown,
+  copy: ReviewContextCopy = DEFAULT_REVIEW_CONTEXT_COPY,
 ): string[] {
   const tradeRecord = asRecord(record);
   if (!Object.keys(tradeRecord).length) {
-    return ['No persisted trade context is available yet.'];
+    return [copy.tradeEmpty];
   }
   const consensus = asRecord(tradeRecord.consensus);
   const routedModels = Object.entries(asRecord(tradeRecord.routed_models))
     .map(([role, model]) => `${role}:${model}`)
     .join(' | ');
   return [
-    `Trade ID: ${asString(tradeRecord.trade_id)}`,
-    `Run ID: ${asString(tradeRecord.run_id)}`,
-    `Consensus: ${asString(consensus.alignment_level)}`,
-    `Manager Rationale: ${asString(tradeRecord.manager_rationale)}`,
-    `Execution Rationale: ${asString(tradeRecord.execution_rationale)}`,
-    `Execution Backend: ${asString(tradeRecord.execution_backend)}`,
-    `Execution Adapter: ${asString(tradeRecord.execution_adapter)}`,
-    `Execution Outcome: ${asString(tradeRecord.execution_outcome_status)}`,
-    `Rejection Reason: ${asString(tradeRecord.execution_rejection_reason)}`,
-    `Review Summary: ${asString(tradeRecord.review_summary)}`,
-    `Routed Models: ${routedModels || '-'}`,
+    `${copy.tradeId}: ${asString(tradeRecord.trade_id)}`,
+    `${copy.tradeRunId}: ${asString(tradeRecord.run_id)}`,
+    `${copy.tradeConsensus}: ${asString(consensus.alignment_level)}`,
+    `${copy.tradeManagerRationale}: ${asString(tradeRecord.manager_rationale)}`,
+    `${copy.tradeExecutionRationale}: ${asString(tradeRecord.execution_rationale)}`,
+    `${copy.tradeExecutionBackend}: ${asString(tradeRecord.execution_backend)}`,
+    `${copy.tradeExecutionAdapter}: ${asString(tradeRecord.execution_adapter)}`,
+    `${copy.tradeExecutionOutcome}: ${asString(tradeRecord.execution_outcome_status)}`,
+    `${copy.tradeRejectionReason}: ${asString(tradeRecord.execution_rejection_reason)}`,
+    `${copy.tradeReviewSummary}: ${asString(tradeRecord.review_summary)}`,
+    `${copy.tradeRoutedModels}: ${routedModels || '-'}`,
   ];
 }
 
-function proposalSizeLabel(proposal: DashboardRecord): string {
+function proposalSizeLabel(
+  proposal: DashboardRecord,
+  copy: ProposalContextCopy,
+): string {
   if (typeof proposal.quantity === 'number') {
-    return `qty ${formatNumber(proposal.quantity, 4)}`;
+    return `${copy.quantity} ${formatNumber(proposal.quantity, 4)}`;
   }
   if (typeof proposal.notional === 'number') {
     return `$${formatNumber(proposal.notional, 2)}`;
@@ -57,61 +71,75 @@ function proposalSizeLabel(proposal: DashboardRecord): string {
 }
 
 export function proposalHeadline(proposal: unknown): string {
-  const proposalRecord = asRecord(proposal);
-  return `${asString(proposalRecord.symbol)} ${asString(proposalRecord.side).toUpperCase()} | ${asString(proposalRecord.status)} | ${proposalSizeLabel(proposalRecord)}`;
+  return proposalHeadlineWithCopy(proposal, DEFAULT_PROPOSAL_CONTEXT_COPY);
 }
 
-export function proposalLines(dashboard: DashboardData): string[] {
+export function proposalHeadlineWithCopy(
+  proposal: unknown,
+  copy: ProposalContextCopy,
+): string {
+  const proposalRecord = asRecord(proposal);
+  return `${asString(proposalRecord.symbol)} ${asString(proposalRecord.side).toUpperCase()} | ${asString(proposalRecord.status)} | ${proposalSizeLabel(proposalRecord, copy)}`;
+}
+
+export function proposalLines(
+  dashboard: DashboardData,
+  copy: ProposalContextCopy = DEFAULT_PROPOSAL_CONTEXT_COPY,
+): string[] {
   const payload = asRecord(dashboard.tradeProposals);
   if (payload?.available === false) {
-    return [`Proposal desk unavailable: ${asString(payload.error, 'Unknown error.')}`];
+    return [`${copy.unavailable}: ${asString(payload.error, copy.unknownError)}`];
   }
   const proposals = asRecordArray(payload.proposals);
   if (!proposals.length) {
-    return ['No manual-review proposals are queued yet.'];
+    return [copy.empty];
   }
   return proposals.map(
     (proposal) =>
-      `${asString(proposal.proposal_id)} | ${proposalHeadline(proposal)} | confidence=${formatNumber(proposal.confidence, 2)} | source=${asString(proposal.source)}`,
+      `${asString(proposal.proposal_id)} | ${proposalHeadlineWithCopy(proposal, copy)} | ${copy.confidence}=${formatNumber(proposal.confidence, 2)} | ${copy.source}=${asString(proposal.source)}`,
   );
 }
 
-export function positionPlanCoverageLines(dashboard: DashboardData): string[] {
+export function positionPlanCoverageLines(
+  dashboard: DashboardData,
+  copy: PortfolioContextCopy = DEFAULT_PORTFOLIO_CONTEXT_COPY,
+): string[] {
   const financeOps = asRecord(dashboard.financeOps);
   const coverageSource = isRecord(financeOps.positionPlanCoverage)
     ? financeOps.positionPlanCoverage
     : dashboard.positionPlanCoverage;
   if (!isRecord(coverageSource)) {
-    return ['No position plan coverage snapshot is available yet.'];
+    return [copy.positionPlanEmpty];
   }
   const coverage = coverageSource;
   if (coverage.available === false) {
     return [
-      `Position plan coverage unavailable: ${asString(coverage.error, 'Unknown error.')}`,
+      `${copy.positionPlanUnavailable}: ${asString(coverage.error, copy.unknownError)}`,
     ];
   }
   return [
-    `Open Positions: ${formatList(coverage.open_symbols)}`,
-    `Exit Plans: ${formatList(coverage.planned_symbols)}`,
-    `Missing Plans: ${formatList(coverage.missing_symbols)}`,
-    `Coverage: ${formatPercent(coverage.coverage_ratio)}`,
+    `${copy.positionPlanOpenPositions}: ${formatList(coverage.open_symbols)}`,
+    `${copy.positionPlanExitPlans}: ${formatList(coverage.planned_symbols)}`,
+    `${copy.positionPlanMissingPlans}: ${formatList(coverage.missing_symbols)}`,
+    `${copy.positionPlanCoverage}: ${formatPercent(coverage.coverage_ratio)}`,
   ];
 }
 
 export function proposalApprovalBlockedReason(
   dashboard: DashboardData,
+  copy: ProposalContextCopy = DEFAULT_PROPOSAL_CONTEXT_COPY,
 ): string {
   const broker = asRecord(dashboard.broker);
   if (broker.kill_switch_active) {
-    return 'Execution kill switch is active.';
+    return copy.killSwitchActive;
   }
   if (broker.live_requested || broker.live) {
-    return 'Live backend is not proposal-approval ready in V1.';
+    return copy.liveBackendBlocked;
   }
   if (broker.state === 'blocked') {
     return asString(
       broker.message,
-      CONTROL_ROOM_CONTEXT_COPY.brokerStateBlocked,
+      copy.brokerStateBlocked,
     );
   }
   return '';
@@ -119,10 +147,11 @@ export function proposalApprovalBlockedReason(
 
 export function canonicalLines(
   snapshot: unknown,
+  copy: ReviewContextCopy = DEFAULT_REVIEW_CONTEXT_COPY,
 ): string[] {
   const snapshotRecord = asRecord(snapshot);
   if (!Object.keys(snapshotRecord).length) {
-    return ['No canonical analysis snapshot is available yet.'];
+    return [copy.canonicalEmpty];
   }
   const market = asRecord(snapshotRecord.market);
   const fundamental = asRecord(snapshotRecord.fundamental);
@@ -137,38 +166,39 @@ export function canonicalLines(
         `${asString(source.provider_type)}:${asString(source.source_name)} (${asString(source.source_role)}, ${asString(source.freshness)})`,
     );
   return [
-    `Summary: ${asString(snapshotRecord.summary)}`,
-    `Completeness: ${asString(snapshotRecord.completeness_score)}`,
-    `Missing Sections: ${formatList(snapshotRecord.missing_sections)}`,
-    `Market Source: ${asString(marketAttribution.source_name)}`,
-    `Fundamental Source: ${asString(fundamentalAttribution.source_name)}`,
-    `Macro Source: ${asString(macroAttribution.source_name)}`,
-    `News Events: ${Array.isArray(snapshotRecord.news_events) ? snapshotRecord.news_events.length : 0}`,
-    `Disclosures: ${Array.isArray(snapshotRecord.disclosures) ? snapshotRecord.disclosures.length : 0}`,
-    ...sources.map((source) => `Source: ${source}`),
+    `${copy.canonicalSummary}: ${asString(snapshotRecord.summary)}`,
+    `${copy.canonicalCompleteness}: ${asString(snapshotRecord.completeness_score)}`,
+    `${copy.canonicalMissingSections}: ${formatList(snapshotRecord.missing_sections)}`,
+    `${copy.canonicalMarketSource}: ${asString(marketAttribution.source_name)}`,
+    `${copy.canonicalFundamentalSource}: ${asString(fundamentalAttribution.source_name)}`,
+    `${copy.canonicalMacroSource}: ${asString(macroAttribution.source_name)}`,
+    `${copy.canonicalNewsEvents}: ${Array.isArray(snapshotRecord.news_events) ? snapshotRecord.news_events.length : 0}`,
+    `${copy.canonicalDisclosures}: ${Array.isArray(snapshotRecord.disclosures) ? snapshotRecord.disclosures.length : 0}`,
+    ...sources.map((source) => `${copy.canonicalSource}: ${source}`),
   ];
 }
 
 export function marketContextLines(
   pack: unknown,
+  copy: ReviewContextCopy = DEFAULT_REVIEW_CONTEXT_COPY,
 ): string[] {
   const contextPack = asRecord(pack);
   if (!Object.keys(contextPack).length) {
-    return ['No persisted market context pack is available yet.'];
+    return [copy.marketEmpty];
   }
   const horizons = asRecordArray(contextPack.horizons)
     .slice(0, 4)
     .map(
       (item) =>
-        `${asString(item.horizon_bars)} bars | ${asString(item.trend_vote)} | return=${asString(item.return_pct)} | drawdown=${asString(item.max_drawdown_pct)}`,
+        `${asString(item.horizon_bars)} ${copy.marketHorizon} | ${asString(item.trend_vote)} | ${copy.marketReturn}=${asString(item.return_pct)} | ${copy.marketDrawdown}=${asString(item.max_drawdown_pct)}`,
     );
   return [
-    `Summary: ${asString(contextPack.summary)}`,
-    `Lookback: ${asString(contextPack.lookback)} | Interval: ${asString(contextPack.interval)}`,
-    `Window: ${asString(contextPack.window_start)} -> ${asString(contextPack.window_end)}`,
-    `Coverage: ${asString(contextPack.bars_analyzed)} / ${asString(contextPack.bars_expected)} (${asString(contextPack.coverage_ratio)})`,
-    `Quality: ${formatList(contextPack.data_quality_flags)}`,
-    `Anomalies: ${formatList(contextPack.anomaly_flags)}`,
+    `${copy.marketSummary}: ${asString(contextPack.summary)}`,
+    `${copy.marketLookbackInterval}: ${asString(contextPack.lookback)} | ${copy.marketInterval}: ${asString(contextPack.interval)}`,
+    `${copy.marketWindow}: ${asString(contextPack.window_start)} -> ${asString(contextPack.window_end)}`,
+    `${copy.marketCoverage}: ${asString(contextPack.bars_analyzed)} / ${asString(contextPack.bars_expected)} (${asString(contextPack.coverage_ratio)})`,
+    `${copy.marketQuality}: ${formatList(contextPack.data_quality_flags)}`,
+    `${copy.marketAnomalies}: ${formatList(contextPack.anomaly_flags)}`,
     ...horizons,
   ];
 }
@@ -176,13 +206,14 @@ export function marketContextLines(
 export function unavailableSectionLines(
   section: unknown,
   label: string,
+  copy: UnavailableContextCopy = DEFAULT_REVIEW_CONTEXT_COPY,
 ): null | string[] {
   const sectionRecord = asRecord(section);
   if (sectionRecord.available === false) {
     return [
-      `${label} unavailable: ${asString(
+      `${label} ${copy.unavailable}: ${asString(
         sectionRecord.error,
-        CONTROL_ROOM_CONTEXT_COPY.unknownError,
+        copy.unknownError,
       )}`,
     ];
   }

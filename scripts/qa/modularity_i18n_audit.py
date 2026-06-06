@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Report project-wide modularity and i18n debt without failing CI by default."""
+"""Audit project-wide modularity and i18n debt for reports and CI gates."""
 
 from __future__ import annotations
 
-import argparse
 import ast
 import json
 import os
@@ -14,6 +13,12 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
+
+from scripts.qa.modularity_i18n_modules.cli import (
+    parse_args,
+    print_report,
+    should_fail_gate,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = (
@@ -276,6 +281,17 @@ def _line_threshold(path: Path, rel_path: str) -> tuple[str, int]:
     """
     if ".test." in path.name:
         return "test", 700
+    if rel_path == "tools/camofox-browser/server.js":
+        return "tool-entrypoint", 450
+    if rel_path == "scripts/qa/modularity_i18n_audit.py":
+        return "qa-audit-entrypoint", 700
+    if rel_path.startswith("scripts/qa/") and path.parent.name == "qa":
+        return "qa-entrypoint", 650
+    if rel_path.startswith("scripts/") and not rel_path.startswith("scripts/lib/"):
+        if path.suffix in {".js", ".mjs"}:
+            return "lifecycle-entrypoint", 280
+    if "/copy/" in f"/{rel_path}" or rel_path == "tui/copy.mjs":
+        return "copy-catalog", 450
     if rel_path == "agentic_trader/cli.py":
         return "python-cli-facade", 1800
     if rel_path in {"agentic_trader/tui.py", "tui/index.mjs"}:
@@ -286,6 +302,8 @@ def _line_threshold(path: Path, rel_path: str) -> tuple[str, int]:
         return "style-module", 450
     if path.suffix in {".ts", ".tsx", ".mjs"}:
         return "frontend-module", 300
+    if path.suffix == ".js":
+        return "javascript-module", 450
     if path.suffix == ".mdx":
         return "docs-page", 280
     return "source-file", 500
@@ -632,145 +650,6 @@ def build_report(
         scanned_files=len(paths),
     )
 
-
-def _print_section(title: str, rows: Sequence[str]) -> None:
-    """
-    Print a titled report section and its rows to standard output.
-
-    Parameters:
-        title (str): Section header to print.
-        rows (Sequence[str]): Lines to print under the header; if empty, prints "  none".
-    """
-    print(f"\n{title}")
-    if not rows:
-        print("  none")
-        return
-    for row in rows:
-        print(f"  {row}")
-
-
-def print_report(report: AuditReport, *, top: int) -> None:
-    """
-    Print a human-readable audit report of modularity and i18n findings to stdout.
-
-    Parameters:
-        report (AuditReport): The aggregated audit findings and scanned file count.
-        top (int): Maximum number of rows to show per report section.
-    """
-    print("modularity-i18n-audit: reporting-only")
-    print(f"scanned_files={report.scanned_files}")
-
-    _print_section(
-        "Oversized files",
-        [
-            (
-                f"{metric.path}: lines={metric.lines} "
-                f"threshold={metric.threshold} category={metric.category}"
-            )
-            for metric in report.oversized_files[:top]
-        ],
-    )
-    _print_section(
-        "Long Python functions",
-        [
-            f"{metric.path}:{metric.line} {metric.name} lines={metric.lines}"
-            for metric in report.long_functions[:top]
-        ],
-    )
-    _print_section(
-        "Repeated helper patterns",
-        [
-            f"{metric.name}: count={len(metric.paths)} paths={', '.join(metric.paths)}"
-            for metric in report.repeated_helpers[:top]
-        ],
-    )
-    _print_section(
-        "Hardcoded operator-copy candidates",
-        [
-            f"{candidate.path}:{candidate.line}: {candidate.excerpt}"
-            for candidate in report.copy_candidates[:top]
-        ],
-    )
-    parity = report.docs_locale_parity
-    _print_section(
-        "Docs locale parity",
-        [
-            *[f"en-only: {path}" for path in parity.english_only],
-            *[f"tr-only: {path}" for path in parity.turkish_only],
-        ],
-    )
-
-
-def parse_args(argv: Sequence[str]) -> argparse.Namespace:
-    """
-    Parse CLI arguments for the modularity/i18n audit script.
-
-    Parameters:
-        argv (Sequence[str]): Command-line arguments; a single leading "--" is stripped before parsing.
-
-    Returns:
-        argparse.Namespace: Parsed options including `json`, `top`, `function_threshold`, `copy_candidate_limit`, and `fail_on_findings`.
-    """
-    if list(argv[:1]) == ["--"]:
-        argv = argv[1:]
-    parser = argparse.ArgumentParser(
-        description=(
-            "Report oversized modules, long functions, repeated helpers, docs "
-            "locale parity, and hardcoded UI copy candidates."
-        )
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit the report as JSON.",
-    )
-    parser.add_argument(
-        "--top",
-        type=int,
-        default=20,
-        help="Number of rows to print per text section.",
-    )
-    parser.add_argument(
-        "--function-threshold",
-        type=int,
-        default=80,
-        help="Minimum Python function length to report.",
-    )
-    parser.add_argument(
-        "--copy-candidate-limit",
-        type=int,
-        default=80,
-        help="Maximum hardcoded-copy candidates to collect.",
-    )
-    parser.add_argument(
-        "--fail-on-findings",
-        action="store_true",
-        help="Opt-in future gate mode. Defaults to reporting-only success.",
-    )
-    return parser.parse_args(list(argv))
-
-
-def _has_findings(report: AuditReport) -> bool:
-    """
-    Check whether the given audit report contains any findings across all sections.
-
-    Returns:
-        `True` if any of the report sections (oversized files, long functions, repeated helpers, copy candidates,
-        or English/Turkish locale-only docs) is non-empty, `False` otherwise.
-    """
-    parity = report.docs_locale_parity
-    return any(
-        (
-            report.oversized_files,
-            report.long_functions,
-            report.repeated_helpers,
-            report.copy_candidates,
-            parity.english_only,
-            parity.turkish_only,
-        )
-    )
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     """
     Run the repository modularity and i18n audit using provided CLI-style arguments and print the report to stdout.
@@ -791,8 +670,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if cast(bool, args.json):
         print(json.dumps(report.as_json(), indent=2, sort_keys=True))
     else:
-        print_report(report, top=cast(int, args.top))
-    return 1 if cast(bool, args.fail_on_findings) and _has_findings(report) else 0
+        print_report(
+            report,
+            top=cast(int, args.top),
+            fail_on_findings=cast(bool, args.fail_on_findings),
+        )
+    return 1 if should_fail_gate(
+        report,
+        fail_on_findings=cast(bool, args.fail_on_findings),
+    ) else 0
 
 
 if __name__ == "__main__":

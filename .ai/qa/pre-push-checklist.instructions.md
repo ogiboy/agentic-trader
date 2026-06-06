@@ -21,6 +21,7 @@ fully passed.
 - `git status --short --branch`
 - `git diff --check`
 - `pnpm run check`
+- `pnpm run qa:modularity`
 - `pnpm run qa`
 - confirm version files are intentionally bumped or intentionally unchanged
 - confirm no runtime artifacts, `.env` files, logs, screenshots, or local tool

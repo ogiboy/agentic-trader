@@ -1,10 +1,4 @@
 import { VirtualDisplay } from 'camoufox-js/dist/virtdisplay.js';
-import express from 'express';
-import {
-  timingSafeCompare as _timingSafeCompare,
-  accessKeyMiddleware,
-  requireAuth,
-} from './lib/auth.js';
 import { createBrowserLifecycle } from './lib/browser-lifecycle.js';
 import { createBrowserProcess } from './lib/browser-process.js';
 import { loadConfig } from './lib/config.js';
@@ -13,7 +7,6 @@ import {
   clearSessionDownloads,
   clearTabDownloads,
 } from './lib/downloads.js';
-import { createFlyHelpers } from './lib/fly.js';
 import { expandMacro } from './lib/macros.js';
 import { createPageReadiness } from './lib/page-readiness.js';
 import { createPluginEvents } from './lib/plugins.js';
@@ -30,10 +23,7 @@ import {
   createRuntimeConcurrency,
   normalizeUserId,
 } from './lib/runtime-concurrency.js';
-import { createRequestLoggingMiddleware } from './lib/request-logging.js';
 import { createRouteErrorHandler } from './lib/route-error-handler.js';
-import { startRuntimeMonitors } from './lib/runtime-monitors.js';
-import { startCamofoxServer } from './lib/server-bootstrap.js';
 import { createSessionManager } from './lib/session-manager.js';
 import { createServerReporting } from './lib/server-reporting.js';
 import { windowSnapshot } from './lib/snapshot.js';
@@ -52,6 +42,20 @@ import {
   createTabHealthTracker,
 } from './lib/reporter.js';
 import { actionFromReq, classifyError } from './lib/request-utils.js';
+import { createJsonLogger } from './lib/logging.js';
+import { createServerApp } from './lib/server/app.js';
+import { createRouteContext } from './lib/server/route-context.js';
+import {
+  createHealthState,
+  createRequestTimeoutMs,
+  createRuntimeSettings,
+  logProxyPool,
+} from './lib/server/runtime-settings.js';
+import {
+  mountRuntimeMonitors,
+  startServerBootstrap,
+} from './lib/server/startup.js';
+import { createTabMetrics } from './lib/server/tab-metrics.js';
 import { cleanupStaleFirefoxProfiles } from './lib/tmp-cleanup.js';
 
 const CONFIG = loadConfig();
@@ -60,8 +64,6 @@ const CONFIG = loadConfig();
 const pluginEvents = createPluginEvents();
 let pluginCtx = null;
 
-// --- Shared auth middleware ---
-const authMiddleware = () => requireAuth(CONFIG);
 const {
   requestsTotal,
   requestDuration,
@@ -79,20 +81,7 @@ const {
 } = await initMetrics({ enabled: CONFIG.prometheusEnabled });
 
 // --- Structured logging ---
-function log(level, msg, fields = {}) {
-  const entry = {
-    ts: new Date().toISOString(),
-    level,
-    msg,
-    ...fields,
-  };
-  const line = JSON.stringify(entry);
-  if (level === 'error') {
-    process.stderr.write(line + '\n');
-  } else {
-    process.stdout.write(line + '\n');
-  }
-}
+const log = createJsonLogger();
 
 const {
   extractGoogleSerp,
@@ -101,25 +90,6 @@ const {
   isGoogleSerp,
 } = createGoogleSerpHelpers({ log });
 const { waitForPageReady } = createPageReadiness({ log });
-
-const app = express();
-app.use(express.json({ limit: '100kb' }));
-
-// --- Horizontal scaling (Fly.io multi-machine) ---
-const fly = createFlyHelpers(CONFIG);
-const FLY_MACHINE_ID = fly.machineId;
-
-// Route tab requests to the owning machine via fly-replay header.
-app.use('/tabs/:tabId', fly.replayMiddleware(log));
-
-// Access-key middleware: gates every route when CAMOFOX_ACCESS_KEY is set.
-// Exempts /health (Docker healthcheck) and routes that have their own
-// dedicated keys (cookie import -> CAMOFOX_API_KEY, /stop -> CAMOFOX_ADMIN_KEY)
-// so each key gates a distinct surface. When unset, behavior is unchanged.
-app.use(accessKeyMiddleware(CONFIG));
-
-// timingSafeCompare imported from lib/auth.js
-const timingSafeCompare = _timingSafeCompare;
 
 const { safeError, sendError, validateUrl } = createRouteSafety({
   config: CONFIG,
@@ -133,40 +103,35 @@ let _lastBrowserPid = null; // Track PID independently for force-kill after clos
 // TabState = { page, refs: Map<refId, {role, name, nth}>, visitedUrls: Set, downloads: Array, toolCalls: number }
 // Note: sessionKey was previously called listItemId - both are accepted for backward compatibility
 const sessions = new Map();
+const { getTotalTabCount, refreshActiveTabsGauge, withPageLoadDuration } =
+  createTabMetrics({
+    activeTabsGauge,
+    pageLoadDuration,
+    sessions,
+  });
 const { getResourceOpts: _resourceOpts, reporter } = createServerReporting({
   config: CONFIG,
   getBrowser: () => browser,
   sessions,
 });
-app.use(
-  createRequestLoggingMiddleware({
+const { app, authMiddleware, fly, flyMachineId, timingSafeCompare } =
+  createServerApp({
+    config: CONFIG,
     log,
     reporter,
     requestDuration,
     requestsTotal,
-  }),
-);
-
-
-const SESSION_TIMEOUT_MS = CONFIG.sessionTimeoutMs;
-const MAX_SNAPSHOT_NODES = 500;
-const TAB_INACTIVITY_MS = CONFIG.tabInactivityMs;
-const MAX_TABS_PER_SESSION = CONFIG.maxTabsPerSession;
-const MAX_TABS_GLOBAL = CONFIG.maxTabsGlobal;
-const HANDLER_TIMEOUT_MS = CONFIG.handlerTimeoutMs;
-const PAGE_CLOSE_TIMEOUT_MS = 5000;
-const BUILDREFS_TIMEOUT_MS = CONFIG.buildrefsTimeoutMs;
-const NATIVE_MEM_RESTART_THRESHOLD_MB = CONFIG.nativeMemRestartThresholdMb;
+  });
+const runtimeSettings = createRuntimeSettings(CONFIG);
 let _nativeMemBaseline = null; // RSS - heapUsed at first idle measurement
-const FAILURE_THRESHOLD = 3;
-const MAX_CONSECUTIVE_TIMEOUTS = 3;
+const healthState = createHealthState();
 
 const { closeBrowserFully, getHostOS, safePageClose } = createBrowserProcess({
   cleanupStaleFirefoxProfiles,
   getBrowser: () => browser,
   getLastBrowserPid: () => _lastBrowserPid,
   log,
-  pageCloseTimeoutMs: PAGE_CLOSE_TIMEOUT_MS,
+  pageCloseTimeoutMs: runtimeSettings.pageCloseTimeoutMs,
   reporter,
   resetNativeMemBaseline: () => {
     _nativeMemBaseline = null;
@@ -181,46 +146,21 @@ const { closeBrowserFully, getHostOS, safePageClose } = createBrowserProcess({
 
 const { buildRefs, getAriaSnapshot, refToLocator, refreshTabRefs } =
   createRefHelpers({
-    buildrefsTimeoutMs: BUILDREFS_TIMEOUT_MS,
+    buildrefsTimeoutMs: runtimeSettings.buildrefsTimeoutMs,
     extractGoogleSerp,
     isGoogleSerp,
     log,
-    maxSnapshotNodes: MAX_SNAPSHOT_NODES,
+    maxSnapshotNodes: runtimeSettings.maxSnapshotNodes,
     waitForPageReady,
   });
 
-function requestTimeoutMs(baseMs = HANDLER_TIMEOUT_MS) {
-  return proxyPool?.canRotateSessions ? Math.max(baseMs, 180000) : baseMs;
-}
-
 // Proxy strategy for outbound browsing.
 const proxyPool = createProxyPool(CONFIG.proxy);
-
-if (proxyPool) {
-  log('info', 'proxy pool created', {
-    mode: proxyPool.mode,
-    host: proxyPool.canRotateSessions
-      ? CONFIG.proxy.backconnectHost
-      : CONFIG.proxy.host,
-    ports: proxyPool.canRotateSessions
-      ? [CONFIG.proxy.backconnectPort]
-      : CONFIG.proxy.ports,
-    poolSize: proxyPool.size,
-    country: CONFIG.proxy.country || null,
-    state: CONFIG.proxy.state || null,
-    city: CONFIG.proxy.city || null,
-  });
-} else {
-  log('info', 'no proxy configured');
-}
-
-// --- Browser health tracking ---
-const healthState = {
-  consecutiveNavFailures: 0,
-  lastSuccessfulNav: Date.now(),
-  isRecovering: false,
-  activeOps: 0,
-};
+logProxyPool({ config: CONFIG, log, proxyPool });
+const requestTimeoutMs = createRequestTimeoutMs({
+  handlerTimeoutMs: runtimeSettings.handlerTimeoutMs,
+  proxyPool,
+});
 
 const {
   ensureBrowser,
@@ -261,7 +201,7 @@ const {
   withTimeout,
   withUserLimit,
 } = createRuntimeConcurrency({
-  handlerTimeoutMs: HANDLER_TIMEOUT_MS,
+  handlerTimeoutMs: runtimeSettings.handlerTimeoutMs,
   healthState,
   maxConcurrentPerUser: CONFIG.maxConcurrentPerUser,
   tabLockQueueDepth,
@@ -328,7 +268,7 @@ const { handleRouteError } = createRouteErrorHandler({
   findTab,
   getResourceOpts: _resourceOpts,
   log,
-  maxConsecutiveTimeouts: MAX_CONSECUTIVE_TIMEOUTS,
+  maxConsecutiveTimeouts: runtimeSettings.maxConsecutiveTimeouts,
   normalizeUserId,
   pluginEvents,
   proxyPool,
@@ -337,30 +277,7 @@ const { handleRouteError } = createRouteErrorHandler({
   sessions,
 });
 
-function getTotalTabCount() {
-  let total = 0;
-  for (const session of sessions.values()) {
-    for (const group of session.tabGroups.values()) {
-      total += group.size;
-    }
-  }
-  return total;
-}
-
-function refreshActiveTabsGauge() {
-  activeTabsGauge.set(getTotalTabCount());
-}
-
-async function withPageLoadDuration(action, fn) {
-  const end = pageLoadDuration.startTimer();
-  try {
-    return await fn();
-  } finally {
-    end();
-  }
-}
-
-mountCamofoxRoutes(app, {
+const routeContext = createRouteContext({
   StaleRefsError,
   attachDownloadListener,
   authMiddleware,
@@ -379,17 +296,16 @@ mountCamofoxRoutes(app, {
   failuresTotal,
   findTab,
   fly,
-  flyMachineId: FLY_MACHINE_ID,
+  flyMachineId,
   getAriaSnapshot,
   getBrowser: () => browser,
   getBrowserLaunchProxy,
-  getBrowserRunning: () => browser !== null && (browser.isConnected?.() ?? false),
   getRegister,
   getSession,
   getTabGroup,
   getTotalTabCount,
   handleRouteError,
-  handlerTimeoutMs: HANDLER_TIMEOUT_MS,
+  handlerTimeoutMs: runtimeSettings.handlerTimeoutMs,
   healthState,
   interactiveRoles: INTERACTIVE_ROLES,
   isGoogleSearchBlocked,
@@ -397,8 +313,8 @@ mountCamofoxRoutes(app, {
   isGoogleSerp,
   isGoogleUnavailable,
   log,
-  maxTabsGlobal: MAX_TABS_GLOBAL,
-  maxTabsPerSession: MAX_TABS_PER_SESSION,
+  maxTabsGlobal: runtimeSettings.maxTabsGlobal,
+  maxTabsPerSession: runtimeSettings.maxTabsPerSession,
   normalizeUserId,
   pluginEvents,
   proxyPool,
@@ -418,7 +334,6 @@ mountCamofoxRoutes(app, {
   snapshotBytes,
   tabLocks,
   timingSafeCompare,
-  tracesDir: CONFIG.tracesDir,
   validateUrl,
   waitForPageReady,
   windowSnapshot,
@@ -428,7 +343,9 @@ mountCamofoxRoutes(app, {
   withUserLimit,
 });
 
-startRuntimeMonitors({
+mountCamofoxRoutes(app, routeContext);
+
+mountRuntimeMonitors({
   browserRestartsTotal,
   closeBrowserFully,
   closeSession,
@@ -437,24 +354,24 @@ startRuntimeMonitors({
   getNativeMemBaseline: () => _nativeMemBaseline,
   healthState,
   log,
-  nativeMemRestartThresholdMb: NATIVE_MEM_RESTART_THRESHOLD_MB,
+  nativeMemRestartThresholdMb: runtimeSettings.nativeMemRestartThresholdMb,
   refreshActiveTabsGauge,
   refreshTabLockQueueDepth,
   restartBrowser,
   safePageClose,
   scheduleBrowserIdleShutdown,
-  sessionTimeoutMs: SESSION_TIMEOUT_MS,
+  sessionTimeoutMs: runtimeSettings.sessionTimeoutMs,
   sessions,
   setNativeMemBaseline: (value) => {
     _nativeMemBaseline = value;
   },
-  tabInactivityMs: TAB_INACTIVITY_MS,
+  tabInactivityMs: runtimeSettings.tabInactivityMs,
   tabLocks,
   tabsReapedTotal,
   sessionsExpiredTotal,
 });
 
-await startCamofoxServer({
+await startServerBootstrap({
   app,
   authMiddleware,
   closeAllSessions,
@@ -464,7 +381,7 @@ await startCamofoxServer({
   destroySession,
   ensureBrowser,
   failuresTotal,
-  flyMachineId: FLY_MACHINE_ID,
+  flyMachineId,
   getRegister,
   getResourceOpts: _resourceOpts,
   getSession,
