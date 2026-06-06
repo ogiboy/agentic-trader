@@ -652,6 +652,7 @@ Status: in progress.
 - [ ] extend the first `tool_roots` helper into a central tool registry/readiness contract so setup, researchd, model-service, WebGUI, QA, and docs describe the same local helper truth instead of each probing Ollama, Firecrawl, Camofox, and browser tooling independently
 - [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [x] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
+- [x] split the Camofox helper server entrypoint into a launcher plus focused runtime state, dependency-composition, and bootstrap modules while keeping route ownership under `tools/camofox-browser/lib/routes/`
 - [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
 - [ ] continue splitting the Web GUI control room into screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
 - [x] extract the first Web GUI control-room typed view-model, locale/loading hooks, action request helpers, shared formatting helpers, and diagnostics/context evidence helpers so the facade can keep shrinking without changing runtime contracts
