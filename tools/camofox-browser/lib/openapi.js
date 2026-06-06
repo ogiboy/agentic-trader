@@ -12,12 +12,19 @@
  */
 
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import swaggerJsdoc from 'swagger-jsdoc';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const docsAssetRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
 
 let version = 'unknown';
 try {
@@ -117,10 +124,14 @@ export function mountDocs(app, opts = {}) {
 
   // Serve docs static assets (api.html, fox.png, openapi.json)
   const docsDir = join(__dirname, '..', 'docs');
-  app.use('/docs', express.static(docsDir, { index: 'api.html' }));
+  app.use(
+    '/docs',
+    docsAssetRateLimiter,
+    express.static(docsDir, { index: 'api.html' }),
+  );
 
   // Also serve fox.png at root for backward compat with old Swagger UI HTML
-  app.get('/fox.png', (_req, res) => {
+  app.get('/fox.png', docsAssetRateLimiter, (_req, res) => {
     res.sendFile(join(docsDir, 'fox.png'));
   });
 

@@ -28,7 +28,6 @@ This file is maintained by `python-semantic-release` from conventional commits o
 - **deps**: Bump astral-sh/setup-uv from 8.1.0 to 8.2.0
   ([`34eb043`](https://github.com/ogiboy/agentic-trader/commit/34eb0439f2a540295fd527292cef98a1243a0297))
 
-
 ## v0.14.2 (2026-06-04)
 
 ### Chores
@@ -646,7 +645,6 @@ This file is maintained by `python-semantic-release` from conventional commits o
 - Harden release changelog coverage
   ([`5467f44`](https://github.com/ogiboy/agentic-trader/commit/5467f449aa934388dafa16e995491c2c645ad4b5))
 
-
 ## v0.12.3 (2026-05-25)
 
 ### Bug Fixes
@@ -654,14 +652,12 @@ This file is maintained by `python-semantic-release` from conventional commits o
 - Enforce release changelog coverage
   ([`5beddec`](https://github.com/ogiboy/agentic-trader/commit/5beddec2df62a7800830fad11babe14d50442b26))
 
-
 ## v0.12.2 (2026-05-25)
 
 ### Bug Fixes
 
 - Restore changelog generation
   ([`3b621e0`](https://github.com/ogiboy/agentic-trader/commit/3b621e038ad9eedb648ea7cec04222420ec3f2e5))
-
 
 ## v0.12.1 (2026-05-25)
 
@@ -682,7 +678,6 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 - Improve V1 readiness and strict QA gates
   ([`b33a07f`](https://github.com/ogiboy/agentic-trader/commit/b33a07f7f9198f38e9d494b4e6c17bb988f3068b))
-
 
 ## v0.12.0 (2026-05-20)
 

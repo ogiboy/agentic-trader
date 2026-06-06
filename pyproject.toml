@@ -52,7 +52,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-research-flow = { workspace = true }
+research-flow = {workspace = true}
 
 [tool.uv.workspace]
 members = ["sidecars/research_flow"]
