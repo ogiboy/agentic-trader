@@ -118,7 +118,7 @@ export function mountDocs(app, opts = {}) {
     apis,
   });
 
-  app.get('/openapi.json', (_req, res) => {
+  app.get('/openapi.json', docsAssetRateLimiter, (_req, res) => {
     res.json(spec);
   });
 
