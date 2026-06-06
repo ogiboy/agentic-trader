@@ -47,7 +47,7 @@ Implemented or substantially present:
 - JavaScript dependency management is now consolidated at the repository root with a pnpm workspace for `webgui/`, `docs/`, and `tui/`; root `package.json` scripts plus thin Makefile aliases provide shared setup, check, build, and local app entrypoints while uv owns Python locking, sync, command execution, and builds
 - `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, a local-first monospace typography stack, and app-local `components/ui`
 - `docs/` and `webgui/` now load bundled JetBrains Mono variable fonts through `next/font/local` from app-local `fonts/` directories, preserving the intended look without build-time Google Fonts/network fetches
-- `webgui` remains mid-migration: its route handlers and some primitives follow the new frontend baseline, but much of the live shell still relies on legacy global classes in `src/app/globals.css`
+- `webgui/src/app/globals.css` now owns root tokens, Tailwind/shadcn setup, and imports for screen-scoped style modules under `webgui/src/app/styles/`; live shell/control-room styles should stay in those focused style modules instead of returning to one global class pile
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection
@@ -249,8 +249,8 @@ New production-expansion direction:
   QA check through `pnpm run qa:prompts`; use it as the local source of truth
   when VS Code prompt-evaluation extensions are stale, quota-limited, or
   unavailable
-- `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
-- `webgui/src/components/ControlRoom.tsx` is now reduced below the frontend module threshold and delegates public re-exports through `control-room/public-api.ts`; the next maintainability pass should continue moving remaining global CSS toward screen-scoped components and keep shrinking catalog/type surfaces before adding broad new Web GUI behavior
+- `webgui/src/app/globals.css` currently carries root tokens, Tailwind/shadcn setup, and focused style imports; screen styles live in `webgui/src/app/styles/shell.css`, `components.css`, `views.css`, and `responsive.css`
+- `webgui/src/components/ControlRoom.tsx` is now reduced below the frontend module threshold and delegates public re-exports through `control-room/public-api.ts`; the next maintainability pass should keep new screen behavior inside the existing per-view, style-module, copy, and helper boundaries
 - the project-wide modularity/i18n cleanup is now a failing gate: `pnpm run qa:modularity` runs `scripts/qa/modularity_i18n_audit.py --fail-on-findings`, while `pnpm run qa:modularity:report` stays available for exploratory cleanup; the audit scans Python, WebGUI, docs, Ink TUI, scripts, tools, the CrewAI sidecar, and `.ai` guidance while skipping generated artifacts
 - modularity cleanup is now explicitly project-wide and ownership-based: large Python files, terminal surfaces, WebGUI, docs, tests, helpers, constants, styles, assets, and copy should be split by module/surface responsibility, with React component files clearly distinguishable from hooks/utilities and shared helpers promoted only after real reuse
 

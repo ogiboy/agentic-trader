@@ -216,7 +216,7 @@ Status: in progress.
 - the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
 - the Ink chat page now embeds live agent activity, recent tool-role usage, and reasoning-stage context beside the transcript
 - a typed shared Python UI text catalog now exists as the first step toward future multi-language operator surfaces while preserving legacy CLI/Rich/Ink constants
-- the Web GUI now has a first local i18n seam plus per-view control-room modules; shell, auth, overview, runtime, portfolio, proposals, review, memory, chat, settings, loading/unavailable states, and the overview helper-generated readiness/provider/local-tool evidence lines now flow through typed per-locale English/Turkish modules; deeper review/portfolio/memory evidence strings still need a broader catalog pass
+- the Web GUI now has a local i18n seam plus per-view control-room modules; shell, auth, overview, runtime, portfolio, proposals, review, memory, chat, settings, loading/unavailable states, and helper-generated readiness/provider/local-tool evidence lines flow through typed per-locale English/Turkish modules or render-boundary `next-intl` accessors
 - the Ink overview and review pages now surface context-pack summaries, lookback coverage, quality flags, anomalies, and horizon votes from the Python dashboard contract
 - the next operator trust upgrade is adding a Training/Operation mode banner and deeper retrieval explanations beside the context pack
 - richer trace inspection and deeper Ink feature parity are still open
@@ -653,8 +653,8 @@ Status: in progress.
 - [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [x] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
 - [x] split the Camofox helper server entrypoint into a launcher plus focused runtime state, dependency-composition, and bootstrap modules while keeping route ownership under `tools/camofox-browser/lib/routes/`
-- [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
-- [ ] continue splitting the Web GUI control room into screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
+- [x] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
+- [x] continue splitting the Web GUI control room into screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
 - [x] extract the first Web GUI control-room typed view-model, locale/loading hooks, action request helpers, shared formatting helpers, and diagnostics/context evidence helpers so the facade can keep shrinking without changing runtime contracts
 - [x] extract the first Web GUI control-room primitives and copy catalog so shared panel/list/JSON rendering and shell/overview labels no longer live inside the monolithic control-room component
 - [x] split the Web GUI control room into per-view modules plus dedicated shell chrome, dashboard polling, runtime/proposal/tool/chat/instruction actions, request/auth helpers, shared primitives, and a typed English/Turkish copy catalog, leaving `control-room.tsx` as the state/render coordinator
