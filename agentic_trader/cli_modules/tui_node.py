@@ -12,14 +12,7 @@ from rich.panel import Panel
 
 from agentic_trader.cli_modules.common import console
 from agentic_trader.tui import run_main_menu
-from agentic_trader.ui_text import (
-    MESSAGE_INSTALLING_TUI_DEPENDENCIES,
-    MESSAGE_NODE_MISSING,
-    MESSAGE_TUI_MISSING,
-    TITLE_INSTALLING_TUI_DEPENDENCIES,
-    TITLE_NODE_MISSING,
-    TITLE_TUI_MISSING,
-)
+from agentic_trader.ui_text import t as ui_t
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
 type NodeCommandSet = tuple[list[str], list[str], Path, str]
@@ -99,8 +92,8 @@ def open_ink_tui() -> None:
     if not tui_dir.exists():
         console.print(
             _render_health_panel(
-                TITLE_TUI_MISSING,
-                MESSAGE_TUI_MISSING,
+                ui_t("title.tui_missing"),
+                ui_t("message.tui_missing"),
                 border_style="yellow",
             )
         )
@@ -111,8 +104,8 @@ def open_ink_tui() -> None:
     if node_commands is None:
         console.print(
             _render_health_panel(
-                TITLE_NODE_MISSING,
-                MESSAGE_NODE_MISSING,
+                ui_t("title.node_missing"),
+                ui_t("message.node_missing"),
                 border_style="yellow",
             )
         )
@@ -123,8 +116,8 @@ def open_ink_tui() -> None:
     if not tui_dependencies_installed(tui_dir, command_cwd):
         console.print(
             _render_health_panel(
-                TITLE_INSTALLING_TUI_DEPENDENCIES,
-                MESSAGE_INSTALLING_TUI_DEPENDENCIES.format(
+                ui_t("title.installing_tui_dependencies"),
+                ui_t("message.installing_tui_dependencies").format(
                     package_manager=package_manager
                 ),
                 border_style="yellow",

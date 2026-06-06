@@ -10,31 +10,7 @@ from rich.table import Table
 
 from agentic_trader.config import Settings
 from agentic_trader.security import redact_sensitive_text
-from agentic_trader.ui_text import (
-    HELP_CAMOFOX_OWNER,
-    HELP_CAMOFOX_SERVICE_HOST,
-    HELP_CAMOFOX_SERVICE_PORT,
-    HELP_FIRECRAWL_OWNER,
-    HELP_JSON,
-    HELP_MODEL_NAME_TO_PULL,
-    HELP_MODEL_SERVICE_HOST,
-    HELP_MODEL_SERVICE_PORT,
-    HELP_OLLAMA_OWNER,
-    HELP_SETUP_DRY_RUN,
-    HELP_WEBGUI_OPEN_BROWSER,
-    LABEL_EXIT_CODE,
-    LABEL_FIELD,
-    LABEL_MODEL,
-    LABEL_STDERR,
-    LABEL_STDOUT,
-    LABEL_VALUE,
-    MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
-    TITLE_CAMOFOX_START_FAILED,
-    TITLE_MODEL_PULL,
-    TITLE_MODEL_SERVICE_START_FAILED,
-    TITLE_SETUP_GUIDANCE,
-    TITLE_WEB_GUI_START_FAILED,
-)
+from agentic_trader.ui_text import t as ui_t
 
 from .common import console
 from .system_rendering import (
@@ -86,7 +62,7 @@ def register_system_commands(
 def _register_setup_commands(app: typer.Typer, deps: SystemCommandDeps) -> None:
     @app.command("setup-status")
     def setup_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.build_setup_status(settings).model_dump(mode="json")
@@ -97,11 +73,11 @@ def _register_setup_commands(app: typer.Typer, deps: SystemCommandDeps) -> None:
 
     @app.command("setup")
     def setup_command(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
         dry_run: bool = typer.Option(
             True,
             "--dry-run/--no-dry-run",
-            help=HELP_SETUP_DRY_RUN,
+            help=ui_t("help.setup_dry_run"),
         ),
     ) -> None:
         settings = deps.get_settings()
@@ -110,7 +86,7 @@ def _register_setup_commands(app: typer.Typer, deps: SystemCommandDeps) -> None:
             "dry_run": dry_run,
             "mutated": False,
             "status": status,
-            "message": MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
+            "message": ui_t("message.setup_bootstrap_guidance"),
         }
         if json_output:
             deps.emit_json(payload)
@@ -119,7 +95,7 @@ def _register_setup_commands(app: typer.Typer, deps: SystemCommandDeps) -> None:
         console.print(
             Panel(
                 str(payload["message"]),
-                title=TITLE_SETUP_GUIDANCE,
+                title=ui_t("title.setup_guidance"),
                 border_style="cyan",
             )
         )
@@ -130,7 +106,7 @@ def _register_tool_ownership_commands(
 ) -> None:
     @tool_ownership_app.command("status")
     def tool_ownership_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.read_tool_ownership_payload(settings).model_dump(mode="json")
@@ -144,19 +120,19 @@ def _register_tool_ownership_commands(
         ollama_owner: str | None = typer.Option(
             None,
             "--ollama-owner",
-            help=HELP_OLLAMA_OWNER,
+            help=ui_t("help.ollama_owner"),
         ),
         firecrawl_owner: str | None = typer.Option(
             None,
             "--firecrawl-owner",
-            help=HELP_FIRECRAWL_OWNER,
+            help=ui_t("help.firecrawl_owner"),
         ),
         camofox_owner: str | None = typer.Option(
             None,
             "--camofox-owner",
-            help=HELP_CAMOFOX_OWNER,
+            help=ui_t("help.camofox_owner"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         updates = _tool_ownership_updates(
             deps=deps,
@@ -215,7 +191,7 @@ def _register_model_status_command(
 ) -> None:
     @model_service_app.command("status")
     def model_service_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
         probe_generation: bool = typer.Option(
             False,
             "--probe-generation",
@@ -241,14 +217,16 @@ def _register_model_start_command(
 ) -> None:
     @model_service_app.command("start")
     def model_service_start(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-        host: str | None = typer.Option(None, "--host", help=HELP_MODEL_SERVICE_HOST),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
+        host: str | None = typer.Option(
+            None, "--host", help=ui_t("help.model_service_host")
+        ),
         port: int | None = typer.Option(
             None,
             "--port",
             min=1,
             max=65535,
-            help=HELP_MODEL_SERVICE_PORT,
+            help=ui_t("help.model_service_port"),
         ),
     ) -> None:
         try:
@@ -261,7 +239,7 @@ def _register_model_start_command(
             _emit_start_error(
                 json_output=json_output,
                 deps=deps,
-                title=TITLE_MODEL_SERVICE_START_FAILED,
+                title=ui_t("title.model_service_start_failed"),
                 exc=exc,
             )
         if json_output:
@@ -275,7 +253,7 @@ def _register_model_stop_command(
 ) -> None:
     @model_service_app.command("stop")
     def model_service_stop(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = deps.stop_model_service(deps.get_settings()).model_dump(mode="json")
         if json_output:
@@ -289,8 +267,8 @@ def _register_model_pull_command(
 ) -> None:
     @model_service_app.command("pull")
     def model_service_pull(
-        model_name: str = typer.Argument(..., help=HELP_MODEL_NAME_TO_PULL),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        model_name: str = typer.Argument(..., help=ui_t("help.model_name_to_pull")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload: dict[str, object]
         try:
@@ -315,7 +293,7 @@ def _register_webgui_service_commands(
 ) -> None:
     @webgui_service_app.command("status")
     def webgui_service_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = deps.build_webgui_service_status(deps.get_settings()).model_dump(
             mode="json"
@@ -327,11 +305,11 @@ def _register_webgui_service_commands(
 
     @webgui_service_app.command("start")
     def webgui_service_start(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
         open_browser: bool = typer.Option(
             True,
             "--open-browser/--no-open-browser",
-            help=HELP_WEBGUI_OPEN_BROWSER,
+            help=ui_t("help.webgui_open_browser"),
         ),
     ) -> None:
         try:
@@ -343,7 +321,7 @@ def _register_webgui_service_commands(
             _emit_start_error(
                 json_output=json_output,
                 deps=deps,
-                title=TITLE_WEB_GUI_START_FAILED,
+                title=ui_t("title.web_gui_start_failed"),
                 exc=exc,
             )
         if json_output:
@@ -353,7 +331,7 @@ def _register_webgui_service_commands(
 
     @webgui_service_app.command("stop")
     def webgui_service_stop(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = deps.stop_webgui_service(deps.get_settings()).model_dump(mode="json")
         if json_output:
@@ -367,7 +345,7 @@ def _register_camofox_service_commands(
 ) -> None:
     @camofox_service_app.command("status")
     def camofox_service_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = deps.build_camofox_service_status(deps.get_settings()).model_dump(
             mode="json"
@@ -379,14 +357,16 @@ def _register_camofox_service_commands(
 
     @camofox_service_app.command("start")
     def camofox_service_start(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-        host: str | None = typer.Option(None, "--host", help=HELP_CAMOFOX_SERVICE_HOST),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
+        host: str | None = typer.Option(
+            None, "--host", help=ui_t("help.camofox_service_host")
+        ),
         port: int | None = typer.Option(
             None,
             "--port",
             min=1,
             max=65535,
-            help=HELP_CAMOFOX_SERVICE_PORT,
+            help=ui_t("help.camofox_service_port"),
         ),
     ) -> None:
         try:
@@ -399,7 +379,7 @@ def _register_camofox_service_commands(
             _emit_start_error(
                 json_output=json_output,
                 deps=deps,
-                title=TITLE_CAMOFOX_START_FAILED,
+                title=ui_t("title.camofox_start_failed"),
                 exc=exc,
             )
         if json_output:
@@ -409,7 +389,7 @@ def _register_camofox_service_commands(
 
     @camofox_service_app.command("stop")
     def camofox_service_stop(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = deps.stop_camofox_service(deps.get_settings()).model_dump(mode="json")
         if json_output:
@@ -441,11 +421,11 @@ def _emit_start_error(
 def _render_model_pull(payload: dict[str, object]) -> None:
     stdout = str(payload.get("stdout", "")) or "-"
     stderr = str(payload.get("stderr", "")) or "-"
-    table = Table(title=TITLE_MODEL_PULL)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_MODEL, str(payload["model"]))
-    table.add_row(LABEL_EXIT_CODE, str(payload["exit_code"]))
-    table.add_row(LABEL_STDOUT, stdout)
-    table.add_row(LABEL_STDERR, stderr)
+    table = Table(title=ui_t("title.model_pull"))
+    table.add_column(ui_t("label.field"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.model"), str(payload["model"]))
+    table.add_row(ui_t("label.exit_code"), str(payload["exit_code"]))
+    table.add_row(ui_t("label.stdout"), stdout)
+    table.add_row(ui_t("label.stderr"), stderr)
     console.print(table)

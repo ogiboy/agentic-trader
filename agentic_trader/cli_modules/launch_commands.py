@@ -8,23 +8,7 @@ from rich.panel import Panel
 from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
 from agentic_trader.schemas import LLMHealthStatus, RunArtifacts
-from agentic_trader.ui_text import (
-    HELP_INTERVAL,
-    HELP_LAUNCH_BACKGROUND,
-    HELP_LAUNCH_CONTINUOUS,
-    HELP_LAUNCH_MAX_CYCLES,
-    HELP_LAUNCH_POLL_SECONDS,
-    HELP_LAUNCH_SYMBOLS,
-    HELP_LOOKBACK,
-    HELP_SYMBOL,
-    MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
-    MESSAGE_LAUNCH_PLAN,
-    MESSAGE_LAUNCH_SYMBOL_REQUIRED,
-    MESSAGE_RUNTIME_GATE_OPEN,
-    TITLE_LAUNCH_PLAN,
-    TITLE_RUN_BLOCKED,
-    TITLE_RUNTIME_GATE_OPEN,
-)
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.workflows.service import ServiceCycleResult
 
 RunOnce = Callable[..., RunArtifacts]
@@ -75,9 +59,9 @@ def _register_run_command(
 ) -> None:
     @app.command()
     def run(
-        symbol: str = typer.Option(..., help=HELP_SYMBOL),
-        interval: str = typer.Option("1d", help=HELP_INTERVAL),
-        lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
+        symbol: str = typer.Option(..., help=ui_t("help.symbol")),
+        interval: str = typer.Option("1d", help=ui_t("help.interval")),
+        lookback: str = typer.Option("180d", help=ui_t("help.lookback")),
     ) -> None:
         settings = settings_provider()
         try:
@@ -94,7 +78,7 @@ def _register_run_command(
         except Exception as exc:
             console.print(
                 _render_health_panel(
-                    TITLE_RUN_BLOCKED,
+                    ui_t("title.run_blocked"),
                     str(exc),
                     border_style="red",
                 )
@@ -113,13 +97,15 @@ def _register_launch_command(
 ) -> None:
     @app.command()
     def launch(
-        symbols: str = typer.Option(..., help=HELP_LAUNCH_SYMBOLS),
-        interval: str = typer.Option("1d", help=HELP_INTERVAL),
-        lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
-        poll_seconds: int = typer.Option(300, help=HELP_LAUNCH_POLL_SECONDS),
-        continuous: bool = typer.Option(False, help=HELP_LAUNCH_CONTINUOUS),
-        max_cycles: int | None = typer.Option(None, help=HELP_LAUNCH_MAX_CYCLES),
-        background: bool = typer.Option(False, help=HELP_LAUNCH_BACKGROUND),
+        symbols: str = typer.Option(..., help=ui_t("help.launch_symbols")),
+        interval: str = typer.Option("1d", help=ui_t("help.interval")),
+        lookback: str = typer.Option("180d", help=ui_t("help.lookback")),
+        poll_seconds: int = typer.Option(300, help=ui_t("help.launch_poll_seconds")),
+        continuous: bool = typer.Option(False, help=ui_t("help.launch_continuous")),
+        max_cycles: int | None = typer.Option(
+            None, help=ui_t("help.launch_max_cycles")
+        ),
+        background: bool = typer.Option(False, help=ui_t("help.launch_background")),
     ) -> None:
         settings = settings_provider()
         symbol_list = _parse_launch_symbols(symbols)
@@ -171,15 +157,15 @@ def _register_launch_command(
 def _parse_launch_symbols(symbols: str) -> list[str]:
     symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     if not symbol_list:
-        raise typer.BadParameter(MESSAGE_LAUNCH_SYMBOL_REQUIRED)
+        raise typer.BadParameter(ui_t("message.launch_symbol_required"))
     return symbol_list
 
 
 def _render_launch_gate(health: LLMHealthStatus) -> None:
     console.print(
         _render_health_panel(
-            TITLE_RUNTIME_GATE_OPEN,
-            MESSAGE_RUNTIME_GATE_OPEN.format(
+            ui_t("title.runtime_gate_open"),
+            ui_t("message.runtime_gate_open").format(
                 base_url=health.base_url,
                 model_name=health.model_name,
             ),
@@ -199,7 +185,7 @@ def _render_launch_plan(
 ) -> None:
     console.print(
         Panel(
-            MESSAGE_LAUNCH_PLAN.format(
+            ui_t("message.launch_plan").format(
                 symbols=", ".join(symbols),
                 interval=interval,
                 lookback=lookback,
@@ -207,7 +193,7 @@ def _render_launch_plan(
                 poll_seconds=poll_seconds,
                 background=background,
             ),
-            title=TITLE_LAUNCH_PLAN,
+            title=ui_t("title.launch_plan"),
             border_style="cyan",
         )
     )
@@ -225,7 +211,7 @@ def _start_launch_background(
     max_cycles: int | None,
 ) -> None:
     if not continuous:
-        raise typer.BadParameter(MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS)
+        raise typer.BadParameter(ui_t("message.background_requires_continuous"))
     pid = start_background_service(
         settings=settings,
         symbols=symbols,

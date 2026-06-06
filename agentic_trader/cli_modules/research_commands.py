@@ -24,51 +24,7 @@ from agentic_trader.runtime_feed import (
     read_latest_research_snapshot,
     read_research_digest_replay,
 )
-from agentic_trader.ui_text import (
-    HELP_JSON,
-    HELP_RESEARCH_CYCLE_PAUSE,
-    HELP_RESEARCH_CYCLE_REASON,
-    HELP_RESEARCH_CYCLE_RESUME,
-    HELP_RESEARCH_CYCLE_TRIGGER_NOW,
-    HELP_RESEARCH_PROBE,
-    HELP_RESEARCH_REFRESH_PERSIST,
-    LABEL_BACKEND,
-    LABEL_CORE_DEPENDENCY,
-    LABEL_CYCLE_CONTROL,
-    LABEL_DIGEST_REPLAY,
-    LABEL_ENABLED,
-    LABEL_ENVIRONMENT_EXISTS,
-    LABEL_FIELD,
-    LABEL_FLOW_DIR,
-    LABEL_FRESHNESS,
-    LABEL_LAST_ERROR,
-    LABEL_LAST_SUCCESSFUL_UPDATE,
-    LABEL_LOCKFILE_EXISTS,
-    LABEL_MESSAGE,
-    LABEL_MODE,
-    LABEL_NO,
-    LABEL_PROVIDER,
-    LABEL_PYTHON_VERSION,
-    LABEL_SCAFFOLD_EXISTS,
-    LABEL_SIDECAR_AVAILABLE,
-    LABEL_STATUS,
-    LABEL_TRIGGER_NOW,
-    LABEL_TYPE,
-    LABEL_UPDATED_AT,
-    LABEL_UV_AVAILABLE,
-    LABEL_VALUE,
-    LABEL_VERSION,
-    LABEL_VERSION_SOURCE,
-    LABEL_WATCHED_SYMBOLS,
-    LABEL_YES,
-    MESSAGE_RESEARCH_SNAPSHOT_RECORDED,
-    STATUS_AVAILABLE,
-    TITLE_RECOMMENDED_COMMANDS,
-    TITLE_RESEARCH_CREWAI_FLOW_SETUP,
-    TITLE_RESEARCH_SIDECAR_STATUS,
-    TITLE_RESEARCH_SNAPSHOT_PERSISTED,
-    TITLE_RESEARCH_SOURCE_HEALTH,
-)
+from agentic_trader.ui_text import t as ui_t
 
 
 def register_research_commands(
@@ -90,11 +46,11 @@ def _register_research_status_command(
 ) -> None:
     @app.command("research-status")
     def research_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
         probe: bool = typer.Option(
             False,
             "--probe/--no-probe",
-            help=HELP_RESEARCH_PROBE,
+            help=ui_t("help.research_probe"),
         ),
     ) -> None:
         settings = settings_provider()
@@ -114,24 +70,24 @@ def _register_research_cycle_control_command(
         pause: bool = typer.Option(
             False,
             "--pause",
-            help=HELP_RESEARCH_CYCLE_PAUSE,
+            help=ui_t("help.research_cycle_pause"),
         ),
         resume: bool = typer.Option(
             False,
             "--resume",
-            help=HELP_RESEARCH_CYCLE_RESUME,
+            help=ui_t("help.research_cycle_resume"),
         ),
         trigger_now: bool = typer.Option(
             False,
             "--trigger-now",
-            help=HELP_RESEARCH_CYCLE_TRIGGER_NOW,
+            help=ui_t("help.research_cycle_trigger_now"),
         ),
         reason: str | None = typer.Option(
             None,
             "--reason",
-            help=HELP_RESEARCH_CYCLE_REASON,
+            help=ui_t("help.research_cycle_reason"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         run_research_cycle_control_command(
             settings=settings_provider(),
@@ -152,11 +108,11 @@ def _register_research_refresh_command(
 ) -> None:
     @app.command("research-refresh")
     def research_refresh(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
         persist: bool = typer.Option(
             True,
             "--persist/--no-persist",
-            help=HELP_RESEARCH_REFRESH_PERSIST,
+            help=ui_t("help.research_refresh_persist"),
         ),
     ) -> None:
         settings = settings_provider()
@@ -183,8 +139,8 @@ def _register_research_refresh_command(
         if record_payload is not None:
             console.print(
                 _render_health_panel(
-                    TITLE_RESEARCH_SNAPSHOT_PERSISTED,
-                    MESSAGE_RESEARCH_SNAPSHOT_RECORDED.format(
+                    ui_t("title.research_snapshot_persisted"),
+                    ui_t("message.research_snapshot_recorded").format(
                         snapshot_id=record_payload["snapshot_id"]
                     ),
                     border_style="green",
@@ -199,7 +155,7 @@ def _register_research_setup_commands(
 ) -> None:
     @app.command("research-flow-setup")
     def research_flow_setup(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = crewai_setup_status(settings_provider())
         if json_output:
@@ -209,7 +165,7 @@ def _register_research_setup_commands(
 
     @app.command("research-crewai-setup")
     def research_crewai_setup(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = crewai_setup_status(settings_provider())
         if json_output:
@@ -271,42 +227,42 @@ def latest_research_digest_replay_payload(settings: Settings) -> dict[str, objec
 
 
 def render_research_sidecar_state(payload: dict[str, object]) -> None:
-    table = Table(title=TITLE_RESEARCH_SIDECAR_STATUS)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_MODE, str(payload["mode"]))
-    table.add_row(LABEL_ENABLED, str(payload["enabled"]))
-    table.add_row(LABEL_BACKEND, str(payload["backend"]))
-    table.add_row(LABEL_STATUS, str(payload["status"]))
-    table.add_row(LABEL_UPDATED_AT, str(payload["updated_at"]))
+    table = Table(title=ui_t("title.research_sidecar_status"))
+    table.add_column(ui_t("label.field"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.mode"), str(payload["mode"]))
+    table.add_row(ui_t("label.enabled"), str(payload["enabled"]))
+    table.add_row(ui_t("label.backend"), str(payload["backend"]))
+    table.add_row(ui_t("label.status"), str(payload["status"]))
+    table.add_row(ui_t("label.updated_at"), str(payload["updated_at"]))
     table.add_row(
-        LABEL_WATCHED_SYMBOLS,
+        ui_t("label.watched_symbols"),
         ", ".join(cast(list[str], payload["watched_symbols"])) or "-",
     )
     last_success = payload.get("last_successful_update_at")
-    table.add_row(LABEL_LAST_SUCCESSFUL_UPDATE, str(last_success or "-"))
+    table.add_row(ui_t("label.last_successful_update"), str(last_success or "-"))
     last_error = payload.get("last_error")
-    table.add_row(LABEL_LAST_ERROR, str(last_error or "-"))
+    table.add_row(ui_t("label.last_error"), str(last_error or "-"))
     control = cast(dict[str, object], payload.get("cycleControl", {}))
-    table.add_row(LABEL_CYCLE_CONTROL, str(control.get("status", "-")))
+    table.add_row(ui_t("label.cycle_control"), str(control.get("status", "-")))
     table.add_row(
-        LABEL_TRIGGER_NOW,
-        LABEL_YES if control.get("trigger_now_requested") else LABEL_NO,
+        ui_t("label.trigger_now"),
+        ui_t("label.yes") if control.get("trigger_now_requested") else ui_t("label.no"),
     )
     replay = cast(dict[str, object], payload.get("latestDigestReplay", {}))
     table.add_row(
-        LABEL_DIGEST_REPLAY,
-        STATUS_AVAILABLE if replay.get("available") else "-",
+        ui_t("label.digest_replay"),
+        ui_t("status.available") if replay.get("available") else "-",
     )
     console.print(table)
 
     providers = cast(list[dict[str, object]], payload["provider_health"])
-    provider_table = Table(title=TITLE_RESEARCH_SOURCE_HEALTH)
-    provider_table.add_column(LABEL_PROVIDER)
-    provider_table.add_column(LABEL_TYPE)
-    provider_table.add_column(LABEL_ENABLED)
-    provider_table.add_column(LABEL_FRESHNESS)
-    provider_table.add_column(LABEL_MESSAGE)
+    provider_table = Table(title=ui_t("title.research_source_health"))
+    provider_table.add_column(ui_t("label.provider"))
+    provider_table.add_column(ui_t("label.type"))
+    provider_table.add_column(ui_t("label.enabled"))
+    provider_table.add_column(ui_t("label.freshness"))
+    provider_table.add_column(ui_t("label.message"))
     for provider in providers:
         provider_table.add_row(
             str(provider["provider_id"]),
@@ -322,24 +278,24 @@ def render_research_flow_setup(payload: dict[str, object]) -> None:
     version_source = str(payload.get("version_source") or "-")
     version = str(payload["version"] or "-")
     python_version = str(payload["python_version"] or "-")
-    table = Table(title=TITLE_RESEARCH_CREWAI_FLOW_SETUP)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_SIDECAR_AVAILABLE, str(payload["available"]))
-    table.add_row(LABEL_VERSION_SOURCE, version_source)
-    table.add_row(LABEL_VERSION, version)
-    table.add_row(LABEL_UV_AVAILABLE, str(payload["uv_available"]))
-    table.add_row(LABEL_FLOW_DIR, str(payload["flow_dir"]))
-    table.add_row(LABEL_SCAFFOLD_EXISTS, str(payload["flow_scaffold_exists"]))
-    table.add_row(LABEL_ENVIRONMENT_EXISTS, str(payload["environment_exists"]))
-    table.add_row(LABEL_PYTHON_VERSION, python_version)
-    table.add_row(LABEL_LOCKFILE_EXISTS, str(payload["lockfile_exists"]))
-    table.add_row(LABEL_CORE_DEPENDENCY, str(payload["core_dependency"]))
+    table = Table(title=ui_t("title.research_crewai_flow_setup"))
+    table.add_column(ui_t("label.field"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.sidecar_available"), str(payload["available"]))
+    table.add_row(ui_t("label.version_source"), version_source)
+    table.add_row(ui_t("label.version"), version)
+    table.add_row(ui_t("label.uv_available"), str(payload["uv_available"]))
+    table.add_row(ui_t("label.flow_dir"), str(payload["flow_dir"]))
+    table.add_row(ui_t("label.scaffold_exists"), str(payload["flow_scaffold_exists"]))
+    table.add_row(ui_t("label.environment_exists"), str(payload["environment_exists"]))
+    table.add_row(ui_t("label.python_version"), python_version)
+    table.add_row(ui_t("label.lockfile_exists"), str(payload["lockfile_exists"]))
+    table.add_row(ui_t("label.core_dependency"), str(payload["core_dependency"]))
     console.print(table)
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["recommended_commands"])),
-            title=TITLE_RECOMMENDED_COMMANDS,
+            title=ui_t("title.recommended_commands"),
             border_style="cyan",
         )
     )

@@ -8,50 +8,7 @@ from rich.table import Table
 
 from agentic_trader.cli_modules.common import console
 from agentic_trader.schemas import ManagerDecision, RunArtifacts, RunRecord, RunReplay
-from agentic_trader.ui_text import (
-    LABEL_APPROVED,
-    LABEL_CONTEXT,
-    LABEL_CREATED,
-    LABEL_DECISION,
-    LABEL_FALLBACK,
-    LABEL_FIELD,
-    LABEL_FINAL_RATIONALE,
-    LABEL_FINAL_SIDE,
-    LABEL_INTERVAL,
-    LABEL_MEMORIES,
-    LABEL_MODEL,
-    LABEL_MULTI_TIMEFRAME,
-    LABEL_NOTES,
-    LABEL_OUTPUT,
-    LABEL_OUTPUT_PREVIEW,
-    LABEL_RESOLUTION_NOTES,
-    LABEL_ROLE,
-    LABEL_SPECIALIST,
-    LABEL_STAGE,
-    LABEL_SYMBOL,
-    LABEL_TOOLS,
-    LABEL_VALUE,
-    LABEL_WARNINGS,
-    STAGE_CONSENSUS,
-    STAGE_COORDINATOR,
-    STAGE_EXECUTION,
-    STAGE_FUNDAMENTAL,
-    STAGE_MANAGER,
-    STAGE_REGIME,
-    STAGE_RISK,
-    STAGE_STRATEGY,
-    TITLE_AGENT_DECISIONS,
-    TITLE_AGENT_TRACE,
-    TITLE_MANAGER_CONFLICT_REPLAY,
-    TITLE_MANAGER_CONFLICTS,
-    TITLE_MANAGER_OVERRIDE_NOTES,
-    TITLE_MEMORY_AWARE_REPLAY,
-    TITLE_REPLAY_STAGES,
-    TITLE_REVIEW_NOTE,
-    TITLE_RUN_REVIEW,
-    TITLE_TRACE,
-    UI_LIST_SEPARATOR,
-)
+from agentic_trader.ui_text import t as ui_t
 
 
 def render_run_markdown(record: RunRecord) -> str:
@@ -71,7 +28,7 @@ def render_run_review(record: RunRecord) -> None:
     console.print(
         Panel(
             "\n".join(f"- {note}" for note in manager_override_notes(record.artifacts)),
-            title=TITLE_MANAGER_OVERRIDE_NOTES,
+            title=ui_t("title.manager_override_notes"),
             border_style="yellow",
         )
     )
@@ -79,63 +36,67 @@ def render_run_review(record: RunRecord) -> None:
     console.print(
         Panel(
             record.artifacts.review.model_dump_json(indent=2),
-            title=TITLE_REVIEW_NOTE,
+            title=ui_t("title.review_note"),
             border_style="cyan",
         )
     )
 
 
 def _run_review_metadata(record: RunRecord) -> Table:
-    metadata = Table(title=TITLE_RUN_REVIEW + " / " + record.run_id)
-    metadata.add_column(LABEL_FIELD)
-    metadata.add_column(LABEL_VALUE)
-    metadata.add_row(LABEL_CREATED, record.created_at)
-    metadata.add_row(LABEL_SYMBOL, record.symbol)
-    metadata.add_row(LABEL_INTERVAL, record.interval)
-    metadata.add_row(LABEL_APPROVED, str(record.approved))
+    metadata = Table(title=ui_t("title.run_review") + " / " + record.run_id)
+    metadata.add_column(ui_t("label.field"))
+    metadata.add_column(ui_t("label.value"))
+    metadata.add_row(ui_t("label.created"), record.created_at)
+    metadata.add_row(ui_t("label.symbol"), record.symbol)
+    metadata.add_row(ui_t("label.interval"), record.interval)
+    metadata.add_row(ui_t("label.approved"), str(record.approved))
     return metadata
 
 
 def _run_review_analysis(record: RunRecord) -> Table:
     artifacts = record.artifacts
-    analysis = Table(title=TITLE_AGENT_DECISIONS)
-    analysis.add_column(LABEL_STAGE)
-    analysis.add_column(LABEL_DECISION)
-    analysis.add_column(LABEL_NOTES)
+    analysis = Table(title=ui_t("title.agent_decisions"))
+    analysis.add_column(ui_t("label.stage"))
+    analysis.add_column(ui_t("label.decision"))
+    analysis.add_column(ui_t("label.notes"))
     analysis.add_row(
-        STAGE_COORDINATOR,
+        ui_t("stage.coordinator"),
         artifacts.coordinator.market_focus,
         artifacts.coordinator.summary,
     )
     analysis.add_row(
-        STAGE_FUNDAMENTAL,
+        ui_t("stage.fundamental"),
         artifacts.fundamental.overall_bias,
         (
             f"{artifacts.fundamental.summary} | "
-            f"red_flags={UI_LIST_SEPARATOR.join(artifacts.fundamental.red_flags) or '-'}"
+            f"red_flags={ui_t('list.separator').join(artifacts.fundamental.red_flags) or '-'}"
         ),
     )
-    analysis.add_row(STAGE_REGIME, artifacts.regime.regime, artifacts.regime.reasoning)
     analysis.add_row(
-        STAGE_STRATEGY,
+        ui_t("stage.regime"), artifacts.regime.regime, artifacts.regime.reasoning
+    )
+    analysis.add_row(
+        ui_t("stage.strategy"),
         artifacts.strategy.strategy_family,
         artifacts.strategy.entry_logic,
     )
     analysis.add_row(
-        STAGE_RISK,
+        ui_t("stage.risk"),
         f"size={artifacts.risk.position_size_pct:.2%}",
         artifacts.risk.notes,
     )
     analysis.add_row(
-        STAGE_CONSENSUS,
+        ui_t("stage.consensus"),
         artifacts.consensus.alignment_level,
         artifacts.consensus.summary or "-",
     )
     analysis.add_row(
-        STAGE_MANAGER, artifacts.manager.action_bias, artifacts.manager.rationale
+        ui_t("stage.manager"),
+        artifacts.manager.action_bias,
+        artifacts.manager.rationale,
     )
     analysis.add_row(
-        STAGE_EXECUTION,
+        ui_t("stage.execution"),
         artifacts.execution.side,
         artifacts.execution.rationale,
     )
@@ -147,7 +108,7 @@ def manager_conflicts_panel(manager: ManagerDecision) -> Panel:
         body = "\n".join(f"- {note}" for note in manager.resolution_notes) or (
             "- Manager accepted the specialist plan without additional overrides."
         )
-        return Panel(body, title=TITLE_MANAGER_CONFLICTS, border_style="green")
+        return Panel(body, title=ui_t("title.manager_conflicts"), border_style="green")
 
     lines: list[str] = []
     for conflict in manager.conflicts:
@@ -158,17 +119,19 @@ def manager_conflicts_panel(manager: ManagerDecision) -> Panel:
         lines.append(f"  Manager: {conflict.manager_resolution}")
     if manager.resolution_notes:
         lines.append("")
-        lines.append(LABEL_RESOLUTION_NOTES + ":")
+        lines.append(ui_t("label.resolution_notes") + ":")
         lines.extend(f"- {note}" for note in manager.resolution_notes)
-    return Panel("\n".join(lines), title=TITLE_MANAGER_CONFLICTS, border_style="yellow")
+    return Panel(
+        "\n".join(lines), title=ui_t("title.manager_conflicts"), border_style="yellow"
+    )
 
 
 def render_run_trace(record: RunRecord) -> None:
-    table = Table(title=TITLE_AGENT_TRACE + " / " + record.run_id)
-    table.add_column(LABEL_ROLE)
-    table.add_column(LABEL_MODEL)
-    table.add_column(LABEL_FALLBACK)
-    table.add_column(LABEL_OUTPUT_PREVIEW)
+    table = Table(title=ui_t("title.agent_trace") + " / " + record.run_id)
+    table.add_column(ui_t("label.role"))
+    table.add_column(ui_t("label.model"))
+    table.add_column(ui_t("label.fallback"))
+    table.add_column(ui_t("label.output_preview"))
     for trace in record.artifacts.agent_traces:
         preview = trace.output_json.replace("\n", " ")[:120]
         table.add_row(trace.role, trace.model_name, str(trace.used_fallback), preview)
@@ -176,17 +139,17 @@ def render_run_trace(record: RunRecord) -> None:
     for trace in record.artifacts.agent_traces:
         trace_body = "\n".join(
             (
-                f"[bold]{LABEL_CONTEXT}[/bold]",
+                f"[bold]{ui_t('label.context')}[/bold]",
                 trace.context_json,
                 "",
-                f"[bold]{LABEL_OUTPUT}[/bold]",
+                f"[bold]{ui_t('label.output')}[/bold]",
                 trace.output_json,
             )
         )
         console.print(
             Panel(
                 trace_body,
-                title=TITLE_TRACE + " / " + trace.role,
+                title=ui_t("title.trace") + " / " + trace.role,
                 border_style="cyan" if not trace.used_fallback else "yellow",
             )
         )
@@ -198,7 +161,7 @@ def render_run_replay(replay: RunReplay) -> None:
     console.print(
         Panel(
             "\n".join(f"- {note}" for note in replay.manager_override_notes),
-            title=TITLE_MANAGER_OVERRIDE_NOTES,
+            title=ui_t("title.manager_override_notes"),
             border_style="yellow",
         )
     )
@@ -207,18 +170,18 @@ def render_run_replay(replay: RunReplay) -> None:
 
 
 def _run_replay_summary(replay: RunReplay) -> Table:
-    summary = Table(title=TITLE_MEMORY_AWARE_REPLAY + " / " + replay.run_id)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_CREATED, replay.created_at)
-    summary.add_row(LABEL_SYMBOL, replay.symbol)
-    summary.add_row(LABEL_INTERVAL, replay.interval)
-    summary.add_row(LABEL_APPROVED, str(replay.approved))
-    summary.add_row(LABEL_FINAL_SIDE, replay.final_side)
-    summary.add_row(LABEL_FINAL_RATIONALE, replay.final_rationale)
-    summary.add_row(STAGE_CONSENSUS, replay.consensus.alignment_level)
+    summary = Table(title=ui_t("title.memory_aware_replay") + " / " + replay.run_id)
+    summary.add_column(ui_t("label.field"))
+    summary.add_column(ui_t("label.value"))
+    summary.add_row(ui_t("label.created"), replay.created_at)
+    summary.add_row(ui_t("label.symbol"), replay.symbol)
+    summary.add_row(ui_t("label.interval"), replay.interval)
+    summary.add_row(ui_t("label.approved"), str(replay.approved))
+    summary.add_row(ui_t("label.final_side"), replay.final_side)
+    summary.add_row(ui_t("label.final_rationale"), replay.final_rationale)
+    summary.add_row(ui_t("stage.consensus"), replay.consensus.alignment_level)
     summary.add_row(
-        LABEL_MULTI_TIMEFRAME,
+        ui_t("label.multi_timeframe"),
         f"{replay.snapshot.mtf_alignment} @ {replay.snapshot.higher_timeframe} ({replay.snapshot.mtf_confidence:.2f})",
     )
     return summary
@@ -232,29 +195,29 @@ def _render_replay_conflicts(replay: RunReplay) -> None:
         lines.append(
             f"- [{conflict.severity}] {conflict.conflict_type}: {conflict.summary}"
         )
-        lines.append(f"  {LABEL_SPECIALIST}: {conflict.specialist_view}")
-        lines.append(f"  {STAGE_MANAGER}: {conflict.manager_resolution}")
+        lines.append(f"  {ui_t('label.specialist')}: {conflict.specialist_view}")
+        lines.append(f"  {ui_t('stage.manager')}: {conflict.manager_resolution}")
     if replay.manager_resolution_notes:
         lines.append("")
-        lines.append(LABEL_RESOLUTION_NOTES + ":")
+        lines.append(ui_t("label.resolution_notes") + ":")
         lines.extend(f"- {note}" for note in replay.manager_resolution_notes)
     console.print(
         Panel(
             "\n".join(lines),
-            title=TITLE_MANAGER_CONFLICT_REPLAY,
+            title=ui_t("title.manager_conflict_replay"),
             border_style="yellow",
         )
     )
 
 
 def _render_replay_stages(replay: RunReplay) -> None:
-    stage_table = Table(title=TITLE_REPLAY_STAGES)
-    stage_table.add_column(LABEL_ROLE)
-    stage_table.add_column(LABEL_MODEL)
-    stage_table.add_column(LABEL_FALLBACK)
-    stage_table.add_column(LABEL_MEMORIES)
-    stage_table.add_column(LABEL_TOOLS)
-    stage_table.add_column(LABEL_OUTPUT_PREVIEW)
+    stage_table = Table(title=ui_t("title.replay_stages"))
+    stage_table.add_column(ui_t("label.role"))
+    stage_table.add_column(ui_t("label.model"))
+    stage_table.add_column(ui_t("label.fallback"))
+    stage_table.add_column(ui_t("label.memories"))
+    stage_table.add_column(ui_t("label.tools"))
+    stage_table.add_column(ui_t("label.output_preview"))
     for stage in replay.stages:
         output_preview = (
             json.dumps(stage.output, indent=2)
@@ -275,7 +238,7 @@ def _render_replay_stages(replay: RunReplay) -> None:
 def _run_header_lines(record: RunRecord) -> list[str]:
     artifacts = record.artifacts
     return [
-        "# " + TITLE_RUN_REVIEW + ": " + record.run_id,
+        "# " + ui_t("title.run_review") + ": " + record.run_id,
         "",
         "## Metadata",
         f"- Created: {record.created_at}",
@@ -379,7 +342,7 @@ def _execution_review_lines(artifacts: RunArtifacts) -> list[str]:
         "## Review",
         f"- Summary: {artifacts.review.summary}",
         f"- Strengths: {join_or_dash(artifacts.review.strengths)}",
-        "- " + LABEL_WARNINGS + ": " + join_or_dash(artifacts.review.warnings),
+        "- " + ui_t("label.warnings") + ": " + join_or_dash(artifacts.review.warnings),
         f"- Next Checks: {join_or_dash(artifacts.review.next_checks)}",
         "",
     ]
@@ -433,7 +396,7 @@ def value_or_dash(value: object) -> str:
 
 
 def join_or_dash(values: list[str] | tuple[str, ...]) -> str:
-    return UI_LIST_SEPARATOR.join(values) if values else "-"
+    return ui_t("list.separator").join(values) if values else "-"
 
 
 def _markdown_bullets(values: list[str], *, fallback: str) -> list[str]:

@@ -9,36 +9,7 @@ from rich.text import Text
 
 from agentic_trader.cli_modules.common import console
 from agentic_trader.schemas import RunArtifacts
-from agentic_trader.ui_text import (
-    LABEL_APPROVED,
-    LABEL_CONFIDENCE,
-    LABEL_DECISION_PATH,
-    LABEL_ENTRY,
-    LABEL_FALLBACK,
-    LABEL_FIELD,
-    LABEL_LLM,
-    LABEL_NOTES,
-    LABEL_ORDER_ID,
-    LABEL_SIDE,
-    LABEL_SOURCE,
-    LABEL_STAGE,
-    LABEL_STOP,
-    LABEL_STRUCTURED_LLM,
-    LABEL_TAKE_PROFIT,
-    LABEL_VALUE,
-    MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
-    MESSAGE_FALLBACK_USED_IN,
-    STAGE_COORDINATOR,
-    STAGE_MANAGER,
-    STAGE_REGIME,
-    STAGE_RISK,
-    STAGE_STRATEGY,
-    TITLE_EXECUTION_SUMMARY,
-    TITLE_LLM_STATUS,
-    TITLE_PIPELINE,
-    TITLE_RUN_ARTIFACTS,
-    TITLE_WARNING,
-)
+from agentic_trader.ui_text import t as ui_t
 
 
 def render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
@@ -55,7 +26,7 @@ def render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
     console.print(
         Panel(
             json.dumps(artifacts.model_dump(mode="json"), indent=2),
-            title=TITLE_RUN_ARTIFACTS,
+            title=ui_t("title.run_artifacts"),
         )
     )
 
@@ -63,52 +34,52 @@ def render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
 def _execution_summary_table(
     order_id: str, artifacts: RunArtifacts, fallback_components: list[str]
 ) -> Table:
-    summary = Table(title=TITLE_EXECUTION_SUMMARY)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_ORDER_ID, order_id)
-    summary.add_row(LABEL_APPROVED, str(artifacts.execution.approved))
-    summary.add_row(LABEL_SIDE, artifacts.execution.side)
-    summary.add_row(LABEL_CONFIDENCE, f"{artifacts.execution.confidence:.2f}")
-    summary.add_row(LABEL_ENTRY, f"{artifacts.execution.entry_price:.4f}")
-    summary.add_row(LABEL_STOP, f"{artifacts.execution.stop_loss:.4f}")
-    summary.add_row(LABEL_TAKE_PROFIT, f"{artifacts.execution.take_profit:.4f}")
+    summary = Table(title=ui_t("title.execution_summary"))
+    summary.add_column(ui_t("label.field"))
+    summary.add_column(ui_t("label.value"))
+    summary.add_row(ui_t("label.order_id"), order_id)
+    summary.add_row(ui_t("label.approved"), str(artifacts.execution.approved))
+    summary.add_row(ui_t("label.side"), artifacts.execution.side)
+    summary.add_row(ui_t("label.confidence"), f"{artifacts.execution.confidence:.2f}")
+    summary.add_row(ui_t("label.entry"), f"{artifacts.execution.entry_price:.4f}")
+    summary.add_row(ui_t("label.stop"), f"{artifacts.execution.stop_loss:.4f}")
+    summary.add_row(ui_t("label.take_profit"), f"{artifacts.execution.take_profit:.4f}")
     summary.add_row(
-        LABEL_DECISION_PATH,
-        LABEL_FALLBACK if fallback_components else LABEL_LLM,
+        ui_t("label.decision_path"),
+        ui_t("label.fallback") if fallback_components else ui_t("label.llm"),
     )
     return summary
 
 
 def _pipeline_table(artifacts: RunArtifacts) -> Table:
-    pipeline = Table(title=TITLE_PIPELINE)
-    pipeline.add_column(LABEL_STAGE)
-    pipeline.add_column(LABEL_SOURCE)
-    pipeline.add_column(LABEL_NOTES)
+    pipeline = Table(title=ui_t("title.pipeline"))
+    pipeline.add_column(ui_t("label.stage"))
+    pipeline.add_column(ui_t("label.source"))
+    pipeline.add_column(ui_t("label.notes"))
     pipeline.add_row(
-        STAGE_COORDINATOR,
+        ui_t("stage.coordinator"),
         artifacts.coordinator.source,
-        artifacts.coordinator.fallback_reason or LABEL_STRUCTURED_LLM,
+        artifacts.coordinator.fallback_reason or ui_t("label.structured_llm"),
     )
     pipeline.add_row(
-        STAGE_REGIME,
+        ui_t("stage.regime"),
         artifacts.regime.source,
-        artifacts.regime.fallback_reason or LABEL_STRUCTURED_LLM,
+        artifacts.regime.fallback_reason or ui_t("label.structured_llm"),
     )
     pipeline.add_row(
-        STAGE_STRATEGY,
+        ui_t("stage.strategy"),
         artifacts.strategy.source,
-        artifacts.strategy.fallback_reason or LABEL_STRUCTURED_LLM,
+        artifacts.strategy.fallback_reason or ui_t("label.structured_llm"),
     )
     pipeline.add_row(
-        STAGE_RISK,
+        ui_t("stage.risk"),
         artifacts.risk.source,
-        artifacts.risk.fallback_reason or LABEL_STRUCTURED_LLM,
+        artifacts.risk.fallback_reason or ui_t("label.structured_llm"),
     )
     pipeline.add_row(
-        STAGE_MANAGER,
+        ui_t("stage.manager"),
         artifacts.manager.source,
-        artifacts.manager.fallback_reason or LABEL_STRUCTURED_LLM,
+        artifacts.manager.fallback_reason or ui_t("label.structured_llm"),
     )
     return pipeline
 
@@ -118,18 +89,18 @@ def _render_execution_path_panel(fallback_components: list[str]) -> None:
         console.print(
             Panel(
                 Text(
-                    f"{MESSAGE_FALLBACK_USED_IN}: {', '.join(fallback_components)}",
+                    f"{ui_t('message.fallback_used_in')}: {', '.join(fallback_components)}",
                     style="yellow",
                 ),
-                title=TITLE_WARNING,
+                title=ui_t("title.warning"),
                 border_style="yellow",
             )
         )
         return
     console.print(
         Panel(
-            Text(MESSAGE_ALL_AGENT_STAGES_LLM_PATH, style="green"),
-            title=TITLE_LLM_STATUS,
+            Text(ui_t("message.all_agent_stages_llm_path"), style="green"),
+            title=ui_t("title.llm_status"),
             border_style="green",
         )
     )

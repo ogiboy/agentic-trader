@@ -20,24 +20,7 @@ from agentic_trader.schemas import (
     OperatorInstruction,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.ui_text import (
-    HELP_CHAT_MESSAGE,
-    HELP_CHAT_PERSONA,
-    HELP_INSTRUCT_APPLY,
-    HELP_INSTRUCT_MESSAGE,
-    HELP_JSON,
-    LABEL_FIELD,
-    LABEL_MESSAGE,
-    LABEL_PREFERENCE_UPDATE,
-    LABEL_RATIONALE,
-    LABEL_REQUIRES_CONFIRMATION,
-    LABEL_SUMMARY,
-    LABEL_UPDATE_PREFERENCES,
-    LABEL_VALUE,
-    TITLE_CHAT,
-    TITLE_OPERATOR_INSTRUCTION,
-    TITLE_UPDATED_PREFERENCES,
-)
+from agentic_trader.ui_text import t as ui_t
 
 
 @dataclass(frozen=True)
@@ -65,9 +48,11 @@ def register_operator_chat_commands(
 def _register_chat_command(app: typer.Typer, deps: OperatorChatCommandDeps) -> None:
     @app.command()
     def chat(
-        persona: ChatPersona = typer.Option("operator_liaison", help=HELP_CHAT_PERSONA),
-        message: str | None = typer.Option(None, help=HELP_CHAT_MESSAGE),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        persona: ChatPersona = typer.Option(
+            "operator_liaison", help=ui_t("help.chat_persona")
+        ),
+        message: str | None = typer.Option(None, help=ui_t("help.chat_message")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         """
         Send a message to a chosen operator persona and display or emit the persona's reply.
@@ -81,7 +66,7 @@ def _register_chat_command(app: typer.Typer, deps: OperatorChatCommandDeps) -> N
         deps.ensure_ready(settings)
         db = deps.open_db(settings, read_only=True)
         try:
-            prompt = message or typer.prompt(LABEL_MESSAGE)
+            prompt = message or typer.prompt(ui_t("label.message"))
             response = deps.chat_with_persona(
                 llm=deps.llm_factory(settings),
                 db=db,
@@ -113,7 +98,7 @@ def _register_chat_command(app: typer.Typer, deps: OperatorChatCommandDeps) -> N
         console.print(
             Panel(
                 response,
-                title=TITLE_CHAT.format(persona=persona),
+                title=ui_t("title.chat").format(persona=persona),
                 border_style="cyan",
             )
         )
@@ -122,9 +107,9 @@ def _register_chat_command(app: typer.Typer, deps: OperatorChatCommandDeps) -> N
 def _register_instruct_command(app: typer.Typer, deps: OperatorChatCommandDeps) -> None:
     @app.command()
     def instruct(
-        message: str = typer.Option(..., help=HELP_INSTRUCT_MESSAGE),
-        apply: bool = typer.Option(False, help=HELP_INSTRUCT_APPLY),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        message: str = typer.Option(..., help=ui_t("help.instruct_message")),
+        apply: bool = typer.Option(False, help=ui_t("help.instruct_apply")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         """
         Interpret a natural-language operator instruction and optionally persist a resulting preference update.
@@ -163,7 +148,7 @@ def _register_instruct_command(app: typer.Typer, deps: OperatorChatCommandDeps) 
                 console.print(
                     Panel(
                         updated.model_dump_json(indent=2),
-                        title=TITLE_UPDATED_PREFERENCES,
+                        title=ui_t("title.updated_preferences"),
                         border_style="green",
                     )
                 )
@@ -172,15 +157,19 @@ def _register_instruct_command(app: typer.Typer, deps: OperatorChatCommandDeps) 
 
 
 def _render_instruction(instruction: OperatorInstruction) -> None:
-    table = Table(title=TITLE_OPERATOR_INSTRUCTION)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_SUMMARY, instruction.summary)
-    table.add_row(LABEL_UPDATE_PREFERENCES, str(instruction.should_update_preferences))
-    table.add_row(LABEL_REQUIRES_CONFIRMATION, str(instruction.requires_confirmation))
-    table.add_row(LABEL_RATIONALE, instruction.rationale)
+    table = Table(title=ui_t("title.operator_instruction"))
+    table.add_column(ui_t("label.field"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.summary"), instruction.summary)
     table.add_row(
-        LABEL_PREFERENCE_UPDATE,
+        ui_t("label.update_preferences"), str(instruction.should_update_preferences)
+    )
+    table.add_row(
+        ui_t("label.requires_confirmation"), str(instruction.requires_confirmation)
+    )
+    table.add_row(ui_t("label.rationale"), instruction.rationale)
+    table.add_row(
+        ui_t("label.preference_update"),
         json.dumps(instruction.preference_update.model_dump(mode="json"), indent=2),
     )
     console.print(table)

@@ -36,12 +36,7 @@ from agentic_trader.system.webgui_service import (
     build_webgui_service_status,
     stop_webgui_service,
 )
-from agentic_trader.ui_text import (
-    HELP_CAMOFOX_SERVICE_APP,
-    HELP_MODEL_SERVICE_APP,
-    HELP_TOOL_OWNERSHIP_APP,
-    HELP_WEBGUI_SERVICE_APP,
-)
+from agentic_trader.ui_text import t as ui_t
 
 SettingsProvider = Callable[[], Settings]
 JsonEmitter = Callable[[object], None]
@@ -189,13 +184,13 @@ def register_cli_system_commands(
     emit_json: JsonEmitter,
     service_namespace: ServiceNamespace | None = None,
 ) -> None:
-    model_service_app = typer.Typer(help=HELP_MODEL_SERVICE_APP)
+    model_service_app = typer.Typer(help=ui_t("help.model_service_app"))
     app.add_typer(model_service_app, name="model-service")
-    webgui_service_app = typer.Typer(help=HELP_WEBGUI_SERVICE_APP)
+    webgui_service_app = typer.Typer(help=ui_t("help.webgui_service_app"))
     app.add_typer(webgui_service_app, name="webgui-service")
-    camofox_service_app = typer.Typer(help=HELP_CAMOFOX_SERVICE_APP)
+    camofox_service_app = typer.Typer(help=ui_t("help.camofox_service_app"))
     app.add_typer(camofox_service_app, name="camofox-service")
-    tool_ownership_app = typer.Typer(help=HELP_TOOL_OWNERSHIP_APP)
+    tool_ownership_app = typer.Typer(help=ui_t("help.tool_ownership_app"))
     app.add_typer(tool_ownership_app, name="tool-ownership")
     register_system_commands(
         app=app,

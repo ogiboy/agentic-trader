@@ -13,17 +13,7 @@ from agentic_trader.cli_modules.service_control import run_stop_service_command
 from agentic_trader.config import Settings
 from agentic_trader.schemas import ServiceStateSnapshot
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.ui_text import (
-    HELP_MONITOR_REFRESH_SECONDS,
-    HELP_RESTART_SERVICE_GRACE_SECONDS,
-    HELP_STOP_SERVICE_FORCE,
-    LABEL_LATEST_ORDER,
-    MESSAGE_BACKGROUND_SERVICE_RESTARTED,
-    MESSAGE_LAUNCH_SYMBOL_REQUIRED,
-    MESSAGE_NO_ORDERS_RECORDED,
-    TITLE_RESTART_BLOCKED,
-    TITLE_SERVICE_RESTARTED,
-)
+from agentic_trader.ui_text import t as ui_t
 
 
 class RunLiveMonitor(Protocol):
@@ -89,7 +79,7 @@ def _register_monitor_command(app: typer.Typer, deps: ServiceCommandDeps) -> Non
     @app.command()
     def monitor(
         refresh_seconds: float = typer.Option(
-            1.0, min=0.2, help=HELP_MONITOR_REFRESH_SECONDS
+            1.0, min=0.2, help=ui_t("help.monitor_refresh_seconds")
         ),
     ) -> None:
         """
@@ -106,7 +96,7 @@ def _register_monitor_command(app: typer.Typer, deps: ServiceCommandDeps) -> Non
 def _register_stop_service_command(app: typer.Typer, deps: ServiceCommandDeps) -> None:
     @app.command("stop-service")
     def stop_service(
-        force: bool = typer.Option(False, help=HELP_STOP_SERVICE_FORCE),
+        force: bool = typer.Option(False, help=ui_t("help.stop_service_force")),
     ) -> None:
         """Request a graceful stop for the background orchestrator."""
         run_stop_service_command(
@@ -126,7 +116,7 @@ def _register_restart_service_command(
     @app.command("restart-service")
     def restart_service(
         grace_seconds: float = typer.Option(
-            3.0, min=0.0, help=HELP_RESTART_SERVICE_GRACE_SECONDS
+            3.0, min=0.0, help=ui_t("help.restart_service_grace_seconds")
         ),
     ) -> None:
         """
@@ -144,7 +134,7 @@ def _register_restart_service_command(
         except Exception as exc:
             console.print(
                 deps.render_health_panel(
-                    TITLE_RESTART_BLOCKED,
+                    ui_t("title.restart_blocked"),
                     str(exc),
                     border_style="red",
                 )
@@ -152,8 +142,8 @@ def _register_restart_service_command(
             raise typer.Exit(code=1) from exc
         console.print(
             deps.render_health_panel(
-                TITLE_SERVICE_RESTARTED,
-                MESSAGE_BACKGROUND_SERVICE_RESTARTED.format(pid=pid),
+                ui_t("title.service_restarted"),
+                ui_t("message.background_service_restarted").format(pid=pid),
                 border_style="green",
             )
         )
@@ -175,7 +165,7 @@ def _register_service_run_command(app: typer.Typer, deps: ServiceCommandDeps) ->
             item.strip().upper() for item in symbols.split(",") if item.strip()
         ]
         if not symbol_list:
-            raise typer.BadParameter(MESSAGE_LAUNCH_SYMBOL_REQUIRED)
+            raise typer.BadParameter(ui_t("message.launch_symbol_required"))
         deps.run_service(
             settings=settings,
             symbols=symbol_list,
@@ -205,7 +195,7 @@ def _register_latest_order_command(app: typer.Typer, deps: ServiceCommandDeps) -
         finally:
             db.close()
         if order is None:
-            console.print(Text(MESSAGE_NO_ORDERS_RECORDED, style="yellow"))
+            console.print(Text(ui_t("message.no_orders_recorded"), style="yellow"))
             raise typer.Exit(code=0)
 
         columns: list[str] = [
@@ -220,7 +210,7 @@ def _register_latest_order_command(app: typer.Typer, deps: ServiceCommandDeps) -
             "position_size_pct",
             "confidence",
         ]
-        table = Table(title=LABEL_LATEST_ORDER)
+        table = Table(title=ui_t("label.latest_order"))
         for column in columns:
             table.add_column(column)
         table.add_row(*(str(value) for value in order))

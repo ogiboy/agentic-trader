@@ -12,25 +12,7 @@ from agentic_trader.config import Settings
 from agentic_trader.schemas import LLMHealthStatus
 from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.system.runtime_tools import apply_app_owned_service_settings
-from agentic_trader.ui_text import (
-    LABEL_BASE_URL,
-    LABEL_DATABASE,
-    LABEL_DB_STATUS,
-    LABEL_KEY,
-    LABEL_LATEST_ORDER,
-    LABEL_LLM_PROVIDER,
-    LABEL_MODEL,
-    LABEL_MODEL_AVAILABLE,
-    LABEL_MODEL_ROUTING,
-    LABEL_OLLAMA_REACHABLE,
-    LABEL_RUNTIME_DIR,
-    LABEL_VALUE,
-    MESSAGE_TRADING_RUNTIME_BLOCKED,
-    MESSAGE_TRADING_RUNTIME_READY,
-    TITLE_ENVIRONMENT_CHECK,
-    TITLE_LLM_STATUS,
-    TITLE_RUNTIME_MODE,
-)
+from agentic_trader.ui_text import t as ui_t
 
 LatestOrderFormatter = Callable[[OrderRow | None], str]
 HealthCheck = Callable[[Settings], LLMHealthStatus]
@@ -110,27 +92,29 @@ def _latest_order_status(
 
 
 def render_doctor_payload(payload: dict[str, object]) -> None:
-    table = Table(title=TITLE_ENVIRONMENT_CHECK)
-    table.add_column(LABEL_KEY)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_LLM_PROVIDER, str(payload["provider"]))
-    table.add_row(LABEL_MODEL, str(payload["model"]))
-    table.add_row(TITLE_RUNTIME_MODE, str(payload["runtime_mode"]))
-    table.add_row(LABEL_BASE_URL, str(payload["base_url"]))
-    table.add_row(LABEL_RUNTIME_DIR, str(payload["runtime_dir"]))
-    table.add_row(LABEL_DATABASE, str(payload["database"]))
-    table.add_row(LABEL_DB_STATUS, str(payload["db_status"]))
-    table.add_row(LABEL_MODEL_ROUTING, json.dumps(payload["model_routing"], indent=2))
+    table = Table(title=ui_t("title.environment_check"))
+    table.add_column(ui_t("label.key"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.llm_provider"), str(payload["provider"]))
+    table.add_row(ui_t("label.model"), str(payload["model"]))
+    table.add_row(ui_t("title.runtime_mode"), str(payload["runtime_mode"]))
+    table.add_row(ui_t("label.base_url"), str(payload["base_url"]))
+    table.add_row(ui_t("label.runtime_dir"), str(payload["runtime_dir"]))
+    table.add_row(ui_t("label.database"), str(payload["database"]))
+    table.add_row(ui_t("label.db_status"), str(payload["db_status"]))
     table.add_row(
-        LABEL_OLLAMA_REACHABLE,
+        ui_t("label.model_routing"), json.dumps(payload["model_routing"], indent=2)
+    )
+    table.add_row(
+        ui_t("label.ollama_reachable"),
         "[green]yes[/green]" if payload["ollama_reachable"] else "[red]no[/red]",
     )
     table.add_row(
-        LABEL_MODEL_AVAILABLE,
+        ui_t("label.model_available"),
         "[green]yes[/green]" if payload["model_available"] else "[yellow]no[/yellow]",
     )
-    table.add_row(TITLE_LLM_STATUS, str(payload["llm_status"]))
-    table.add_row(LABEL_LATEST_ORDER, str(payload["latest_order"]))
+    table.add_row(ui_t("title.llm_status"), str(payload["llm_status"]))
+    table.add_row(ui_t("label.latest_order"), str(payload["latest_order"]))
     console.print(table)
     _render_runtime_readiness(payload)
 
@@ -139,7 +123,7 @@ def _render_runtime_readiness(payload: dict[str, object]) -> None:
     if payload["llm_reachable"] and payload["model_available"]:
         console.print(
             Panel(
-                MESSAGE_TRADING_RUNTIME_READY,
+                ui_t("message.trading_runtime_ready"),
                 title="Ready",
                 border_style="green",
             )
@@ -147,7 +131,7 @@ def _render_runtime_readiness(payload: dict[str, object]) -> None:
         return
     console.print(
         Panel(
-            MESSAGE_TRADING_RUNTIME_BLOCKED,
+            ui_t("message.trading_runtime_blocked"),
             title="Blocked",
             border_style="red",
         )

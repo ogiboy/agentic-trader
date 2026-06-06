@@ -9,21 +9,11 @@ from rich.table import Table
 from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
 from agentic_trader.ui_text import (
-    HELP_JSON,
-    HELP_LOCALE_PERSIST,
-    LABEL_ENVIRONMENT,
-    LABEL_FIELD,
-    LABEL_LOCALE,
-    LABEL_PERSISTED,
-    LABEL_SUPPORTED,
-    LABEL_VALUE,
-    STYLE_KEY_COLUMN,
     SUPPORTED_UI_LOCALES,
-    TITLE_UI_LOCALE,
-    UI_LIST_SEPARATOR,
     UI_LOCALE_ENV,
     UILocale,
 )
+from agentic_trader.ui_text import t as ui_t
 
 
 def parse_ui_locale(locale: str | None) -> UILocale | None:
@@ -64,9 +54,9 @@ def register_locale_command(
         set_locale: str | None = typer.Option(
             None,
             "--set",
-            help=HELP_LOCALE_PERSIST,
+            help=ui_t("help.locale_persist"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         """Show or persist the terminal UI locale."""
         settings = settings_provider()
@@ -89,11 +79,13 @@ def register_locale_command(
 
 
 def _render_locale_payload(payload: dict[str, object], *, persisted: bool) -> None:
-    table = Table(title=TITLE_UI_LOCALE)
-    table.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_LOCALE, str(payload["locale"]))
-    table.add_row(LABEL_SUPPORTED, UI_LIST_SEPARATOR.join(SUPPORTED_UI_LOCALES))
-    table.add_row(LABEL_ENVIRONMENT, UI_LOCALE_ENV)
-    table.add_row(LABEL_PERSISTED, str(persisted))
+    table = Table(title=ui_t("title.ui_locale"))
+    table.add_column(ui_t("label.field"), style=ui_t("style.key_column"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.locale"), str(payload["locale"]))
+    table.add_row(
+        ui_t("label.supported"), ui_t("list.separator").join(SUPPORTED_UI_LOCALES)
+    )
+    table.add_row(ui_t("label.environment"), UI_LOCALE_ENV)
+    table.add_row(ui_t("label.persisted"), str(persisted))
     console.print(table)
