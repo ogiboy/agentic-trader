@@ -22,6 +22,7 @@ export
   positionPlanCoverageLines,
   proposalApprovalBlockedReason,
   proposalHeadline,
+  proposalHeadlineWithCopy,
   proposalLines,
   tradeContextLines,
   unavailableSectionLines

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import subprocess
 import time
@@ -19,6 +20,13 @@ from scripts.qa.smoke_qa_modules.models import CheckResult, SmokeContext
 
 def _empty_issues() -> list[str]:
     return []
+
+
+def _ink_navigation_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("TERM", "xterm-256color")
+    env["CI"] = "false"
+    return env
 
 
 @dataclass
@@ -123,6 +131,7 @@ def _run_tmux_navigation(
             capture_output=True,
             timeout=5,
             check=False,
+            env=_ink_navigation_env(),
         )
     return capture
 
@@ -205,6 +214,7 @@ def _tmux_capture_pane(
             capture_output=True,
             timeout=timeout,
             check=False,
+            env=_ink_navigation_env(),
         ),
     )
     return proc.stdout or ""
@@ -240,6 +250,7 @@ def _start_tmux_session(
             capture_output=True,
             timeout=timeout,
             check=True,
+            env=_ink_navigation_env(),
         ),
     )
     if launch_proc.stderr:
@@ -294,6 +305,7 @@ def _send_tmux_key(
         capture_output=True,
         timeout=timeout,
         check=False,
+        env=_ink_navigation_env(),
     )
 
 

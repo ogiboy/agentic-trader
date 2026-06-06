@@ -26,6 +26,7 @@ from scripts.qa.smoke_qa_modules.models import CheckResult, SmokeContext
 def spawn_env() -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("TERM", "xterm-256color")
+    env["CI"] = "false"
     return env
 
 

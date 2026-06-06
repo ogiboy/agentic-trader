@@ -1,9 +1,11 @@
 import subprocess
 from pathlib import Path
+from typing import cast
 
 from pytest import MonkeyPatch
 
 from scripts.qa import smoke_qa
+from scripts.qa.smoke_qa_modules import interactive
 
 
 def test_claim_artifacts_dir_uses_unique_suffix_for_existing_label(
@@ -43,6 +45,17 @@ def test_ink_settings_capture_issues_reports_missing_markers() -> None:
     assert "behavior/strictness line missing" in issues
 
 
+def test_interactive_tui_spawn_env_forces_ink_rendering_in_ci(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CI", "true")
+
+    env = interactive.spawn_env()
+
+    assert env["CI"] == "false"
+    assert env["TERM"]
+
+
 def test_run_ink_settings_navigation_reports_tmux_session_failures(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
@@ -51,9 +64,15 @@ def test_run_ink_settings_navigation_reports_tmux_session_failures(
 
     monkeypatch.setattr(smoke_qa.shutil, "which", _fake_which)
 
+    env_values: list[str | None] = []
+
     def _fake_run(
         command: list[str], *args: object, **kwargs: object
     ) -> subprocess.CompletedProcess[str]:
+        env = kwargs.get("env")
+        if isinstance(env, dict):
+            typed_env = cast(dict[str, str], env)
+            env_values.append(typed_env.get("CI"))
         if command[1] == "new-session":
             raise subprocess.CalledProcessError(
                 returncode=1,
@@ -71,6 +90,7 @@ def test_run_ink_settings_navigation_reports_tmux_session_failures(
 
     assert not result.passed
     assert "tmux new-session failed" in result.details
+    assert "false" in env_values
 
 
 def test_write_report_summarizes_pass_and_failure_results(

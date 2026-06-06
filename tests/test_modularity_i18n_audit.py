@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.qa.modularity_i18n_audit import build_report, parse_args
+from scripts.qa.modularity_i18n_audit import (
+    build_report,
+    parse_args,
+    should_fail_gate,
+)
 
 
 def test_parse_args_accepts_pnpm_separator() -> None:
@@ -24,6 +28,8 @@ def test_audit_reports_docs_locale_parity(tmp_path: Path) -> None:
 
     assert report.docs_locale_parity.english_only == ("extra.mdx",)
     assert report.docs_locale_parity.turkish_only == ()
+    assert should_fail_gate(report, fail_on_findings=True)
+    assert not should_fail_gate(report, fail_on_findings=False)
 
 
 def test_audit_reports_repeated_helpers_and_copy_candidates(tmp_path: Path) -> None:
@@ -72,3 +78,25 @@ def test_default_audit_scope_includes_project_docs_and_tool_js(
     assert ".ai/decisions.instructions.md" in oversized_paths
     assert "tools/browser-helper/server.js" in oversized_paths
     assert ".ai/qa/artifacts/coverage.md" not in oversized_paths
+
+
+def test_audit_uses_tighter_tool_and_qa_entrypoint_budgets(
+    tmp_path: Path,
+) -> None:
+    tool_entrypoint = tmp_path / "tools" / "camofox-browser" / "server.js"
+    tool_entrypoint.parent.mkdir(parents=True)
+    tool_entrypoint.write_text(
+        "\n".join(["export const x = 1;"] * 451),
+        encoding="utf-8",
+    )
+    qa_entrypoint = tmp_path / "scripts" / "qa" / "smoke_qa.py"
+    qa_entrypoint.parent.mkdir(parents=True)
+    qa_entrypoint.write_text("\n".join(["print('qa')"] * 651), encoding="utf-8")
+
+    report = build_report(repo_root=tmp_path)
+
+    metrics = {metric.path: metric for metric in report.oversized_files}
+    assert metrics["tools/camofox-browser/server.js"].category == "tool-entrypoint"
+    assert metrics["tools/camofox-browser/server.js"].threshold == 450
+    assert metrics["scripts/qa/smoke_qa.py"].category == "qa-entrypoint"
+    assert metrics["scripts/qa/smoke_qa.py"].threshold == 650

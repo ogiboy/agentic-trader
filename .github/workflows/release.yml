@@ -66,6 +66,7 @@ jobs:
           uv lock --check
           uv run --locked --no-sync python scripts/release/check_changelog_marker.py
           uv run --locked --no-sync python scripts/release/check_conventional_release_commits.py
+          uv run --locked --no-sync python scripts/qa/modularity_i18n_audit.py --fail-on-findings
           uv run --locked --no-sync ruff check .
           uv run --locked --no-sync python scripts/check_pyright_baseline.py agentic_trader tests scripts sidecars/research_flow/src
           uv run --locked --no-sync python -m pytest -q

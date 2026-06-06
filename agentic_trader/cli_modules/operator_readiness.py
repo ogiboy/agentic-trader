@@ -13,7 +13,26 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import (
+    HELP_JSON,
+    LABEL_ACCELERATOR,
+    LABEL_COMMAND,
+    LABEL_CPU_COUNT,
+    LABEL_ESTIMATED_MODEL_SIZE,
+    LABEL_FIELD,
+    LABEL_MEMORY_GB,
+    LABEL_MODEL,
+    LABEL_PROFILE,
+    LABEL_PURPOSE,
+    LABEL_SAFE_PARALLEL_AGENTS,
+    LABEL_STEP,
+    LABEL_TOKEN_HINT,
+    LABEL_VALUE,
+    MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
+    TITLE_HARDWARE_PROFILE,
+    TITLE_OPERATOR_WORKFLOW,
+    TITLE_V1_OPERATOR_WORKFLOW,
+)
 from agentic_trader.cli_modules.common import console, emit_json
 from agentic_trader.config import Settings, get_settings
 
@@ -352,7 +371,7 @@ def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
 
 
 def operator_workflow_command(
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show the canonical V1 operator review workflow without executing it."""
     settings = _settings()
@@ -360,11 +379,11 @@ def operator_workflow_command(
     if json_output:
         emit_json(payload)
         return
-    table = Table(title=text.TITLE_V1_OPERATOR_WORKFLOW)
+    table = Table(title=TITLE_V1_OPERATOR_WORKFLOW)
     table.add_column("#", style="cyan")
-    table.add_column(text.LABEL_STEP)
-    table.add_column(text.LABEL_COMMAND)
-    table.add_column(text.LABEL_PURPOSE)
+    table.add_column(LABEL_STEP)
+    table.add_column(LABEL_COMMAND)
+    table.add_column(LABEL_PURPOSE)
     for step in cast(list[dict[str, object]], payload["steps"]):
         table.add_row(
             str(step["order"]),
@@ -374,8 +393,8 @@ def operator_workflow_command(
         )
     console.print(
         Panel(
-            text.MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
-            title=text.TITLE_OPERATOR_WORKFLOW,
+            MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
+            title=TITLE_OPERATOR_WORKFLOW,
             border_style="cyan",
         )
     )
@@ -383,7 +402,7 @@ def operator_workflow_command(
 
 
 def hardware_profile_command(
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show local hardware and model-capacity hints before long paper runs."""
     settings = _settings()
@@ -395,24 +414,24 @@ def hardware_profile_command(
     hardware = cast(dict[str, object], payload["hardware"])
     configured = cast(dict[str, object], payload["configured_runtime"])
     recommendations = cast(dict[str, object], payload["recommendations"])
-    table = Table(title=text.TITLE_HARDWARE_PROFILE)
-    table.add_column(text.LABEL_FIELD, style="cyan")
-    table.add_column(text.LABEL_VALUE)
-    table.add_row(text.LABEL_CPU_COUNT, str(hardware["cpu_count"]))
-    table.add_row(text.LABEL_MEMORY_GB, str(hardware["memory_gb"]))
+    table = Table(title=TITLE_HARDWARE_PROFILE)
+    table.add_column(LABEL_FIELD, style="cyan")
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_CPU_COUNT, str(hardware["cpu_count"]))
+    table.add_row(LABEL_MEMORY_GB, str(hardware["memory_gb"]))
     accelerator = cast(dict[str, object], hardware["accelerator"])
-    table.add_row(text.LABEL_ACCELERATOR, str(accelerator.get("type", "unknown")))
-    table.add_row(text.LABEL_MODEL, str(configured["model_name"]))
+    table.add_row(LABEL_ACCELERATOR, str(accelerator.get("type", "unknown")))
+    table.add_row(LABEL_MODEL, str(configured["model_name"]))
     table.add_row(
-        text.LABEL_ESTIMATED_MODEL_SIZE,
+        LABEL_ESTIMATED_MODEL_SIZE,
         str(configured["estimated_model_size_b"]),
     )
     table.add_row(
-        text.LABEL_SAFE_PARALLEL_AGENTS,
+        LABEL_SAFE_PARALLEL_AGENTS,
         str(recommendations["safe_parallel_agents"]),
     )
-    table.add_row(text.LABEL_TOKEN_HINT, str(recommendations["max_output_tokens"]))
-    table.add_row(text.LABEL_PROFILE, str(recommendations["profile"]))
+    table.add_row(LABEL_TOKEN_HINT, str(recommendations["max_output_tokens"]))
+    table.add_row(LABEL_PROFILE, str(recommendations["profile"]))
     console.print(table)
 
 

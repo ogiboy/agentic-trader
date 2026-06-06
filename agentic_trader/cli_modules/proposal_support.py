@@ -6,7 +6,29 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import (
+    LABEL_CONFIDENCE,
+    LABEL_ID,
+    LABEL_PRESET,
+    LABEL_PROPOSAL,
+    LABEL_REASONS,
+    LABEL_REF,
+    LABEL_SCORE,
+    LABEL_SIDE,
+    LABEL_SIGNAL,
+    LABEL_SIZE,
+    LABEL_SOURCE,
+    LABEL_STATUS,
+    LABEL_SYMBOL,
+    LABEL_WARNINGS,
+    MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
+    MESSAGE_IDEA_SCORE_UNAVAILABLE,
+    MESSAGE_NO_PROPOSAL_CANDIDATES,
+    MESSAGE_NO_TRADE_PROPOSALS,
+    TITLE_IDEA_SCORE,
+    TITLE_PROPOSAL_CANDIDATES,
+    TITLE_TRADE_PROPOSALS,
+)
 from agentic_trader.cli_modules.common import console, emit_json, open_db
 from agentic_trader.config import Settings
 from agentic_trader.finance.ideas import (
@@ -216,21 +238,21 @@ def render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
     if not proposals:
         console.print(
             Panel(
-                text.MESSAGE_NO_TRADE_PROPOSALS,
-                title=text.TITLE_TRADE_PROPOSALS,
+                MESSAGE_NO_TRADE_PROPOSALS,
+                title=TITLE_TRADE_PROPOSALS,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title=text.TITLE_TRADE_PROPOSALS)
-    table.add_column(text.LABEL_ID)
-    table.add_column(text.LABEL_STATUS)
-    table.add_column(text.LABEL_SYMBOL)
-    table.add_column(text.LABEL_SIDE)
-    table.add_column(text.LABEL_SIZE)
-    table.add_column(text.LABEL_REF)
-    table.add_column(text.LABEL_CONFIDENCE)
-    table.add_column(text.LABEL_SOURCE)
+    table = Table(title=TITLE_TRADE_PROPOSALS)
+    table.add_column(LABEL_ID)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_SIDE)
+    table.add_column(LABEL_SIZE)
+    table.add_column(LABEL_REF)
+    table.add_column(LABEL_CONFIDENCE)
+    table.add_column(LABEL_SOURCE)
     for proposal in proposals:
         size = (
             f"qty {proposal.quantity:.6f}"
@@ -260,21 +282,21 @@ def render_proposal_candidates(candidates: list[ProposalCandidateRecord]) -> Non
     if not candidates:
         console.print(
             Panel(
-                text.MESSAGE_NO_PROPOSAL_CANDIDATES,
-                title=text.TITLE_PROPOSAL_CANDIDATES,
+                MESSAGE_NO_PROPOSAL_CANDIDATES,
+                title=TITLE_PROPOSAL_CANDIDATES,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title=text.TITLE_PROPOSAL_CANDIDATES)
-    table.add_column(text.LABEL_ID)
-    table.add_column(text.LABEL_STATUS)
-    table.add_column(text.LABEL_SYMBOL)
-    table.add_column(text.LABEL_PRESET)
-    table.add_column(text.LABEL_SIGNAL)
-    table.add_column(text.LABEL_SCORE)
-    table.add_column(text.LABEL_REF)
-    table.add_column(text.LABEL_PROPOSAL)
+    table = Table(title=TITLE_PROPOSAL_CANDIDATES)
+    table.add_column(LABEL_ID)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_PRESET)
+    table.add_column(LABEL_SIGNAL)
+    table.add_column(LABEL_SCORE)
+    table.add_column(LABEL_REF)
+    table.add_column(LABEL_PROPOSAL)
     for candidate in candidates:
         table.add_row(
             candidate.candidate_id,
@@ -299,7 +321,7 @@ def render_idea_score(
     ranked = rank_candidates([candidate], preset=parsed_preset, limit=1)
     if not ranked:
         raise typer.BadParameter(
-            text.MESSAGE_IDEA_SCORE_UNAVAILABLE.format(
+            MESSAGE_IDEA_SCORE_UNAVAILABLE.format(
                 symbol=candidate.symbol,
                 preset=parsed_preset,
             )
@@ -308,7 +330,7 @@ def render_idea_score(
     payload = {
         "score": result.__dict__,
         "strategy": score_strategy_context(result),
-        "execution_policy": text.MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
+        "execution_policy": MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
     }
     if json_output:
         emit_json(payload)
@@ -316,9 +338,9 @@ def render_idea_score(
     console.print(
         Panel(
             f"{result.symbol} {result.signal.upper()} score={result.score:.2f}\n\n"
-            f"{text.LABEL_REASONS}: {', '.join(result.reasons) or '-'}\n"
-            f"{text.LABEL_WARNINGS}: {', '.join(result.warnings) or '-'}",
-            title=text.TITLE_IDEA_SCORE.format(preset=result.preset),
+            f"{LABEL_REASONS}: {', '.join(result.reasons) or '-'}\n"
+            f"{LABEL_WARNINGS}: {', '.join(result.warnings) or '-'}",
+            title=TITLE_IDEA_SCORE.format(preset=result.preset),
             border_style="cyan",
         )
     )

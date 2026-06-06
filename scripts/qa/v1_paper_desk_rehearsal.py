@@ -14,6 +14,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from scripts.qa.v1_paper_desk_modules.cli import parse_args as _parse_args
+from scripts.qa.v1_paper_desk_modules.reporting import (
+    parse_json as _parse_json,
+    write_json as _write_json,
+    write_rehearsal_outputs as _write_rehearsal_outputs,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
 
@@ -30,70 +37,10 @@ class RehearsalContext:
     steps: list[dict[str, object]]
 
 
-def _json_default(value: object) -> str:
-    """
-    Convert a value to a JSON-serializable string representation.
-
-    Specifically converts pathlib.Path objects to their string path; all other values are converted using `str()`.
-
-    Parameters:
-        value (object): The value to convert for JSON serialization.
-
-    Returns:
-        str: A string suitable for JSON encoding representing `value`.
-    """
-    if isinstance(value, Path):
-        return str(value)
-    return str(value)
-
-
-def _write_json(path: Path, payload: object) -> None:
-    """
-    Write a JSON-serializable payload to the given file path using stable formatting.
-
-    The file is written with 2-space indentation, keys sorted, non-standard types converted via _json_default, and UTF-8 encoding.
-
-    Parameters:
-        path (Path): Destination file path to write.
-        payload (object): JSON-serializable object to persist.
-    """
-    path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, default=_json_default),
-        encoding="utf-8",
-    )
-
-
 def _object_mapping(value: object) -> dict[str, object] | None:
     if not isinstance(value, dict):
         return None
     return cast(dict[str, object], value)
-
-
-def _object_mapping_list(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
-    rows: list[dict[str, object]] = []
-    for item in cast(list[object], value):
-        row = _object_mapping(item)
-        if row is not None:
-            rows.append(row)
-    return rows
-
-
-def _parse_json(stdout: str) -> object | None:
-    """
-    Attempt to parse a stdout string as JSON and return the resulting value.
-
-    Parameters:
-        stdout (str): The stdout text to parse as JSON.
-
-    Returns:
-        The Python object resulting from JSON decoding of `stdout`, or `None` if `stdout` is not valid JSON.
-    """
-    try:
-        return json.loads(stdout)
-    except json.JSONDecodeError:
-        return None
 
 
 def _run_step(
@@ -225,61 +172,6 @@ def _proposal_risk_defaults(reference_price: float) -> tuple[float, float]:
         tuple[float, float]: (stop_loss, take_profit) where stop_loss is the reference price multiplied by 0.95 and rounded to two decimal places, and take_profit is the reference price multiplied by 1.1 and rounded to two decimal places.
     """
     return (round(reference_price * 0.95, 2), round(reference_price * 1.1, 2))
-
-
-def _build_markdown_report(summary: dict[str, object]) -> str:
-    """
-    Build a human-readable Markdown report summarizing a rehearsal run.
-
-    Parameters:
-        summary (dict[str, object]): Summary mapping produced by run_rehearsal. Expected keys:
-            - "created_at": ISO timestamp string.
-            - "execution_backend": backend identifier.
-            - "symbols": list or representation of symbols.
-            - "artifact_dir": artifact directory path or string.
-            - "passed": boolean overall pass status.
-            - "steps": list of step dicts; each step should include at least "name", "exit_code", "duration_ms", and "ok".
-            - Optional proposal-related keys: "candidate_id", "proposal_id", "approval_status", "outcome_status", "refresh_check".
-
-    Returns:
-        str: A Markdown-formatted string with rehearshal metadata, a per-step PASS/FAIL listing, proposal fields, and notes.
-    """
-    lines = [
-        "# V1 Paper Desk Rehearsal",
-        "",
-        f"- Created: {summary['created_at']}",
-        f"- Execution backend: `{summary['execution_backend']}`",
-        f"- Symbols: `{summary['symbols']}`",
-        f"- Artifact directory: `{summary['artifact_dir']}`",
-        f"- Passed: `{summary['passed']}`",
-        "",
-        "## Steps",
-        "",
-    ]
-    for step in _object_mapping_list(summary.get("steps")):
-        status = "PASS" if step.get("ok") else "FAIL"
-        lines.append(
-            f"- {status}: `{step.get('name')}` exit={step.get('exit_code')} duration_ms={step.get('duration_ms')}"
-        )
-    lines.extend(
-        [
-            "",
-            "## Proposal",
-            "",
-            f"- Candidate ID: `{summary.get('candidate_id') or '-'}`",
-            f"- Proposal ID: `{summary.get('proposal_id') or '-'}`",
-            f"- Approval status: `{summary.get('approval_status') or '-'}`",
-            f"- Outcome status: `{summary.get('outcome_status') or '-'}`",
-            f"- Refresh check: `{summary.get('refresh_check') or '-'}`",
-            "",
-            "## Notes",
-            "",
-            "- This rehearsal uses an isolated runtime/database under the artifact directory.",
-            "- The default `paper` backend does not contact an external broker.",
-            "- `alpaca_paper` remains paper-only and keeps live execution disabled.",
-        ]
-    )
-    return "\n".join(lines) + "\n"
 
 
 def _prepare_rehearsal_context(args: argparse.Namespace) -> RehearsalContext:
@@ -580,15 +472,6 @@ def _build_rehearsal_summary(
     return summary
 
 
-def _write_rehearsal_outputs(
-    context: RehearsalContext, summary: dict[str, object]
-) -> None:
-    _write_json(context.artifact_dir / "rehearsal-summary.json", summary)
-    (context.artifact_dir / "rehearsal-report.md").write_text(
-        _build_markdown_report(summary), encoding="utf-8"
-    )
-
-
 def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     """Run the V1 paper desk rehearsal and persist summary artifacts."""
     context = _prepare_rehearsal_context(args)
@@ -618,63 +501,7 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    """
-    Create and parse command-line arguments for the V1 paper desk rehearsal CLI.
-
-    Parameters:
-        argv (list[str]): List of command-line arguments (typically sys.argv[1:]).
-
-    Arguments parsed:
-        --symbols: Comma-separated list of ticker symbols (default "AAPL,MSFT").
-        --cycles: Number of research cycles to run (default 2).
-        --interval: Data interval for exploration (e.g., "1d") (default "1d").
-        --lookback: Lookback window for data (e.g., "180d") (default "180d").
-        --proposal-symbol: Symbol to use when creating the proposal (optional).
-        --side: Trade side, "buy" or "sell" (default "buy").
-        --quantity: Order quantity as a floating-point value (default 1.0).
-        --reference-price: Reference price used to derive risk bounds (default 190.0).
-        --confidence: Confidence value for proposal generation (default 0.72).
-        --thesis: Proposal thesis text (default provided).
-        --invalidation-condition: Text describing when to invalidate the proposal (default provided).
-        --execution-backend: Execution backend to configure ("paper" or "alpaca_paper", default "paper").
-        --artifact-root: Path to the artifact root directory (default DEFAULT_ARTIFACT_ROOT).
-        --label: Optional label to namespace the artifact output directory.
-
-    Returns:
-        argparse.Namespace: Parsed arguments with attributes corresponding to the options above.
-    """
-    parser = argparse.ArgumentParser(
-        description="Run the V1 paper desk rehearsal and collect QA evidence."
-    )
-    parser.add_argument("--symbols", default="AAPL,MSFT")
-    parser.add_argument("--cycles", type=int, default=2)
-    parser.add_argument("--interval", default="1d")
-    parser.add_argument("--lookback", default="180d")
-    parser.add_argument("--proposal-symbol")
-    parser.add_argument("--side", choices=["buy", "sell"], default="buy")
-    parser.add_argument("--quantity", type=float, default=1.0)
-    parser.add_argument("--reference-price", type=float, default=190.0)
-    parser.add_argument("--confidence", type=float, default=0.72)
-    parser.add_argument(
-        "--thesis",
-        default="V1 paper desk rehearsal proposal with explicit risk controls.",
-    )
-    parser.add_argument(
-        "--invalidation-condition",
-        default="Close if risk controls trigger or thesis invalidates.",
-    )
-    parser.add_argument(
-        "--execution-backend",
-        choices=["paper", "alpaca_paper"],
-        default="paper",
-    )
-    parser.add_argument(
-        "--artifact-root",
-        type=Path,
-        default=DEFAULT_ARTIFACT_ROOT,
-    )
-    parser.add_argument("--label")
-    return parser.parse_args(argv)
+    return _parse_args(argv, default_artifact_root=DEFAULT_ARTIFACT_ROOT)
 
 
 def main(argv: list[str] | None = None) -> int:

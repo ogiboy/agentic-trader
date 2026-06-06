@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 
 import type { ControlRoomDiagnosticsCopy } from './copy/diagnostics-types';
+import type { ControlRoomCopy } from './copy/types';
 
 export type ControlRoomCurrentCycleCopy = {
   cycleCount: string;
@@ -151,6 +152,88 @@ export function useControlRoomDiagnosticsCopy(): ControlRoomDiagnosticsCopy {
         requested: t('values.requested'),
         yes: t('values.yes'),
       },
+    }),
+    [t],
+  );
+}
+
+export function usePortfolioContextCopy(): ControlRoomCopy['portfolio']['context'] {
+  const t = useTranslations('controlRoom.portfolio.context');
+
+  return useMemo(
+    () => ({
+      positionPlanCoverage: t('positionPlanCoverage'),
+      positionPlanEmpty: t('positionPlanEmpty'),
+      positionPlanExitPlans: t('positionPlanExitPlans'),
+      positionPlanMissingPlans: t('positionPlanMissingPlans'),
+      positionPlanOpenPositions: t('positionPlanOpenPositions'),
+      positionPlanUnavailable: t('positionPlanUnavailable'),
+      unavailable: t('unavailable'),
+      unknownError: t('unknownError'),
+    }),
+    [t],
+  );
+}
+
+export function useProposalContextCopy(): ControlRoomCopy['proposals']['context'] {
+  const t = useTranslations('controlRoom.proposals.context');
+
+  return useMemo(
+    () => ({
+      brokerStateBlocked: t('brokerStateBlocked'),
+      confidence: t('confidence'),
+      empty: t('empty'),
+      killSwitchActive: t('killSwitchActive'),
+      liveBackendBlocked: t('liveBackendBlocked'),
+      quantity: t('quantity'),
+      source: t('source'),
+      unavailable: t('unavailable'),
+      unknownError: t('unknownError'),
+    }),
+    [t],
+  );
+}
+
+export function useReviewContextCopy(): ControlRoomCopy['review']['context'] {
+  const t = useTranslations('controlRoom.review.context');
+
+  return useMemo(
+    () => ({
+      canonicalCompleteness: t('canonicalCompleteness'),
+      canonicalDisclosures: t('canonicalDisclosures'),
+      canonicalEmpty: t('canonicalEmpty'),
+      canonicalFundamentalSource: t('canonicalFundamentalSource'),
+      canonicalMacroSource: t('canonicalMacroSource'),
+      canonicalMarketSource: t('canonicalMarketSource'),
+      canonicalMissingSections: t('canonicalMissingSections'),
+      canonicalNewsEvents: t('canonicalNewsEvents'),
+      canonicalSource: t('canonicalSource'),
+      canonicalSummary: t('canonicalSummary'),
+      marketAnomalies: t('marketAnomalies'),
+      marketCoverage: t('marketCoverage'),
+      marketDrawdown: t('marketDrawdown'),
+      marketEmpty: t('marketEmpty'),
+      marketHorizon: t('marketHorizon'),
+      marketInterval: t('marketInterval'),
+      marketLookbackInterval: t('marketLookbackInterval'),
+      marketQuality: t('marketQuality'),
+      marketReturn: t('marketReturn'),
+      marketSummary: t('marketSummary'),
+      marketWindow: t('marketWindow'),
+      tradeConsensus: t('tradeConsensus'),
+      tradeEmpty: t('tradeEmpty'),
+      tradeExecutionAdapter: t('tradeExecutionAdapter'),
+      tradeExecutionBackend: t('tradeExecutionBackend'),
+      tradeExecutionOutcome: t('tradeExecutionOutcome'),
+      tradeExecutionRationale: t('tradeExecutionRationale'),
+      tradeId: t('tradeId'),
+      tradeManagerRationale: t('tradeManagerRationale'),
+      tradeRejectionReason: t('tradeRejectionReason'),
+      tradeReviewSummary: t('tradeReviewSummary'),
+      tradeRoutedModels: t('tradeRoutedModels'),
+      tradeRunId: t('tradeRunId'),
+      unavailable: t('unavailable'),
+      unknownError: t('unknownError'),
     }),
     [t],
   );

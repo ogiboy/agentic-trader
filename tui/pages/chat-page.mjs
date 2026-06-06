@@ -1,6 +1,6 @@
 import { Box } from 'ink';
 import React from 'react';
-import { formatPersona } from '../copy.mjs';
+import { formatPersona, tuiCopy } from '../copy.mjs';
 import { panel } from './panel.mjs';
 
 const e = React.createElement;
@@ -17,19 +17,20 @@ const e = React.createElement;
  * @param {boolean} props.chatBusy - Whether a chat send is in progress; affects the operator chat status line.
  * @returns {import('react').ReactElement} The Ink component tree for the chat page.
  */
-function ChatPage({ data, persona, history, draft, chatBusy }) {
+function ChatPage({ data, persona, history, draft, chatBusy, copy = tuiCopy }) {
+  const chatCopy = copy.chatPage;
   const agentActivity = data?.agentActivity || {};
   const tradeContext = data?.tradeContext || {};
   const review = data?.review || {};
 
   const activityLines = [
-    `Current Stage: ${agentActivity.current_stage ?? '-'}`,
-    `Stage Status: ${agentActivity.current_stage_status ?? '-'}`,
-    `Stage Detail: ${agentActivity.current_stage_message ?? '-'}`,
-    `Last Completed: ${agentActivity.last_completed_stage ?? '-'}`,
-    `Completed Detail: ${agentActivity.last_completed_message ?? '-'}`,
-    `Outcome Type: ${agentActivity.last_outcome_type ?? '-'}`,
-    `Outcome: ${agentActivity.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+    `${chatCopy.currentStage}: ${agentActivity.current_stage ?? '-'}`,
+    `${chatCopy.stageStatus}: ${agentActivity.current_stage_status ?? '-'}`,
+    `${chatCopy.stageDetail}: ${agentActivity.current_stage_message ?? '-'}`,
+    `${chatCopy.lastCompleted}: ${agentActivity.last_completed_stage ?? '-'}`,
+    `${chatCopy.completedDetail}: ${agentActivity.last_completed_message ?? '-'}`,
+    `${chatCopy.outcomeType}: ${agentActivity.last_outcome_type ?? '-'}`,
+    `${chatCopy.outcome}: ${agentActivity.last_outcome_message ?? chatCopy.waitingOutcome}`,
   ];
 
   const tradeRecord =
@@ -44,14 +45,14 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
   const reviewWarnings = reviewRecord?.artifacts?.review?.warnings || [];
 
   const reasoningLines = [
-    `Tool Roles: ${toolRoles.join(', ') || '-'}`,
-    `Memory Roles: ${memoryRoles.join(', ') || '-'}`,
-    `Review Warnings: ${reviewWarnings.join(' | ') || '-'}`,
+    `${chatCopy.toolRoles}: ${toolRoles.join(', ') || '-'}`,
+    `${chatCopy.memoryRoles}: ${memoryRoles.join(', ') || '-'}`,
+    `${chatCopy.reviewWarnings}: ${reviewWarnings.join(' | ') || '-'}`,
     ...(agentActivity.stage_statuses?.length
       ? agentActivity.stage_statuses
           .slice(0, 6)
           .map((stage) => `${stage.stage} | ${stage.status} | ${stage.message}`)
-      : ['No stage timeline recorded yet.']),
+      : [chatCopy.noStageTimeline]),
   ];
 
   return e(
@@ -64,21 +65,21 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
         Box,
         { width: '58%', paddingRight: 1 },
         panel(
-          'OPERATOR CHAT',
+          chatCopy.operatorChat,
           [
-            `Role: ${formatPersona(persona)}`,
-            'Type directly to write. Enter sends. Backspace deletes. [ and ] switch persona.',
-            chatBusy ? 'Sending message to the operator surface...' : 'Ready.',
+            `${chatCopy.role}: ${formatPersona(persona, copy)}`,
+            chatCopy.typeDirectly,
+            chatBusy ? copy.chatSending : chatCopy.ready,
             '',
             ...(history.length
               ? history
                   .slice(-8)
                   .flatMap((entry) => [
-                    `you: ${entry.user}`,
-                    `${formatPersona(entry.persona)}: ${entry.response}`,
+                    `${chatCopy.user}: ${entry.user}`,
+                    `${formatPersona(entry.persona, copy)}: ${entry.response}`,
                     '',
                   ])
-              : ['No chat messages yet.']),
+              : [chatCopy.noChatMessages]),
           ],
           'green',
         ),
@@ -89,19 +90,19 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
         e(
           Box,
           { width: '100%' },
-          panel('DECISION WORKFLOW', activityLines, 'cyan'),
+          panel(chatCopy.decisionWorkflow, activityLines, 'cyan'),
         ),
         e(
           Box,
           { width: '100%', marginTop: 1 },
-          panel('REASONING / TOOLS', reasoningLines.slice(0, 10), 'magenta'),
+          panel(chatCopy.reasoningTools, reasoningLines.slice(0, 10), 'magenta'),
         ),
       ),
     ),
     e(
       Box,
       { width: '100%', marginTop: 1 },
-      e(Box, { width: '100%' }, panel('COMPOSER', [draft || ''], 'yellow')),
+      e(Box, { width: '100%' }, panel(chatCopy.composer, [draft || ''], 'yellow')),
     ),
   );
 }

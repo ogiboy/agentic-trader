@@ -247,7 +247,7 @@ New production-expansion direction:
   unavailable
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 - `webgui/src/components/ControlRoom.tsx` is now reduced below the frontend module threshold and delegates public re-exports through `control-room/public-api.ts`; the next maintainability pass should continue moving remaining global CSS toward screen-scoped components and keep shrinking catalog/type surfaces before adding broad new Web GUI behavior
-- the project-wide modularity/i18n cleanup should be measured as it proceeds: `scripts/qa/modularity_i18n_audit.py` now scans Python, WebGUI, docs, Ink TUI, scripts, tools, the CrewAI sidecar, and `.ai` guidance while skipping generated artifacts; keep it reporting-only until the baseline is intentionally tight enough for a failing gate
+- the project-wide modularity/i18n cleanup is now a failing gate: `pnpm run qa:modularity` runs `scripts/qa/modularity_i18n_audit.py --fail-on-findings`, while `pnpm run qa:modularity:report` stays available for exploratory cleanup; the audit scans Python, WebGUI, docs, Ink TUI, scripts, tools, the CrewAI sidecar, and `.ai` guidance while skipping generated artifacts
 - modularity cleanup is now explicitly project-wide and ownership-based: large Python files, terminal surfaces, WebGUI, docs, tests, helpers, constants, styles, assets, and copy should be split by module/surface responsibility, with React component files clearly distinguishable from hooks/utilities and shared helpers promoted only after real reuse
 
 ## Current Development Posture

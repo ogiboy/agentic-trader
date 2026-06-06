@@ -11,9 +11,10 @@ import {
   asString,
   formatNumber,
   proposalApprovalBlockedReason,
-  proposalHeadline,
+  proposalHeadlineWithCopy,
   proposalLines,
 } from '../control-room.helpers';
+import { useProposalContextCopy } from './intl-copy';
 import { KeyValueList, Panel, TextList } from './Primitives';
 
 /**
@@ -48,17 +49,21 @@ export function ProposalDeskView({
 }>) {
   const common = useTranslations('controlRoom.common');
   const t = useTranslations('controlRoom.proposals');
+  const contextCopy = useProposalContextCopy();
   const tradeProposals = asRecord(dashboard.tradeProposals);
   const proposals = asRecordArray(tradeProposals.proposals);
   const broker = asRecord(dashboard.broker);
   const proposalUnavailable = tradeProposals.available === false;
-  const approvalBlockedReason = proposalApprovalBlockedReason(dashboard);
+  const approvalBlockedReason = proposalApprovalBlockedReason(
+    dashboard,
+    contextCopy,
+  );
   const hasProposalNote = Boolean(proposalNote.trim());
 
   return (
     <div className='grid grid--2'>
       <Panel title={t('panels.proposalDesk')} accent='amber'>
-        <TextList items={proposalLines(dashboard)} />
+        <TextList items={proposalLines(dashboard, contextCopy)} />
         {approvalBlockedReason ? (
           <div className='banner banner--warn'>{approvalBlockedReason}</div>
         ) : null}
@@ -84,7 +89,9 @@ export function ProposalDeskView({
                   return (
                     <article className='proposal-card' key={proposalId}>
                       <div className='proposal-card__head'>
-                        <strong>{proposalHeadline(proposal)}</strong>
+                        <strong>
+                          {proposalHeadlineWithCopy(proposal, contextCopy)}
+                        </strong>
                         <span className='chip'>
                           {formatNumber(proposal.confidence, 2)}
                         </span>

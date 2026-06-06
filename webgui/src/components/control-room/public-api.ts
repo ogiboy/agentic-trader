@@ -12,6 +12,7 @@ export {
   normalizeChatHistory,
   positionPlanCoverageLines,
   proposalHeadline,
+  proposalHeadlineWithCopy,
   proposalLines,
   providerWarningLines,
   readinessLines,

@@ -4,11 +4,10 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from argparse import ArgumentParser, Namespace
-from datetime import datetime
+from argparse import Namespace
 from pathlib import Path
 
-from scripts.qa.smoke_qa_modules import commands
+from scripts.qa.smoke_qa_modules import args as smoke_args, commands
 from scripts.qa.smoke_qa_modules import environment as smoke_environment
 from scripts.qa.smoke_qa_modules import ink_navigation, interactive, reporting
 from scripts.qa.smoke_qa_modules.common import (
@@ -26,9 +25,6 @@ from scripts.qa.smoke_qa_modules.models import CheckResult, SmokeContext
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
-DEFAULT_SONAR_HOST_URL = "http://localhost:9000"
-DEFAULT_SONAR_PROJECT_KEY = "agentic-trader"
-DEFAULT_SONAR_ORGANIZATION = ""
 DEFAULT_SONAR_SOURCES = (
     "agentic_trader,main.py,webgui/src,docs/app,docs/components,"
     "docs/content,docs/lib,tui"
@@ -251,10 +247,6 @@ def _write_report(
     )
 
 
-def _run_id() -> str:
-    return datetime.now().strftime("%Y%m%d-%H%M%S")
-
-
 def _claim_artifacts_dir(run_label: str) -> Path:
     return reporting.claim_artifacts_dir(ARTIFACTS_ROOT, run_label)
 
@@ -283,74 +275,6 @@ def write_report(
     """Public test seam for writing the Markdown smoke report."""
 
     return _write_report(context, results, summary_path)
-
-
-def _parse_args() -> Namespace:
-    parser = ArgumentParser(
-        description="Run terminal smoke QA checks for Agentic Trader."
-    )
-    parser.add_argument(
-        "--include-quality",
-        action="store_true",
-        help="Also run code-quality checks: ruff, pytest, and pyright when available.",
-    )
-    parser.add_argument(
-        "--include-sonar",
-        action="store_true",
-        help="Also run pysonar. Reads SONAR_TOKEN or the macOS Keychain token.",
-    )
-    parser.add_argument(
-        "--sonar-host-url",
-        default=os.environ.get("SONAR_HOST_URL", DEFAULT_SONAR_HOST_URL),
-        help="SonarQube host URL for --include-sonar.",
-    )
-    parser.add_argument(
-        "--sonar-project-key",
-        default=os.environ.get("SONAR_PROJECT_KEY", DEFAULT_SONAR_PROJECT_KEY),
-        help="SonarQube project key for --include-sonar.",
-    )
-    parser.add_argument(
-        "--sonar-organization",
-        default=os.environ.get("SONAR_ORGANIZATION", DEFAULT_SONAR_ORGANIZATION),
-        help="Optional SonarCloud organization key for --include-sonar.",
-    )
-    parser.add_argument(
-        "--sonar-branch-name",
-        default=os.environ.get("SONAR_BRANCH_NAME"),
-        help=(
-            "Optional SonarQube branch name for --include-sonar. Leave unset for "
-            "local Community Build."
-        ),
-    )
-    parser.add_argument(
-        "--run-label",
-        default=f"smoke-{_run_id()}",
-        help="Artifact subdirectory name under .ai/qa/artifacts/.",
-    )
-    parser.add_argument(
-        "--include-runtime-cycle",
-        action="store_true",
-        help=(
-            "Run one isolated foreground orchestrator cycle. This is slower and "
-            "requires live market data plus a healthy LLM."
-        ),
-    )
-    parser.add_argument(
-        "--runtime-symbol",
-        default="BTC-USD",
-        help="Symbol used by --include-runtime-cycle.",
-    )
-    parser.add_argument(
-        "--runtime-interval",
-        default="1d",
-        help="Interval used by --include-runtime-cycle.",
-    )
-    parser.add_argument(
-        "--runtime-lookback",
-        default="180d",
-        help="Lookback used by --include-runtime-cycle.",
-    )
-    return parser.parse_args()
 
 
 def _runtime_cycle_check(
@@ -630,7 +554,7 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
 
 
 def main() -> int:
-    args = _parse_args()
+    args = smoke_args.parse_args(env=os.environ)
     context = SmokeContext(artifacts_dir=_claim_artifacts_dir(args.run_label))
 
     results = _surface_checks(context, args)

@@ -20,7 +20,7 @@ const e = React.createElement;
  * @param {boolean} options.compact - Whether to render pages in compact mode (affects applicable pages).
  * @returns {import('react').ReactElement} The page element corresponding to `page`; unknown keys render the Chat page.
  */
-function getPageView({ page, data, chat, instruction, compact }) {
+function getPageView({ page, data, chat, instruction, compact, copy }) {
   switch (page) {
     case 'overview':
       return e(OverviewPage, { data, compact });
@@ -40,6 +40,7 @@ function getPageView({ page, data, chat, instruction, compact }) {
         instructionMode: instruction.mode,
         instructionResult: instruction.result,
         compact,
+        copy,
       });
     default:
       return e(ChatPage, {
@@ -48,6 +49,7 @@ function getPageView({ page, data, chat, instruction, compact }) {
         history: chat.history,
         draft: chat.draft,
         chatBusy: chat.busy,
+        copy,
       });
   }
 }

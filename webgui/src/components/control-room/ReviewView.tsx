@@ -11,12 +11,14 @@ import
     tradeContextLines,
     unavailableSectionLines,
   } from '../control-room.helpers';
+import { useReviewContextCopy } from './intl-copy';
 import { Panel, TextList } from './Primitives';
 
 export function ReviewView({
   dashboard,
 }: Readonly<{ dashboard: DashboardData }>) {
   const t = useTranslations('controlRoom.review');
+  const contextCopy = useReviewContextCopy();
   const review = asRecord(dashboard.review);
   const reviewRecord = asRecord(review.record);
   const artifacts = asRecord(reviewRecord.artifacts);
@@ -30,6 +32,7 @@ export function ReviewView({
     unavailableSectionLines(
       review,
       t('unavailable.latestReview'),
+      contextCopy,
     ) ||
     (Object.keys(reviewRecord).length
       ? [
@@ -49,13 +52,17 @@ export function ReviewView({
         <TextList items={reviewLines} />
       </Panel>
       <Panel title={t('panels.tradeContext')} accent='cyan'>
-        <TextList items={tradeContextLines(tradeContext.record)} />
+        <TextList items={tradeContextLines(tradeContext.record, contextCopy)} />
       </Panel>
       <Panel title={t('panels.canonicalAnalysis')} accent='amber'>
-        <TextList items={canonicalLines(canonicalAnalysis.snapshot)} />
+        <TextList
+          items={canonicalLines(canonicalAnalysis.snapshot, contextCopy)}
+        />
       </Panel>
       <Panel title={t('panels.marketContextPack')} accent='rose'>
-        <TextList items={marketContextLines(marketContext.contextPack)} />
+        <TextList
+          items={marketContextLines(marketContext.contextPack, contextCopy)}
+        />
       </Panel>
     </div>
   );

@@ -572,6 +572,6 @@ def test_control_room_full_subtitle_does_not_contain_format_placeholders() -> No
     assert "{" not in tr.message_control_room_compact_subtitle
 
 
-def test_package_version_bumped_to_0_14_12() -> None:
-    """Package __version__ was bumped to 0.14.12 in this PR."""
-    assert agentic_trader.__version__ == "0.14.12"
+def test_package_version_bumped_to_0_15_0() -> None:
+    """Package __version__ was bumped to 0.15.0 in this PR."""
+    assert agentic_trader.__version__ == "0.15.0"
