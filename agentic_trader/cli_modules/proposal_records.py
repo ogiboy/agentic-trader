@@ -5,7 +5,7 @@ from typing import NoReturn, cast
 import typer
 from rich.panel import Panel
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import (
     console,
     emit_json,
@@ -87,7 +87,7 @@ def raise_candidate_create_error(exc: ValueError, *, json_output: bool) -> NoRet
         emit_json_error(exc)
         raise typer.Exit(code=2) from exc
     console.print(
-        Panel(str(exc), title=text.TITLE_CANDIDATE_REJECTED, border_style="red")
+        Panel(str(exc), title=ui_t("title.candidate_rejected"), border_style="red")
     )
     raise typer.Exit(code=2) from exc
 
@@ -102,13 +102,13 @@ def emit_candidate_created(
         return
     console.print(
         Panel(
-            text.MESSAGE_PROPOSAL_CANDIDATE_CREATED.format(
+            ui_t("message.proposal_candidate_created").format(
                 candidate_id=candidate.candidate_id,
                 symbol=candidate.symbol,
                 signal=candidate.signal.upper(),
                 score=candidate.score,
             ),
-            title=text.TITLE_PROPOSAL_CANDIDATE_CREATED,
+            title=ui_t("title.proposal_candidate_created"),
             border_style="green",
         )
     )

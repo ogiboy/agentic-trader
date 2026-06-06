@@ -140,6 +140,7 @@ def test_upsert_env_local_value_creates_file_if_missing(
 ) -> None:
     env_file = tmp_path / ".env.local"
     monkeypatch.setattr(cli_module, "ENV_LOCAL_FILE", env_file)
+    monkeypatch.delenv("AGENTIC_TRADER_UI_LOCALE", raising=False)
 
     upsert_env_local_value("AGENTIC_TRADER_UI_LOCALE", "tr")
 
@@ -170,6 +171,7 @@ def test_upsert_env_local_value_updates_existing_key(
     env_file = tmp_path / ".env.local"
     env_file.write_text("AGENTIC_TRADER_UI_LOCALE=en\n", encoding="utf-8")
     monkeypatch.setattr(cli_module, "ENV_LOCAL_FILE", env_file)
+    monkeypatch.delenv("AGENTIC_TRADER_UI_LOCALE", raising=False)
 
     upsert_env_local_value("AGENTIC_TRADER_UI_LOCALE", "tr")
 

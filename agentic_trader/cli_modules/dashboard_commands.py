@@ -9,7 +9,7 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console
 from agentic_trader.cli_modules.dashboard_snapshot import (
     DashboardSnapshotCollectors,
@@ -132,11 +132,13 @@ def build_evidence_bundle(
     return _build_evidence_bundle(
         settings,
         collectors=EvidenceBundleCollectors(
-            dashboard_snapshot=lambda settings, log_limit, check_provider: build_dashboard_snapshot_payload(
-                settings,
-                deps=deps,
-                log_limit=log_limit,
-                check_provider=check_provider,
+            dashboard_snapshot=lambda settings, log_limit, check_provider: (
+                build_dashboard_snapshot_payload(
+                    settings,
+                    deps=deps,
+                    log_limit=log_limit,
+                    check_provider=check_provider,
+                )
             ),
             status_payload=deps.runtime_status_payload,
             broker_payload=deps.broker_payload,
@@ -210,9 +212,9 @@ def _register_logs_command(app: typer.Typer, deps: DashboardCommandDeps) -> None
     @app.command()
     def logs(
         limit: int = typer.Option(
-            20, min=1, max=200, help=text.HELP_RUNTIME_EVENT_LIMIT
+            20, min=1, max=200, help=ui_t("help.runtime_event_limit")
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         events = deps.read_service_events(settings, limit=limit)
@@ -228,12 +230,12 @@ def _register_dashboard_snapshot_command(
     @app.command("dashboard-snapshot")
     def dashboard_snapshot(
         log_limit: int = typer.Option(
-            14, min=1, max=100, help=text.HELP_RUNTIME_EVENT_LIMIT
+            14, min=1, max=100, help=ui_t("help.runtime_event_limit")
         ),
         provider_check: bool = typer.Option(
             False,
             "--provider-check/--no-provider-check",
-            help=text.HELP_PROVIDER_CHECK,
+            help=ui_t("help.provider_check"),
         ),
     ) -> None:
         settings = deps.get_settings()
@@ -255,27 +257,27 @@ def _register_evidence_bundle_command(
         output_dir: Path | None = typer.Option(
             None,
             "--output-dir",
-            help=text.HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
+            help=ui_t("help.evidence_bundle_output_dir"),
         ),
         label: str | None = typer.Option(
             None,
             "--label",
-            help=text.HELP_EVIDENCE_BUNDLE_LABEL,
+            help=ui_t("help.evidence_bundle_label"),
         ),
         log_limit: int = typer.Option(
-            20, min=1, max=200, help=text.HELP_RUNTIME_EVENT_LIMIT
+            20, min=1, max=200, help=ui_t("help.runtime_event_limit")
         ),
         include_latest_smoke: bool = typer.Option(
             True,
             "--include-latest-smoke/--no-latest-smoke",
-            help=text.HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
+            help=ui_t("help.evidence_bundle_include_latest_smoke"),
         ),
         provider_check: bool = typer.Option(
             False,
             "--provider-check/--no-provider-check",
-            help=text.HELP_PROVIDER_CHECK,
+            help=ui_t("help.provider_check"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         manifest = build_evidence_bundle(
@@ -295,17 +297,17 @@ def _register_evidence_bundle_command(
 
 def _render_evidence_bundle_manifest(manifest: dict[str, object]) -> None:
     files = cast(dict[str, str], manifest["files"])
-    table = Table(title=text.TITLE_QA_EVIDENCE_BUNDLE)
-    table.add_column(text.LABEL_ARTIFACT, style="cyan")
-    table.add_column(text.LABEL_PATH)
+    table = Table(title=ui_t("title.qa_evidence_bundle"))
+    table.add_column(ui_t("label.artifact"), style="cyan")
+    table.add_column(ui_t("label.path"))
     for key, path in files.items():
         table.add_row(key, path)
     console.print(
         Panel(
-            text.MESSAGE_EVIDENCE_BUNDLE_WRITTEN.format(
+            ui_t("message.evidence_bundle_written").format(
                 bundle_dir=manifest["bundle_dir"]
             ),
-            title=text.TITLE_EVIDENCE_BUNDLE,
+            title=ui_t("title.evidence_bundle"),
             border_style="green",
         )
     )
@@ -332,17 +334,17 @@ def _register_observer_api_command(
 ) -> None:
     @app.command("observer-api")
     def observer_api_command(
-        host: str = typer.Option("127.0.0.1", help=text.HELP_OBSERVER_API_HOST),
+        host: str = typer.Option("127.0.0.1", help=ui_t("help.observer_api_host")),
         port: int = typer.Option(
-            8765, min=1, max=65535, help=text.HELP_OBSERVER_API_PORT
+            8765, min=1, max=65535, help=ui_t("help.observer_api_port")
         ),
         log_limit: int = typer.Option(
-            14, min=1, max=100, help=text.HELP_RUNTIME_EVENT_LIMIT
+            14, min=1, max=100, help=ui_t("help.runtime_event_limit")
         ),
         allow_nonlocal: bool = typer.Option(
             False,
             "--allow-nonlocal",
-            help=text.HELP_OBSERVER_API_ALLOW_NONLOCAL,
+            help=ui_t("help.observer_api_allow_nonlocal"),
         ),
     ) -> None:
         settings = deps.get_settings()
@@ -350,8 +352,8 @@ def _register_observer_api_command(
         if nonlocal_bind and (not allow_nonlocal or not settings.observer_api_token):
             console.print(
                 Panel(
-                    text.MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
-                    title=text.TITLE_OBSERVER_API_BLOCKED,
+                    ui_t("message.observer_api_nonlocal_blocked"),
+                    title=ui_t("title.observer_api_blocked"),
                     border_style="red",
                 )
             )
@@ -371,7 +373,7 @@ def _register_observer_api_command(
             console.print(
                 Panel(
                     str(exc),
-                    title=text.TITLE_OBSERVER_API_BLOCKED,
+                    title=ui_t("title.observer_api_blocked"),
                     border_style="red",
                 )
             )
@@ -382,25 +384,25 @@ def _render_observer_api_listening(*, host: str, port: int) -> None:
     endpoints = "\n".join(f"- {endpoint}" for endpoint in OBSERVER_API_ENDPOINTS)
     console.print(
         Panel(
-            text.MESSAGE_OBSERVER_API_LISTENING.format(
+            ui_t("message.observer_api_listening").format(
                 endpoints=endpoints,
                 host=host,
                 port=port,
             ),
-            title=text.TITLE_OBSERVER_API,
+            title=ui_t("title.observer_api"),
             border_style="cyan",
         )
     )
 
 
 def _render_service_events(events: list[object]) -> None:
-    table = Table(title=text.TITLE_RUNTIME_EVENTS)
-    table.add_column(text.LABEL_CREATED)
-    table.add_column(text.LABEL_LEVEL)
-    table.add_column(text.LABEL_TYPE)
-    table.add_column(text.LABEL_CYCLE)
-    table.add_column(text.LABEL_SYMBOL)
-    table.add_column(text.LABEL_MESSAGE)
+    table = Table(title=ui_t("title.runtime_events"))
+    table.add_column(ui_t("label.created"))
+    table.add_column(ui_t("label.level"))
+    table.add_column(ui_t("label.type"))
+    table.add_column(ui_t("label.cycle"))
+    table.add_column(ui_t("label.symbol"))
+    table.add_column(ui_t("label.message"))
     for event in events:
         table.add_row(
             str(getattr(event, "created_at", "-")),

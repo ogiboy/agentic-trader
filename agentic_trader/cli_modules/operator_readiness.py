@@ -13,7 +13,7 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console, emit_json
 from agentic_trader.config import Settings, get_settings
 
@@ -352,7 +352,7 @@ def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
 
 
 def operator_workflow_command(
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
     """Show the canonical V1 operator review workflow without executing it."""
     settings = _settings()
@@ -360,11 +360,11 @@ def operator_workflow_command(
     if json_output:
         emit_json(payload)
         return
-    table = Table(title=text.TITLE_V1_OPERATOR_WORKFLOW)
+    table = Table(title=ui_t("title.v1_operator_workflow"))
     table.add_column("#", style="cyan")
-    table.add_column(text.LABEL_STEP)
-    table.add_column(text.LABEL_COMMAND)
-    table.add_column(text.LABEL_PURPOSE)
+    table.add_column(ui_t("label.step"))
+    table.add_column(ui_t("label.command"))
+    table.add_column(ui_t("label.purpose"))
     for step in cast(list[dict[str, object]], payload["steps"]):
         table.add_row(
             str(step["order"]),
@@ -374,8 +374,8 @@ def operator_workflow_command(
         )
     console.print(
         Panel(
-            text.MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
-            title=text.TITLE_OPERATOR_WORKFLOW,
+            ui_t("message.operator_workflow_guidance"),
+            title=ui_t("title.operator_workflow"),
             border_style="cyan",
         )
     )
@@ -383,7 +383,7 @@ def operator_workflow_command(
 
 
 def hardware_profile_command(
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
     """Show local hardware and model-capacity hints before long paper runs."""
     settings = _settings()
@@ -395,24 +395,24 @@ def hardware_profile_command(
     hardware = cast(dict[str, object], payload["hardware"])
     configured = cast(dict[str, object], payload["configured_runtime"])
     recommendations = cast(dict[str, object], payload["recommendations"])
-    table = Table(title=text.TITLE_HARDWARE_PROFILE)
-    table.add_column(text.LABEL_FIELD, style="cyan")
-    table.add_column(text.LABEL_VALUE)
-    table.add_row(text.LABEL_CPU_COUNT, str(hardware["cpu_count"]))
-    table.add_row(text.LABEL_MEMORY_GB, str(hardware["memory_gb"]))
+    table = Table(title=ui_t("title.hardware_profile"))
+    table.add_column(ui_t("label.field"), style="cyan")
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.cpu_count"), str(hardware["cpu_count"]))
+    table.add_row(ui_t("label.memory_gb"), str(hardware["memory_gb"]))
     accelerator = cast(dict[str, object], hardware["accelerator"])
-    table.add_row(text.LABEL_ACCELERATOR, str(accelerator.get("type", "unknown")))
-    table.add_row(text.LABEL_MODEL, str(configured["model_name"]))
+    table.add_row(ui_t("label.accelerator"), str(accelerator.get("type", "unknown")))
+    table.add_row(ui_t("label.model"), str(configured["model_name"]))
     table.add_row(
-        text.LABEL_ESTIMATED_MODEL_SIZE,
+        ui_t("label.estimated_model_size"),
         str(configured["estimated_model_size_b"]),
     )
     table.add_row(
-        text.LABEL_SAFE_PARALLEL_AGENTS,
+        ui_t("label.safe_parallel_agents"),
         str(recommendations["safe_parallel_agents"]),
     )
-    table.add_row(text.LABEL_TOKEN_HINT, str(recommendations["max_output_tokens"]))
-    table.add_row(text.LABEL_PROFILE, str(recommendations["profile"]))
+    table.add_row(ui_t("label.token_hint"), str(recommendations["max_output_tokens"]))
+    table.add_row(ui_t("label.profile"), str(recommendations["profile"]))
     console.print(table)
 
 
@@ -424,7 +424,11 @@ def register_operator_readiness_commands(
     cpu_count_provider: CpuCountProvider | None = None,
     total_memory_provider: TotalMemoryProvider | None = None,
 ) -> None:
-    global _settings_provider, _accelerator_provider, _cpu_count_provider, _total_memory_provider
+    global \
+        _settings_provider, \
+        _accelerator_provider, \
+        _cpu_count_provider, \
+        _total_memory_provider
     if settings_provider is not None:
         _settings_provider = settings_provider
     if accelerator_provider is not None:

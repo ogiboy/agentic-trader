@@ -5,7 +5,7 @@ from collections.abc import Callable
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console
 from agentic_trader.cli_modules.run_reports import join_or_dash, value_or_dash
 from agentic_trader.schemas import (
@@ -19,33 +19,33 @@ from agentic_trader.schemas import (
 
 
 def render_preferences(preferences: InvestmentPreferences) -> None:
-    table = Table(title=text.TITLE_INVESTMENT_PREFERENCES)
-    table.add_column(text.LABEL_SETTING)
-    table.add_column(text.LABEL_VALUE)
+    table = Table(title=ui_t("title.investment_preferences"))
+    table.add_column(ui_t("label.setting"))
+    table.add_column(ui_t("label.value"))
     table.add_row(
-        text.LABEL_REGIONS,
-        text.UI_LIST_SEPARATOR.join(preferences.regions) or "-",
+        ui_t("label.regions"),
+        ui_t("list.separator").join(preferences.regions) or "-",
     )
     table.add_row(
-        text.LABEL_EXCHANGES,
-        text.UI_LIST_SEPARATOR.join(preferences.exchanges) or "-",
+        ui_t("label.exchanges"),
+        ui_t("list.separator").join(preferences.exchanges) or "-",
     )
     table.add_row(
-        text.LABEL_CURRENCIES,
-        text.UI_LIST_SEPARATOR.join(preferences.currencies) or "-",
+        ui_t("label.currencies"),
+        ui_t("list.separator").join(preferences.currencies) or "-",
     )
     table.add_row(
-        text.LABEL_SECTORS,
-        text.UI_LIST_SEPARATOR.join(preferences.sectors) or "-",
+        ui_t("label.sectors"),
+        ui_t("list.separator").join(preferences.sectors) or "-",
     )
-    table.add_row(text.LABEL_RISK_PROFILE, preferences.risk_profile)
-    table.add_row(text.LABEL_TRADE_STYLE, preferences.trade_style)
-    table.add_row(text.LABEL_BEHAVIOR_PRESET, preferences.behavior_preset)
-    table.add_row(text.LABEL_AGENT_PROFILE, preferences.agent_profile)
-    table.add_row(text.LABEL_AGENT_TONE, preferences.agent_tone)
-    table.add_row(text.LABEL_STRICTNESS, preferences.strictness_preset)
-    table.add_row(text.LABEL_INTERVENTION, preferences.intervention_style)
-    table.add_row(text.LABEL_NOTES, preferences.notes or "-")
+    table.add_row(ui_t("label.risk_profile"), preferences.risk_profile)
+    table.add_row(ui_t("label.trade_style"), preferences.trade_style)
+    table.add_row(ui_t("label.behavior_preset"), preferences.behavior_preset)
+    table.add_row(ui_t("label.agent_profile"), preferences.agent_profile)
+    table.add_row(ui_t("label.agent_tone"), preferences.agent_tone)
+    table.add_row(ui_t("label.strictness"), preferences.strictness_preset)
+    table.add_row(ui_t("label.intervention"), preferences.intervention_style)
+    table.add_row(ui_t("label.notes"), preferences.notes or "-")
     console.print(table)
 
 
@@ -53,22 +53,22 @@ def render_trade_journal(entries: list[TradeJournalEntry]) -> None:
     if not entries:
         console.print(
             Panel(
-                text.MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
-                title=text.TITLE_TRADE_JOURNAL,
+                ui_t("message.no_trade_journal_entries"),
+                title=ui_t("title.trade_journal"),
                 border_style="yellow",
             )
         )
         return
 
-    table = Table(title=text.TITLE_TRADE_JOURNAL)
-    table.add_column(text.LABEL_OPENED)
-    table.add_column(text.LABEL_SYMBOL)
-    table.add_column(text.LABEL_STATUS)
-    table.add_column(text.LABEL_SIDE)
-    table.add_column(text.LABEL_ENTRY)
-    table.add_column(text.LABEL_EXIT)
-    table.add_column(text.LABEL_PNL)
-    table.add_column(text.LABEL_NOTES)
+    table = Table(title=ui_t("title.trade_journal"))
+    table.add_column(ui_t("label.opened"))
+    table.add_column(ui_t("label.symbol"))
+    table.add_column(ui_t("label.status"))
+    table.add_column(ui_t("label.side"))
+    table.add_column(ui_t("label.entry"))
+    table.add_column(ui_t("label.exit"))
+    table.add_column(ui_t("label.pnl"))
+    table.add_column(ui_t("label.notes"))
     for entry in entries:
         table.add_row(
             entry.opened_at,
@@ -84,36 +84,38 @@ def render_trade_journal(entries: list[TradeJournalEntry]) -> None:
 
 
 def render_risk_report(report: DailyRiskReport) -> None:
-    table = Table(title=text.TITLE_DAILY_RISK_REPORT + " / " + report.report_date)
-    table.add_column(text.LABEL_FIELD)
-    table.add_column(text.LABEL_VALUE)
-    table.add_row(text.LABEL_GENERATED, report.generated_at)
-    table.add_row(text.LABEL_CASH, f"{report.cash:.2f}")
-    table.add_row(text.LABEL_MARKET_VALUE, f"{report.market_value:.2f}")
-    table.add_row(text.LABEL_EQUITY, f"{report.equity:.2f}")
-    table.add_row(text.LABEL_REALIZED_PNL, f"{report.realized_pnl:.2f}")
-    table.add_row(text.LABEL_UNREALIZED_PNL, f"{report.unrealized_pnl:.2f}")
-    table.add_row(text.LABEL_OPEN_POSITIONS, str(report.open_positions))
-    table.add_row(text.LABEL_FILLS_TODAY, str(report.fills_today))
-    table.add_row(text.LABEL_MARKS_RECORDED, str(report.marks_recorded))
-    table.add_row(text.LABEL_DAILY_REALIZED_PNL, f"{report.daily_realized_pnl:.2f}")
-    table.add_row(text.LABEL_GROSS_EXPOSURE, f"{report.gross_exposure_pct:.2%}")
-    table.add_row(text.LABEL_LARGEST_POSITION, f"{report.largest_position_pct:.2%}")
-    table.add_row(text.LABEL_DRAWDOWN_FROM_PEAK, f"{report.drawdown_from_peak_pct:.2%}")
+    table = Table(title=ui_t("title.daily_risk_report") + " / " + report.report_date)
+    table.add_column(ui_t("label.field"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.generated"), report.generated_at)
+    table.add_row(ui_t("label.cash"), f"{report.cash:.2f}")
+    table.add_row(ui_t("label.market_value"), f"{report.market_value:.2f}")
+    table.add_row(ui_t("label.equity"), f"{report.equity:.2f}")
+    table.add_row(ui_t("label.realized_pnl"), f"{report.realized_pnl:.2f}")
+    table.add_row(ui_t("label.unrealized_pnl"), f"{report.unrealized_pnl:.2f}")
+    table.add_row(ui_t("label.open_positions"), str(report.open_positions))
+    table.add_row(ui_t("label.fills_today"), str(report.fills_today))
+    table.add_row(ui_t("label.marks_recorded"), str(report.marks_recorded))
+    table.add_row(ui_t("label.daily_realized_pnl"), f"{report.daily_realized_pnl:.2f}")
+    table.add_row(ui_t("label.gross_exposure"), f"{report.gross_exposure_pct:.2%}")
+    table.add_row(ui_t("label.largest_position"), f"{report.largest_position_pct:.2%}")
+    table.add_row(
+        ui_t("label.drawdown_from_peak"), f"{report.drawdown_from_peak_pct:.2%}"
+    )
     console.print(table)
     if report.warnings:
         console.print(
             Panel(
                 "\n".join(f"- {warning}" for warning in report.warnings),
-                title=text.TITLE_RISK_WARNINGS,
+                title=ui_t("title.risk_warnings"),
                 border_style="yellow",
             )
         )
     else:
         console.print(
             Panel(
-                text.MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
-                title=text.TITLE_RISK_WARNINGS,
+                ui_t("message.no_elevated_portfolio_risk_warnings"),
+                title=ui_t("title.risk_warnings"),
                 border_style="green",
             )
         )
@@ -131,7 +133,7 @@ def render_unavailable_run_record(
         console.print(
             Panel(
                 unavailable_message.format(error=payload["error"]),
-                title=text.LABEL_OBSERVER_MODE,
+                title=ui_t("label.observer_mode"),
                 border_style="yellow",
             )
         )
@@ -154,10 +156,10 @@ def render_unavailable_trade_context(
     if not payload["available"]:
         console.print(
             Panel(
-                text.MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE.format(
+                ui_t("message.trade_context_temporarily_unavailable").format(
                     error=payload["error"]
                 ),
-                title=text.LABEL_OBSERVER_MODE,
+                title=ui_t("label.observer_mode"),
                 border_style="yellow",
             )
         )
@@ -165,8 +167,8 @@ def render_unavailable_trade_context(
     if record is None:
         console.print(
             Panel(
-                text.MESSAGE_NO_TRADE_CONTEXT,
-                title=text.TITLE_TRADE_CONTEXT,
+                ui_t("message.no_trade_context"),
+                title=ui_t("title.trade_context"),
                 border_style="yellow",
             )
         )
@@ -180,34 +182,34 @@ def render_trade_context(
     canonical_analysis_lines: Callable[[CanonicalAnalysisSnapshot | None], list[str]],
 ) -> None:
     summary = Table(
-        title=text.TITLE_TRADE_CONTEXT_DETAIL.format(trade_id=record.trade_id)
+        title=ui_t("title.trade_context_detail").format(trade_id=record.trade_id)
     )
-    summary.add_column(text.LABEL_FIELD)
-    summary.add_column(text.LABEL_VALUE)
-    summary.add_row(text.LABEL_CREATED, record.created_at)
-    summary.add_row(text.LABEL_RUN_ID, value_or_dash(record.run_id))
-    summary.add_row(text.LABEL_SYMBOL, record.symbol)
-    summary.add_row(text.LABEL_CONSENSUS, record.consensus.alignment_level)
-    summary.add_row(text.LABEL_MANAGER_RATIONALE, record.manager_rationale)
-    summary.add_row(text.LABEL_EXECUTION_RATIONALE, record.execution_rationale)
+    summary.add_column(ui_t("label.field"))
+    summary.add_column(ui_t("label.value"))
+    summary.add_row(ui_t("label.created"), record.created_at)
+    summary.add_row(ui_t("label.run_id"), value_or_dash(record.run_id))
+    summary.add_row(ui_t("label.symbol"), record.symbol)
+    summary.add_row(ui_t("label.consensus"), record.consensus.alignment_level)
+    summary.add_row(ui_t("label.manager_rationale"), record.manager_rationale)
+    summary.add_row(ui_t("label.execution_rationale"), record.execution_rationale)
     summary.add_row(
-        text.LABEL_EXECUTION_BACKEND, value_or_dash(record.execution_backend)
-    )
-    summary.add_row(
-        text.LABEL_EXECUTION_ADAPTER, value_or_dash(record.execution_adapter)
+        ui_t("label.execution_backend"), value_or_dash(record.execution_backend)
     )
     summary.add_row(
-        text.LABEL_EXECUTION_OUTCOME, value_or_dash(record.execution_outcome_status)
+        ui_t("label.execution_adapter"), value_or_dash(record.execution_adapter)
     )
     summary.add_row(
-        text.LABEL_REJECTION_REASON, value_or_dash(record.execution_rejection_reason)
+        ui_t("label.execution_outcome"), value_or_dash(record.execution_outcome_status)
     )
-    summary.add_row(text.LABEL_REVIEW_SUMMARY, record.review_summary)
+    summary.add_row(
+        ui_t("label.rejection_reason"), value_or_dash(record.execution_rejection_reason)
+    )
+    summary.add_row(ui_t("label.review_summary"), record.review_summary)
     console.print(summary)
 
-    routed_models = Table(title=text.TITLE_ROUTED_MODELS)
-    routed_models.add_column(text.LABEL_ROLE)
-    routed_models.add_column(text.LABEL_MODEL)
+    routed_models = Table(title=ui_t("title.routed_models"))
+    routed_models.add_column(ui_t("label.role"))
+    routed_models.add_column(ui_t("label.model"))
     if not record.routed_models:
         routed_models.add_row("-", "-")
     else:
@@ -216,22 +218,22 @@ def render_trade_context(
     console.print(routed_models)
 
     context_lines = [
-        f"{text.LABEL_RETRIEVED_MEMORY_ROLES}: {join_or_dash(sorted(record.retrieved_memory_summary))}",
-        f"{text.LABEL_TOOL_OUTPUT_ROLES}: {join_or_dash(sorted(record.tool_outputs))}",
-        f"{text.LABEL_SHARED_BUS_ROLES}: {join_or_dash(sorted(record.shared_memory_summary))}",
-        f"{text.LABEL_WARNINGS}: {join_or_dash(record.review_warnings)}",
+        f"{ui_t('label.retrieved_memory_roles')}: {join_or_dash(sorted(record.retrieved_memory_summary))}",
+        f"{ui_t('label.tool_output_roles')}: {join_or_dash(sorted(record.tool_outputs))}",
+        f"{ui_t('label.shared_bus_roles')}: {join_or_dash(sorted(record.shared_memory_summary))}",
+        f"{ui_t('label.warnings')}: {join_or_dash(record.review_warnings)}",
     ]
     console.print(
         Panel(
             "\n".join(context_lines),
-            title=text.TITLE_CONTEXT_SUMMARY,
+            title=ui_t("title.context_summary"),
             border_style="cyan",
         )
     )
     console.print(
         Panel(
             "\n".join(canonical_analysis_lines(record.canonical_snapshot)),
-            title=text.TITLE_CANONICAL_ANALYSIS,
+            title=ui_t("title.canonical_analysis"),
             border_style="blue",
         )
     )

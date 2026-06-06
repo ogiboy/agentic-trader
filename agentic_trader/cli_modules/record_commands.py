@@ -7,7 +7,7 @@ from typing import Protocol, cast
 import typer
 from rich.panel import Panel
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.backtest_reports import (
     EnsureReady,
     RunAblation,
@@ -128,7 +128,7 @@ def register_record_commands(app: typer.Typer, deps: RecordCommandDeps) -> None:
 def _register_preferences_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
     @app.command("preferences")
     def preferences_command(
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.preferences_payload(settings)
@@ -141,10 +141,10 @@ def _register_preferences_command(app: typer.Typer, deps: RecordCommandDeps) -> 
         if not available:
             console.print(
                 Panel(
-                    text.MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE.format(
+                    ui_t("message.preferences_temporarily_unavailable").format(
                         error=error
                     ),
-                    title=text.LABEL_OBSERVER_MODE,
+                    title=ui_t("label.observer_mode"),
                     border_style="yellow",
                 )
             )
@@ -156,9 +156,9 @@ def _register_journal_command(app: typer.Typer, deps: RecordCommandDeps) -> None
     @app.command("journal")
     def journal(
         limit: int = typer.Option(
-            20, min=1, max=200, help=text.HELP_TRADE_JOURNAL_LIMIT
+            20, min=1, max=200, help=ui_t("help.trade_journal_limit")
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.journal_payload(settings, limit=limit)
@@ -172,10 +172,10 @@ def _register_journal_command(app: typer.Typer, deps: RecordCommandDeps) -> None
         if not available:
             console.print(
                 Panel(
-                    text.MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE.format(
+                    ui_t("message.trade_journal_temporarily_unavailable").format(
                         error=error
                     ),
-                    title=text.LABEL_OBSERVER_MODE,
+                    title=ui_t("label.observer_mode"),
                     border_style="yellow",
                 )
             )
@@ -186,8 +186,10 @@ def _register_journal_command(app: typer.Typer, deps: RecordCommandDeps) -> None
 def _register_risk_report_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
     @app.command("risk-report")
     def risk_report(
-        report_date: str | None = typer.Option(None, help=text.HELP_RISK_REPORT_DATE),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        report_date: str | None = typer.Option(
+            None, help=ui_t("help.risk_report_date")
+        ),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.risk_report_payload(settings, report_date=report_date)
@@ -204,10 +206,10 @@ def _register_risk_report_command(app: typer.Typer, deps: RecordCommandDeps) -> 
         if not available or report is None:
             console.print(
                 Panel(
-                    text.MESSAGE_RISK_REPORT_TEMPORARILY_UNAVAILABLE.format(
+                    ui_t("message.risk_report_temporarily_unavailable").format(
                         error=error
                     ),
-                    title=text.LABEL_OBSERVER_MODE,
+                    title=ui_t("label.observer_mode"),
                     border_style="yellow",
                 )
             )
@@ -218,8 +220,8 @@ def _register_risk_report_command(app: typer.Typer, deps: RecordCommandDeps) -> 
 def _register_run_review_commands(app: typer.Typer, deps: RecordCommandDeps) -> None:
     @app.command("review-run")
     def review_run(
-        run_id: str | None = typer.Option(None, help=text.HELP_RUN_ID),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        run_id: str | None = typer.Option(None, help=ui_t("help.run_id")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.run_record_payload(settings, run_id=run_id)
@@ -230,9 +232,9 @@ def _register_run_review_commands(app: typer.Typer, deps: RecordCommandDeps) -> 
         if render_unavailable_run_record(
             payload,
             record,
-            unavailable_message=text.MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE,
-            empty_message=text.MESSAGE_NO_PERSISTED_RUNS_REVIEW,
-            empty_title=text.TITLE_RUN_REVIEW,
+            unavailable_message=ui_t("message.run_review_temporarily_unavailable"),
+            empty_message=ui_t("message.no_persisted_runs_review"),
+            empty_title=ui_t("title.run_review"),
         ):
             raise typer.Exit(code=0)
         assert record is not None
@@ -240,8 +242,8 @@ def _register_run_review_commands(app: typer.Typer, deps: RecordCommandDeps) -> 
 
     @app.command("trace-run")
     def trace_run(
-        run_id: str | None = typer.Option(None, help=text.HELP_RUN_ID),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        run_id: str | None = typer.Option(None, help=ui_t("help.run_id")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.run_record_payload(settings, run_id=run_id)
@@ -252,9 +254,9 @@ def _register_run_review_commands(app: typer.Typer, deps: RecordCommandDeps) -> 
         if render_unavailable_run_record(
             payload,
             record,
-            unavailable_message=text.MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE,
-            empty_message=text.MESSAGE_NO_PERSISTED_RUNS_TRACE,
-            empty_title=text.TITLE_TRACE,
+            unavailable_message=ui_t("message.run_trace_temporarily_unavailable"),
+            empty_message=ui_t("message.no_persisted_runs_trace"),
+            empty_title=ui_t("title.trace"),
         ):
             raise typer.Exit(code=0)
         assert record is not None
@@ -272,8 +274,8 @@ def _run_record_from_payload(payload: dict[str, object]) -> RunRecord | None:
 def _register_trade_context_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
     @app.command("trade-context")
     def trade_context(
-        trade_id: str | None = typer.Option(None, help=text.HELP_TRADE_CONTEXT_ID),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        trade_id: str | None = typer.Option(None, help=ui_t("help.trade_context_id")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.trade_context_payload(settings, trade_id=trade_id)
@@ -300,8 +302,8 @@ def _trade_context_record_from_payload(
 def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) -> None:
     @app.command("replay-run")
     def replay_run(
-        run_id: str | None = typer.Option(None, help=text.HELP_RUN_REPLAY_ID),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        run_id: str | None = typer.Option(None, help=ui_t("help.run_replay_id")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.run_replay_payload(settings, run_id=run_id)
@@ -316,10 +318,10 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
         if not payload["available"]:
             console.print(
                 Panel(
-                    text.MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE.format(
+                    ui_t("message.run_replay_temporarily_unavailable").format(
                         error=payload["error"]
                     ),
-                    title=text.LABEL_OBSERVER_MODE,
+                    title=ui_t("label.observer_mode"),
                     border_style="yellow",
                 )
             )
@@ -327,8 +329,8 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
         if replay is None:
             console.print(
                 Panel(
-                    text.MESSAGE_NO_PERSISTED_RUNS_REPLAY,
-                    title=text.TITLE_RUN_REPLAY,
+                    ui_t("message.no_persisted_runs_replay"),
+                    title=ui_t("title.run_replay"),
                     border_style="yellow",
                 )
             )
@@ -337,8 +339,8 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
 
     @app.command("export-report")
     def export_report(
-        output: str = typer.Option(..., help=text.HELP_EXPORT_REPORT_OUTPUT),
-        run_id: str | None = typer.Option(None, help=text.HELP_EXPORT_REPORT_RUN_ID),
+        output: str = typer.Option(..., help=ui_t("help.export_report_output")),
+        run_id: str | None = typer.Option(None, help=ui_t("help.export_report_run_id")),
     ) -> None:
         settings = deps.get_settings()
         db = deps.open_db(settings, read_only=True)
@@ -346,8 +348,8 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
         if record is None:
             console.print(
                 Panel(
-                    text.MESSAGE_NO_PERSISTED_RUNS_EXPORT,
-                    title=text.TITLE_EXPORT_BLOCKED,
+                    ui_t("message.no_persisted_runs_export"),
+                    title=ui_t("title.export_blocked"),
                     border_style="yellow",
                 )
             )
@@ -357,8 +359,8 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
             handle.write(rendered)
         console.print(
             Panel(
-                text.MESSAGE_RUN_REPORT_WRITTEN.format(output=output),
-                title=text.TITLE_EXPORTED,
+                ui_t("message.run_report_written").format(output=output),
+                title=ui_t("title.exported"),
                 border_style="green",
             )
         )
@@ -367,19 +369,19 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
 def _register_backtest_command(app: typer.Typer, deps: RecordCommandDeps) -> None:
     @app.command("backtest")
     def backtest(
-        symbol: str = typer.Option(..., help=text.HELP_SYMBOL),
-        interval: str = typer.Option("1d", help=text.HELP_INTERVAL),
-        lookback: str = typer.Option("2y", help=text.HELP_LOOKBACK),
+        symbol: str = typer.Option(..., help=ui_t("help.symbol")),
+        interval: str = typer.Option("1d", help=ui_t("help.interval")),
+        lookback: str = typer.Option("2y", help=ui_t("help.lookback")),
         warmup_bars: int = typer.Option(
-            120, min=60, help=text.HELP_BACKTEST_WARMUP_BARS
+            120, min=60, help=ui_t("help.backtest_warmup_bars")
         ),
         compare_baseline: bool = typer.Option(
-            False, help=text.HELP_BACKTEST_COMPARE_BASELINE
+            False, help=ui_t("help.backtest_compare_baseline")
         ),
         compare_memory: bool = typer.Option(
-            False, help=text.HELP_BACKTEST_COMPARE_MEMORY
+            False, help=ui_t("help.backtest_compare_memory")
         ),
-        output: str | None = typer.Option(None, help=text.HELP_BACKTEST_OUTPUT),
+        output: str | None = typer.Option(None, help=ui_t("help.backtest_output")),
     ) -> None:
         settings = deps.get_settings()
         run_backtest_command(

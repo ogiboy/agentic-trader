@@ -5,7 +5,7 @@ from typing import cast
 import typer
 from rich.panel import Panel
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console, emit_json
 from agentic_trader.cli_modules.proposal_desk_state import settings as _settings
 from agentic_trader.cli_modules.proposal_support import (
@@ -23,10 +23,12 @@ def trade_proposals(
     status: str | None = typer.Option(
         None,
         "--status",
-        help=text.HELP_TRADE_PROPOSALS_STATUS_FILTER,
+        help=ui_t("help.trade_proposals_status_filter"),
     ),
-    limit: int = typer.Option(50, min=1, max=200, help=text.HELP_TRADE_PROPOSALS_LIMIT),
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    limit: int = typer.Option(
+        50, min=1, max=200, help=ui_t("help.trade_proposals_limit")
+    ),
+    json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
     """Display the manual-review trade proposal queue."""
     settings = _settings()
@@ -42,10 +44,10 @@ def trade_proposals(
     if not payload["available"]:
         console.print(
             Panel(
-                text.MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE.format(
+                ui_t("message.trade_proposals_temporarily_unavailable").format(
                     error=payload["error"]
                 ),
-                title=text.LABEL_OBSERVER_MODE,
+                title=ui_t("label.observer_mode"),
                 border_style="yellow",
             )
         )
@@ -57,12 +59,12 @@ def proposal_candidates(
     status: str | None = typer.Option(
         None,
         "--status",
-        help=text.HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
+        help=ui_t("help.proposal_candidates_status_filter"),
     ),
     limit: int = typer.Option(
-        50, min=1, max=200, help=text.HELP_PROPOSAL_CANDIDATES_LIMIT
+        50, min=1, max=200, help=ui_t("help.proposal_candidates_limit")
     ),
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
     """Show scanner/research candidates that may be promoted into proposals."""
     settings = _settings()
@@ -82,10 +84,10 @@ def proposal_candidates(
     if not payload["available"]:
         console.print(
             Panel(
-                text.MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE.format(
+                ui_t("message.proposal_candidates_temporarily_unavailable").format(
                     error=payload["error"]
                 ),
-                title=text.LABEL_OBSERVER_MODE,
+                title=ui_t("label.observer_mode"),
                 border_style="yellow",
             )
         )

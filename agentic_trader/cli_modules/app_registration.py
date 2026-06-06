@@ -324,13 +324,22 @@ def _register_app_entrypoints(app: typer.Typer, namespace: Any) -> None:
     ) -> None:
         resolved_locale = parse_ui_locale(locale)
         if resolved_locale is not None:
+            previous_locale = os.environ.get(namespace.UI_LOCALE_ENV)
+
+            def restore_locale() -> None:
+                if previous_locale is None:
+                    os.environ.pop(namespace.UI_LOCALE_ENV, None)
+                    return
+                os.environ[namespace.UI_LOCALE_ENV] = previous_locale
+
+            ctx.call_on_close(restore_locale)
             os.environ[namespace.UI_LOCALE_ENV] = resolved_locale
         if ctx.invoked_subcommand is None:
             _operator_launcher(namespace)
 
     @app.command()
     def doctor(
-        json_output: bool = typer.Option(False, "--json", help=namespace.HELP_JSON)
+        json_output: bool = typer.Option(False, "--json", help=namespace.HELP_JSON),
     ) -> None:
         """Check local environment, LLM, and database readiness."""
         run_doctor_command(

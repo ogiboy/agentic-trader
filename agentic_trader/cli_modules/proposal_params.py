@@ -5,12 +5,12 @@ from typing import Any, cast
 import click
 from typer.core import TyperCommand
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 
 
 def _json_option() -> click.Option:
     return click.Option(
-        ["--json", "json_output"], is_flag=True, default=False, help=text.HELP_JSON
+        ["--json", "json_output"], is_flag=True, default=False, help=ui_t("help.json")
     )
 
 
@@ -20,13 +20,13 @@ def _proposal_quantity_params() -> list[click.Parameter]:
             ["--quantity"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help=text.HELP_TRADE_QUANTITY,
+            help=ui_t("help.trade_quantity"),
         ),
         click.Option(
             ["--notional"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help=text.HELP_TRADE_NOTIONAL,
+            help=ui_t("help.trade_notional"),
         ),
     ]
 
@@ -37,13 +37,13 @@ def _proposal_price_params() -> list[click.Parameter]:
             ["--limit-price", "limit_price"],
             type=click.FloatRange(min=0.01),
             default=None,
-            help=text.HELP_TRADE_LIMIT_PRICE,
+            help=ui_t("help.trade_limit_price"),
         ),
         click.Option(
             ["--reference-price", "reference_price"],
             type=click.FloatRange(min=0.01),
             required=True,
-            help=text.HELP_TRADE_REFERENCE_PRICE,
+            help=ui_t("help.trade_reference_price"),
         ),
     ]
 
@@ -54,30 +54,30 @@ def _proposal_risk_params() -> list[click.Parameter]:
             ["--stop-loss", "stop_loss"],
             type=click.FloatRange(min=0.01),
             default=None,
-            help=text.HELP_TRADE_STOP_LOSS,
+            help=ui_t("help.trade_stop_loss"),
         ),
         click.Option(
             ["--take-profit", "take_profit"],
             type=click.FloatRange(min=0.01),
             default=None,
-            help=text.HELP_TRADE_TAKE_PROFIT,
+            help=ui_t("help.trade_take_profit"),
         ),
         click.Option(
             ["--invalidation-condition", "invalidation_condition"],
             default=None,
-            help=text.HELP_TRADE_INVALIDATION,
+            help=ui_t("help.trade_invalidation"),
         ),
     ]
 
 
 def _proposal_create_params() -> list[click.Parameter]:
     return [
-        click.Option(["--symbol"], required=True, help=text.HELP_SYMBOL),
+        click.Option(["--symbol"], required=True, help=ui_t("help.symbol")),
         click.Option(
             ["--side"],
             default="buy",
             show_default=True,
-            help=text.HELP_TRADE_SIDE,
+            help=ui_t("help.trade_side"),
         ),
         *_proposal_quantity_params(),
         *_proposal_price_params(),
@@ -86,26 +86,26 @@ def _proposal_create_params() -> list[click.Parameter]:
             type=click.FloatRange(min=0.0, max=1.0),
             default=0.5,
             show_default=True,
-            help=text.HELP_TRADE_CONFIDENCE,
+            help=ui_t("help.trade_confidence"),
         ),
-        click.Option(["--thesis"], required=True, help=text.HELP_TRADE_THESIS),
+        click.Option(["--thesis"], required=True, help=ui_t("help.trade_thesis")),
         click.Option(
             ["--order-type", "order_type"],
             default="market",
             show_default=True,
-            help=text.HELP_TRADE_ORDER_TYPE,
+            help=ui_t("help.trade_order_type"),
         ),
         *_proposal_risk_params(),
         click.Option(
             ["--source"],
             default="manual",
             show_default=True,
-            help=text.HELP_TRADE_SOURCE,
+            help=ui_t("help.trade_source"),
         ),
         click.Option(
             ["--review-notes", "review_notes"],
             default="",
-            help=text.HELP_TRADE_REVIEW_NOTES,
+            help=ui_t("help.trade_review_notes"),
         ),
         _json_option(),
     ]
@@ -113,24 +113,24 @@ def _proposal_create_params() -> list[click.Parameter]:
 
 def _idea_market_params() -> list[click.Parameter]:
     return [
-        click.Option(["--symbol"], required=True, help=text.HELP_SYMBOL),
+        click.Option(["--symbol"], required=True, help=ui_t("help.symbol")),
         click.Option(
             ["--preset"],
             default="momentum",
             show_default=True,
-            help=text.HELP_IDEA_PRESET,
+            help=ui_t("help.idea_preset"),
         ),
         click.Option(
             ["--price"],
             type=click.FloatRange(min=0.01),
             required=True,
-            help=text.HELP_IDEA_PRICE,
+            help=ui_t("help.idea_price"),
         ),
         click.Option(
             ["--volume"],
             type=click.FloatRange(min=0.0),
             required=True,
-            help=text.HELP_IDEA_VOLUME,
+            help=ui_t("help.idea_volume"),
         ),
     ]
 
@@ -141,28 +141,28 @@ def _idea_momentum_params() -> list[click.Parameter]:
             ["--change-pct", "change_pct"],
             type=float,
             required=True,
-            help=text.HELP_IDEA_CHANGE_PCT,
+            help=ui_t("help.idea_change_pct"),
         ),
         click.Option(
             ["--relative-volume", "relative_volume"],
             type=click.FloatRange(min=0.0),
             default=0.0,
             show_default=True,
-            help=text.HELP_IDEA_RELATIVE_VOLUME,
+            help=ui_t("help.idea_relative_volume"),
         ),
         click.Option(
             ["--gap-pct", "gap_pct"],
             type=float,
             default=0.0,
             show_default=True,
-            help=text.HELP_IDEA_GAP_PCT,
+            help=ui_t("help.idea_gap_pct"),
         ),
         click.Option(
             ["--range-pct", "range_pct"],
             type=click.FloatRange(min=0.0),
             default=0.0,
             show_default=True,
-            help=text.HELP_IDEA_RANGE_PCT,
+            help=ui_t("help.idea_range_pct"),
         ),
     ]
 
@@ -173,31 +173,31 @@ def _idea_indicator_params() -> list[click.Parameter]:
             ["--rsi"],
             type=click.FloatRange(min=0.0, max=100.0),
             default=None,
-            help=text.HELP_IDEA_RSI,
+            help=ui_t("help.idea_rsi"),
         ),
         click.Option(
             ["--ema-9", "ema_9"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help=text.HELP_IDEA_EMA_9,
+            help=ui_t("help.idea_ema_9"),
         ),
         click.Option(
             ["--sma-20", "sma_20"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help=text.HELP_IDEA_SMA_20,
+            help=ui_t("help.idea_sma_20"),
         ),
         click.Option(
             ["--sma-50", "sma_50"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help=text.HELP_IDEA_SMA_50,
+            help=ui_t("help.idea_sma_50"),
         ),
         click.Option(
             ["--vwap"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help=text.HELP_IDEA_VWAP,
+            help=ui_t("help.idea_vwap"),
         ),
     ]
 
@@ -212,7 +212,7 @@ def _idea_score_params() -> list[click.Parameter]:
             type=click.FloatRange(min=0.0),
             default=0.0,
             show_default=True,
-            help=text.HELP_IDEA_SPREAD_PCT,
+            help=ui_t("help.idea_spread_pct"),
         ),
         _json_option(),
     ]
