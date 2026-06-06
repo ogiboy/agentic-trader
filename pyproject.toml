@@ -51,11 +51,20 @@ dev = [
   "ruff>=0.15.14",
 ]
 
-[tool.uv.sources]
-research-flow = {workspace = true}
-
-[tool.uv.workspace]
-members = ["sidecars/research_flow"]
+[tool.uv]
+sources = { research-flow = { workspace = true } }
+workspace = { members = ["sidecars/research_flow"] }
+environments = [
+  "sys_platform == 'darwin' and platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "sys_platform == 'linux' and platform_system == 'Linux'",
+  "sys_platform == 'win32'",
+  "platform_system == 'Darwin'",
+]
+required-environments = [
+  "sys_platform == 'darwin' and platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "sys_platform == 'linux' and platform_system == 'Linux'",
+  "sys_platform == 'win32'",
+]
 
 [project.scripts]
 agentic-trader = "agentic_trader.cli:app"
