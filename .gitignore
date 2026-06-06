@@ -123,3 +123,7 @@ agentdb.rvf.lock
 agentdb.rvf
 .gh-cache/
 .uv-cache/
+
+.flaskenv*
+!.env.project
+!.env.vault

@@ -17,6 +17,8 @@ CONVENTIONAL_SUBJECT_PATTERN = re.compile(
 RELEASE_SUBJECT_PATTERN = re.compile(r"^chore\(release\):")
 LEGACY_NONCONVENTIONAL_SUBJECTS = {
     "e0604a96dd8b8c7d2fb9d7e62a65babf70e25162": "Harden release changelog coverage",
+    "6a8bdbd60423a543eceeab1e292aacf0fd8d718b": "📝 Add docstrings to `refactor/modularity-i18n-completion-v2`",
+    "000ed4f4d37efad3c6dc125da83a4fa43af1b0ad": "📝 CodeRabbit Chat: Add generated unit tests",
 }
 
 
