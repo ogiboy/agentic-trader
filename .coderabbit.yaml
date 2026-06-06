@@ -6,6 +6,12 @@ reviews:
   profile: "assertive"
   request_changes_workflow: false
   high_level_summary: true
+  auto_title_instructions: |
+    Generate PR titles that are valid Conventional Commit subjects for this repository's semantic-release guard.
+    Use exactly one type from: feat, fix, perf, docs, build, ci, chore, refactor, test, style.
+    Format every title as "<type>(optional-scope): <imperative summary>".
+    Prefer "fix:" for bug fixes, "feat:" for user-visible behavior, "ci:" for workflow changes, "build:" for dependency or packaging changes, "docs:" for documentation-only changes, "test:" for test-only changes, and "chore:" only for maintenance that does not fit another allowed type.
+    Do not generate untyped titles such as "Update dependencies", "Apply suggestions", "Address review comments", or "CodeRabbit suggestions".
   review_status: true
   collapse_walkthrough: true
   auto_review:
