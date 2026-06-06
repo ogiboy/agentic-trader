@@ -7,6 +7,25 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.14.12 (2026-06-06)
+
+### Bug Fixes
+
+- Harden security gates and redaction
+  ([`d78bd9b`](https://github.com/ogiboy/agentic-trader/commit/d78bd9bc06a18e0b7cc19b9ac3dfbb7e83244f8a))
+- Redact sensitive CodeQL logging finding
+  ([`15ffe3a`](https://github.com/ogiboy/agentic-trader/commit/15ffe3affe164d30e1f8f0f806085237cd197850))
+
+### Tests
+
+- Update version bump expectation
+  ([`f52196b`](https://github.com/ogiboy/agentic-trader/commit/f52196b8b5b8631c80836fb5f6e4aa0892f4575a))
+
+### Chores
+
+- Bump branch version metadata
+  ([`c4d3434`](https://github.com/ogiboy/agentic-trader/commit/c4d343425ec8cb3f12eee4d1eb0ca8d17f4fa8fc))
+
 ## v0.14.11 - 2026-06-06
 
 ### Features
