@@ -19,6 +19,7 @@ LEGACY_NONCONVENTIONAL_SUBJECTS = {
     "e0604a96dd8b8c7d2fb9d7e62a65babf70e25162": "Harden release changelog coverage",
     "6a8bdbd60423a543eceeab1e292aacf0fd8d718b": "📝 Add docstrings to `refactor/modularity-i18n-completion-v2`",
     "000ed4f4d37efad3c6dc125da83a4fa43af1b0ad": "📝 CodeRabbit Chat: Add generated unit tests",
+    "1c7a7ba7288145d20062279f30dcfc2fded78790": "Update tests/test_modularity_i18n_audit.py",
 }
 
 
