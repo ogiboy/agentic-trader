@@ -8,27 +8,7 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader.ui_text import (
-    HELP_JSON,
-    HELP_STRATEGY_CATALOG_PRESET_FILTER,
-    HELP_STRATEGY_CATALOG_STATUS_FILTER,
-    HELP_STRATEGY_PROFILE_NAME,
-    LABEL_EVIDENCE,
-    LABEL_FAMILY,
-    LABEL_INTENT,
-    LABEL_PRESET,
-    LABEL_PROFILE,
-    LABEL_RISK,
-    LABEL_STATUS,
-    LABEL_SUMMARY,
-    LABEL_V1_PATH,
-    LABEL_VALIDATION,
-    MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
-    MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
-    TITLE_IDEA_SCANNER_PRESETS,
-    TITLE_STRATEGY_PROFILE,
-    TITLE_V1_STRATEGY_CATALOG,
-)
+from agentic_trader import ui_text as text
 from agentic_trader.cli_modules.common import console, emit_json
 from agentic_trader.cli_modules.proposal_support import (
     parse_idea_preset,
@@ -45,7 +25,7 @@ from agentic_trader.finance.strategy_catalog import (
 
 
 def idea_presets(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Show V1 idea-scanner presets and their operator intent."""
 
@@ -60,14 +40,14 @@ def idea_presets(
             }
             for name, description in PRESET_DESCRIPTIONS.items()
         ],
-        "execution_policy": MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
+        "execution_policy": text.MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
     }
     if json_output:
         emit_json(payload)
         return
-    table = Table(title=TITLE_IDEA_SCANNER_PRESETS)
-    table.add_column(LABEL_PRESET)
-    table.add_column(LABEL_INTENT)
+    table = Table(title=text.TITLE_IDEA_SCANNER_PRESETS)
+    table.add_column(text.LABEL_PRESET)
+    table.add_column(text.LABEL_INTENT)
     for item in cast(list[dict[str, str]], payload["presets"]):
         table.add_row(item["name"], item["description"])
     console.print(table)
@@ -101,14 +81,14 @@ def strategy_catalog(
     status: str | None = typer.Option(
         None,
         "--status",
-        help=HELP_STRATEGY_CATALOG_STATUS_FILTER,
+        help=text.HELP_STRATEGY_CATALOG_STATUS_FILTER,
     ),
     preset: str | None = typer.Option(
         None,
         "--preset",
-        help=HELP_STRATEGY_CATALOG_PRESET_FILTER,
+        help=text.HELP_STRATEGY_CATALOG_PRESET_FILTER,
     ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Show repo-native strategy profiles and their V1 readiness gates."""
 
@@ -118,12 +98,12 @@ def strategy_catalog(
     if json_output:
         emit_json(payload)
         return
-    table = Table(title=TITLE_V1_STRATEGY_CATALOG)
-    table.add_column(LABEL_PROFILE)
-    table.add_column(LABEL_FAMILY)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_V1_PATH)
-    table.add_column(LABEL_SUMMARY)
+    table = Table(title=text.TITLE_V1_STRATEGY_CATALOG)
+    table.add_column(text.LABEL_PROFILE)
+    table.add_column(text.LABEL_FAMILY)
+    table.add_column(text.LABEL_STATUS)
+    table.add_column(text.LABEL_V1_PATH)
+    table.add_column(text.LABEL_SUMMARY)
     for item in cast(list[dict[str, object]], payload["profiles"]):
         table.add_row(
             str(item.get("name", "-")),
@@ -136,8 +116,8 @@ def strategy_catalog(
 
 
 def strategy_profile(
-    name: str = typer.Argument(..., help=HELP_STRATEGY_PROFILE_NAME),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    name: str = typer.Argument(..., help=text.HELP_STRATEGY_PROFILE_NAME),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Show one strategy profile with evidence, risk, and validation gates."""
 
@@ -147,7 +127,7 @@ def strategy_profile(
         raise typer.BadParameter(str(exc)) from exc
     payload = {
         "profile": strategy_profile_payload(profile),
-        "execution_policy": MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
+        "execution_policy": text.MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
     }
     if json_output:
         emit_json(payload)
@@ -156,14 +136,14 @@ def strategy_profile(
     assert isinstance(profile_payload, dict)
     body = (
         f"{profile_payload['summary']}\n\n"
-        f"{LABEL_EVIDENCE}: {', '.join(cast(list[str], profile_payload['evidence_requirements'])) or '-'}\n"
-        f"{LABEL_RISK}: {', '.join(cast(list[str], profile_payload['risk_controls'])) or '-'}\n"
-        f"{LABEL_VALIDATION}: {', '.join(cast(list[str], profile_payload['validation_checks'])) or '-'}"
+        f"{text.LABEL_EVIDENCE}: {', '.join(cast(list[str], profile_payload['evidence_requirements'])) or '-'}\n"
+        f"{text.LABEL_RISK}: {', '.join(cast(list[str], profile_payload['risk_controls'])) or '-'}\n"
+        f"{text.LABEL_VALIDATION}: {', '.join(cast(list[str], profile_payload['validation_checks'])) or '-'}"
     )
     console.print(
         Panel(
             body,
-            title=TITLE_STRATEGY_PROFILE.format(name=profile.name),
+            title=text.TITLE_STRATEGY_PROFILE.format(name=profile.name),
             border_style="cyan",
         )
     )

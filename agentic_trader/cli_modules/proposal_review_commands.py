@@ -5,32 +5,7 @@ from typing import cast
 import typer
 from rich.panel import Panel
 
-from agentic_trader.ui_text import (
-    HELP_JSON,
-    HELP_TRADE_PROPOSAL_APPROVAL_NOTES,
-    HELP_TRADE_PROPOSAL_ID_APPROVE,
-    HELP_TRADE_PROPOSAL_ID_REJECT,
-    HELP_TRADE_PROPOSAL_RECONCILE_ID,
-    HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES,
-    HELP_TRADE_PROPOSAL_REFRESH_ID,
-    HELP_TRADE_PROPOSAL_REFRESH_NOTES,
-    HELP_TRADE_PROPOSAL_REJECTION_REASON,
-    MESSAGE_TRADE_PROPOSAL_APPROVED,
-    MESSAGE_TRADE_PROPOSAL_CREATED,
-    MESSAGE_TRADE_PROPOSAL_RECONCILED,
-    MESSAGE_TRADE_PROPOSAL_REFRESHED,
-    MESSAGE_TRADE_PROPOSAL_REJECTED,
-    TITLE_APPROVAL_BLOCKED,
-    TITLE_PROPOSAL_REJECTED,
-    TITLE_RECONCILIATION_BLOCKED,
-    TITLE_REFRESH_BLOCKED,
-    TITLE_REJECTION_BLOCKED,
-    TITLE_TRADE_PROPOSAL_APPROVED,
-    TITLE_TRADE_PROPOSAL_CREATED,
-    TITLE_TRADE_PROPOSAL_RECONCILED,
-    TITLE_TRADE_PROPOSAL_REFRESHED,
-    TITLE_TRADE_PROPOSAL_REJECTED,
-)
+from agentic_trader import ui_text as text
 from agentic_trader.cli_modules.common import console, emit_json, emit_json_error
 from agentic_trader.cli_modules.proposal_actions import (
     approve_proposal_payload,
@@ -61,7 +36,7 @@ def proposal_create(**options: str) -> None:
             emit_json_error(exc)
             raise typer.Exit(code=2) from exc
         console.print(
-            Panel(str(exc), title=TITLE_PROPOSAL_REJECTED, border_style="red")
+            Panel(str(exc), title=text.TITLE_PROPOSAL_REJECTED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
     payload = proposal.model_dump(mode="json")
@@ -70,22 +45,22 @@ def proposal_create(**options: str) -> None:
         return
     console.print(
         Panel(
-            MESSAGE_TRADE_PROPOSAL_CREATED.format(
+            text.MESSAGE_TRADE_PROPOSAL_CREATED.format(
                 proposal_id=proposal.proposal_id,
                 symbol=proposal.symbol,
                 side=proposal.side.upper(),
                 reference_price=proposal.reference_price,
             ),
-            title=TITLE_TRADE_PROPOSAL_CREATED,
+            title=text.TITLE_TRADE_PROPOSAL_CREATED,
             border_style="green",
         )
     )
 
 
 def proposal_approve(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_ID_APPROVE),
-    review_notes: str = typer.Option("", help=HELP_TRADE_PROPOSAL_APPROVAL_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    proposal_id: str = typer.Argument(..., help=text.HELP_TRADE_PROPOSAL_ID_APPROVE),
+    review_notes: str = typer.Option("", help=text.HELP_TRADE_PROPOSAL_APPROVAL_NOTES),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Approve a pending trade proposal and submit it to the paper broker."""
     settings = _settings()
@@ -100,7 +75,7 @@ def proposal_approve(
             emit_json_error(exc)
             raise typer.Exit(code=2) from exc
         console.print(
-            Panel(str(exc), title=TITLE_APPROVAL_BLOCKED, border_style="red")
+            Panel(str(exc), title=text.TITLE_APPROVAL_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
     if json_output:
@@ -110,24 +85,24 @@ def proposal_approve(
     outcome = ExecutionOutcome.model_validate(payload["outcome"])
     console.print(
         Panel(
-            MESSAGE_TRADE_PROPOSAL_APPROVED.format(
+            text.MESSAGE_TRADE_PROPOSAL_APPROVED.format(
                 proposal_id=proposal.proposal_id,
                 status=proposal.status,
                 order_id=proposal.execution_order_id or "-",
                 outcome_status=outcome.status,
             ),
-            title=TITLE_TRADE_PROPOSAL_APPROVED,
+            title=text.TITLE_TRADE_PROPOSAL_APPROVED,
             border_style="green" if proposal.status == "executed" else "yellow",
         )
     )
 
 
 def proposal_reconcile(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_RECONCILE_ID),
+    proposal_id: str = typer.Argument(..., help=text.HELP_TRADE_PROPOSAL_RECONCILE_ID),
     review_notes: str = typer.Option(
-        "", help=HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES
+        "", help=text.HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES
     ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Reconcile an approved trade proposal against a recorded execution outcome."""
     settings = _settings()
@@ -142,7 +117,7 @@ def proposal_reconcile(
             emit_json_error(exc)
             raise typer.Exit(code=2) from exc
         console.print(
-            Panel(str(exc), title=TITLE_RECONCILIATION_BLOCKED, border_style="red")
+            Panel(str(exc), title=text.TITLE_RECONCILIATION_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
     if json_output:
@@ -151,22 +126,22 @@ def proposal_reconcile(
     proposal = TradeProposalRecord.model_validate(payload["proposal"])
     console.print(
         Panel(
-            MESSAGE_TRADE_PROPOSAL_RECONCILED.format(
+            text.MESSAGE_TRADE_PROPOSAL_RECONCILED.format(
                 proposal_id=proposal.proposal_id,
                 status=proposal.status,
                 order_id=proposal.execution_order_id or "-",
                 outcome_status=proposal.execution_outcome_status or "-",
             ),
-            title=TITLE_TRADE_PROPOSAL_RECONCILED,
+            title=text.TITLE_TRADE_PROPOSAL_RECONCILED,
             border_style="green" if proposal.status == "executed" else "yellow",
         )
     )
 
 
 def proposal_refresh(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_REFRESH_ID),
-    review_notes: str = typer.Option("", help=HELP_TRADE_PROPOSAL_REFRESH_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    proposal_id: str = typer.Argument(..., help=text.HELP_TRADE_PROPOSAL_REFRESH_ID),
+    review_notes: str = typer.Option("", help=text.HELP_TRADE_PROPOSAL_REFRESH_NOTES),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Refresh an executed trade proposal's broker metadata."""
     settings = _settings()
@@ -184,7 +159,7 @@ def proposal_refresh(
             emit_json_error(exc)
             raise typer.Exit(code=2) from exc
         console.print(
-            Panel(str(exc), title=TITLE_REFRESH_BLOCKED, border_style="red")
+            Panel(str(exc), title=text.TITLE_REFRESH_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
     if json_output:
@@ -194,22 +169,22 @@ def proposal_refresh(
     outcome = ExecutionOutcome.model_validate(payload["outcome"])
     console.print(
         Panel(
-            MESSAGE_TRADE_PROPOSAL_REFRESHED.format(
+            text.MESSAGE_TRADE_PROPOSAL_REFRESHED.format(
                 proposal_id=proposal.proposal_id,
                 status=proposal.status,
                 order_id=proposal.execution_order_id or "-",
                 outcome_status=outcome.status,
             ),
-            title=TITLE_TRADE_PROPOSAL_REFRESHED,
+            title=text.TITLE_TRADE_PROPOSAL_REFRESHED,
             border_style="green" if proposal.status == "executed" else "yellow",
         )
     )
 
 
 def proposal_reject(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_ID_REJECT),
-    reason: str = typer.Option(..., help=HELP_TRADE_PROPOSAL_REJECTION_REASON),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    proposal_id: str = typer.Argument(..., help=text.HELP_TRADE_PROPOSAL_ID_REJECT),
+    reason: str = typer.Option(..., help=text.HELP_TRADE_PROPOSAL_REJECTION_REASON),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Reject a pending trade proposal and record the decision for audit."""
     settings = _settings()
@@ -224,7 +199,7 @@ def proposal_reject(
             emit_json_error(exc)
             raise typer.Exit(code=2) from exc
         console.print(
-            Panel(str(exc), title=TITLE_REJECTION_BLOCKED, border_style="red")
+            Panel(str(exc), title=text.TITLE_REJECTION_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
     if json_output:
@@ -233,11 +208,11 @@ def proposal_reject(
     proposal = TradeProposalRecord.model_validate(payload)
     console.print(
         Panel(
-            MESSAGE_TRADE_PROPOSAL_REJECTED.format(
+            text.MESSAGE_TRADE_PROPOSAL_REJECTED.format(
                 proposal_id=proposal.proposal_id,
                 reason=proposal.rejection_reason,
             ),
-            title=TITLE_TRADE_PROPOSAL_REJECTED,
+            title=text.TITLE_TRADE_PROPOSAL_REJECTED,
             border_style="yellow",
         )
     )

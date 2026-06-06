@@ -3,11 +3,7 @@ from __future__ import annotations
 import pytest
 from rich.console import Console
 
-from agentic_trader.ui_text import (
-    TITLE_DESK_ACCOUNTING_CONTEXT,
-    TITLE_FINANCE_LEDGER_CATEGORIES,
-    TITLE_FINANCE_OPERATIONS_CHECKS,
-)
+from agentic_trader import ui_text as text
 from agentic_trader.cli_modules import finance_rendering
 
 
@@ -38,12 +34,12 @@ def test_finance_table_helpers_render_checks_and_accounting() -> None:
     console.print(finance_rendering.finance_ledger_table(ledger_categories))
     output = console.export_text()
 
-    assert TITLE_FINANCE_OPERATIONS_CHECKS in output
+    assert text.TITLE_FINANCE_OPERATIONS_CHECKS in output
     assert "broker_health_visible" in output
     assert "pass" in output
-    assert TITLE_DESK_ACCOUNTING_CONTEXT in output
+    assert text.TITLE_DESK_ACCOUNTING_CONTEXT in output
     assert "12.5 bps" in output
-    assert TITLE_FINANCE_LEDGER_CATEGORIES in output
+    assert text.TITLE_FINANCE_LEDGER_CATEGORIES in output
     assert "cash tracking" in output
     assert finance_rendering.finance_ledger_table([]) is None
 

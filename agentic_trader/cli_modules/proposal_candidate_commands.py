@@ -3,29 +3,7 @@
 import typer
 from rich.panel import Panel
 
-from agentic_trader.ui_text import (
-    HELP_CANDIDATE_FRESHNESS,
-    HELP_CANDIDATE_LIQUIDITY,
-    HELP_CANDIDATE_MATERIALITY,
-    HELP_CANDIDATE_RISK_NOTES,
-    HELP_CANDIDATE_SOURCE,
-    HELP_ENRICH_PROVIDER_CONTEXT,
-    HELP_FETCH_PROVIDER_NEWS,
-    HELP_IDEA_CHANGE_PCT,
-    HELP_IDEA_GAP_PCT,
-    HELP_IDEA_PRESET,
-    HELP_IDEA_VOLUME,
-    HELP_JSON,
-    HELP_PROMOTION_NOTES,
-    HELP_PROPOSAL_CANDIDATE_ID,
-    HELP_SYMBOL,
-    HELP_TRADE_INVALIDATION,
-    HELP_TRADE_REFERENCE_PRICE,
-    HELP_TRADE_THESIS,
-    MESSAGE_PROPOSAL_CANDIDATE_PROMOTED,
-    TITLE_PROMOTION_BLOCKED,
-    TITLE_PROPOSAL_CANDIDATE_PROMOTED,
-)
+from agentic_trader import ui_text as text
 from agentic_trader.cli_modules.common import console, emit_json, emit_json_error
 from agentic_trader.cli_modules.proposal_actions import promote_candidate_payload
 from agentic_trader.cli_modules.proposal_desk_state import settings as _settings
@@ -39,17 +17,17 @@ from agentic_trader.schemas import ProposalCandidateRecord, TradeProposalRecord
 
 
 def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the command signature.
-    symbol: str = typer.Option(..., "--symbol", help=HELP_SYMBOL),  # NOSONAR
-    preset: str = typer.Option("momentum", "--preset", help=HELP_IDEA_PRESET),
+    symbol: str = typer.Option(..., "--symbol", help=text.HELP_SYMBOL),  # NOSONAR
+    preset: str = typer.Option("momentum", "--preset", help=text.HELP_IDEA_PRESET),
     price: float = typer.Option(
-        ..., "--price", min=0.01, help=HELP_TRADE_REFERENCE_PRICE
+        ..., "--price", min=0.01, help=text.HELP_TRADE_REFERENCE_PRICE
     ),
-    volume: float = typer.Option(..., "--volume", min=0.0, help=HELP_IDEA_VOLUME),
+    volume: float = typer.Option(..., "--volume", min=0.0, help=text.HELP_IDEA_VOLUME),
     change_pct: float = typer.Option(
-        ..., "--change-pct", help=HELP_IDEA_CHANGE_PCT
+        ..., "--change-pct", help=text.HELP_IDEA_CHANGE_PCT
     ),
     relative_volume: float = typer.Option(0.0, "--relative-volume", min=0.0),
-    gap_pct: float = typer.Option(0.0, "--gap-pct", help=HELP_IDEA_GAP_PCT),
+    gap_pct: float = typer.Option(0.0, "--gap-pct", help=text.HELP_IDEA_GAP_PCT),
     range_pct: float = typer.Option(0.0, "--range-pct", min=0.0),
     rsi: float | None = typer.Option(None, "--rsi", min=0.0, max=100.0),
     ema_9: float | None = typer.Option(None, "--ema-9", min=0.0),
@@ -64,37 +42,37 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
     invalidation_condition: str | None = typer.Option(
         None,
         "--invalidation-condition",
-        help=HELP_TRADE_INVALIDATION,
+        help=text.HELP_TRADE_INVALIDATION,
     ),
-    thesis: str = typer.Option("", "--thesis", help=HELP_TRADE_THESIS),
+    thesis: str = typer.Option("", "--thesis", help=text.HELP_TRADE_THESIS),
     materiality: str = typer.Option(
-        "", "--materiality", help=HELP_CANDIDATE_MATERIALITY
+        "", "--materiality", help=text.HELP_CANDIDATE_MATERIALITY
     ),
     freshness: str = typer.Option(
         "operator_supplied_current",
         "--freshness",
-        help=HELP_CANDIDATE_FRESHNESS,
+        help=text.HELP_CANDIDATE_FRESHNESS,
     ),
     liquidity: str = typer.Option(
-        "", "--liquidity", help=HELP_CANDIDATE_LIQUIDITY
+        "", "--liquidity", help=text.HELP_CANDIDATE_LIQUIDITY
     ),
     risk_notes: str = typer.Option(
-        "", "--risk-notes", help=HELP_CANDIDATE_RISK_NOTES
+        "", "--risk-notes", help=text.HELP_CANDIDATE_RISK_NOTES
     ),
     source: str = typer.Option(
-        "idea-scanner", "--source", help=HELP_CANDIDATE_SOURCE
+        "idea-scanner", "--source", help=text.HELP_CANDIDATE_SOURCE
     ),
     enrich_provider_context: bool = typer.Option(
         True,
         "--enrich-provider-context/--no-enrich-provider-context",
-        help=HELP_ENRICH_PROVIDER_CONTEXT,
+        help=text.HELP_ENRICH_PROVIDER_CONTEXT,
     ),
     fetch_provider_news: bool = typer.Option(
         False,
         "--fetch-provider-news/--no-fetch-provider-news",
-        help=HELP_FETCH_PROVIDER_NEWS,
+        help=text.HELP_FETCH_PROVIDER_NEWS,
     ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Persist a scanner/research candidate without approving or submitting it."""
     settings = _settings()
@@ -112,9 +90,9 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
 
 
 def proposal_candidate_promote(
-    candidate_id: str = typer.Argument(..., help=HELP_PROPOSAL_CANDIDATE_ID),
-    review_notes: str = typer.Option("", help=HELP_PROMOTION_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    candidate_id: str = typer.Argument(..., help=text.HELP_PROPOSAL_CANDIDATE_ID),
+    review_notes: str = typer.Option("", help=text.HELP_PROMOTION_NOTES),
+    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
     """Promote a proposal candidate into a pending manual-review trade proposal."""
     settings = _settings()
@@ -129,7 +107,7 @@ def proposal_candidate_promote(
             emit_json_error(exc)
             raise typer.Exit(code=2) from exc
         console.print(
-            Panel(str(exc), title=TITLE_PROMOTION_BLOCKED, border_style="red")
+            Panel(str(exc), title=text.TITLE_PROMOTION_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
     if json_output:
@@ -139,11 +117,11 @@ def proposal_candidate_promote(
     proposal = TradeProposalRecord.model_validate(payload["proposal"])
     console.print(
         Panel(
-            MESSAGE_PROPOSAL_CANDIDATE_PROMOTED.format(
+            text.MESSAGE_PROPOSAL_CANDIDATE_PROMOTED.format(
                 candidate_id=candidate.candidate_id,
                 proposal_id=proposal.proposal_id,
             ),
-            title=TITLE_PROPOSAL_CANDIDATE_PROMOTED,
+            title=text.TITLE_PROPOSAL_CANDIDATE_PROMOTED,
             border_style="green",
         )
     )

@@ -8,87 +8,7 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader.ui_text import (
-    HELP_JSON,
-    HELP_POSITION_PLAN_REPAIR_APPLY,
-    HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
-    HELP_V1_PROVIDER_CHECK,
-    LABEL_ADAPTER,
-    LABEL_ALPACA_CREDENTIALS_CONFIGURED,
-    LABEL_ALPACA_FEED,
-    LABEL_ALPACA_PAPER_ENDPOINT,
-    LABEL_API_KEY,
-    LABEL_AVERAGE_PRICE,
-    LABEL_BACKEND,
-    LABEL_BACKGROUND_MODE,
-    LABEL_BASE_URL,
-    LABEL_BLOCKING,
-    LABEL_CASH,
-    LABEL_CHECK,
-    LABEL_DEFAULT_MODEL,
-    LABEL_DETAILS,
-    LABEL_ENABLED,
-    LABEL_EQUITY,
-    LABEL_FIELD,
-    LABEL_FRESHNESS,
-    LABEL_HEALTHCHECK,
-    LABEL_KILL_SWITCH_ACTIVE,
-    LABEL_LAST_TERMINAL_AT,
-    LABEL_LAST_TERMINAL_STATE,
-    LABEL_LAUNCH_COUNT,
-    LABEL_LIVE_EXECUTION_ENABLED,
-    LABEL_LIVE_PROCESS,
-    LABEL_LIVE_READY,
-    LABEL_LIVE_REQUESTED,
-    LABEL_LLM_PROVIDER,
-    LABEL_MARKET_PRICE,
-    LABEL_MARKET_PROVIDER,
-    LABEL_MARKET_ROLE,
-    LABEL_MARKET_VALUE,
-    LABEL_MESSAGE,
-    LABEL_METRIC,
-    LABEL_NEWS_MODE,
-    LABEL_NO,
-    LABEL_NOTES,
-    LABEL_OBSERVER_MODE,
-    LABEL_OPEN_POSITIONS,
-    LABEL_PROVIDER,
-    LABEL_QUANTITY,
-    LABEL_REALIZED_PNL,
-    LABEL_RESTART_COUNT,
-    LABEL_ROLE,
-    LABEL_RUNTIME,
-    LABEL_SIMULATED,
-    LABEL_STATE,
-    LABEL_STATUS_NOTE,
-    LABEL_STDERR_LOG,
-    LABEL_STDOUT_LOG,
-    LABEL_SYMBOL,
-    LABEL_TYPE,
-    LABEL_UNREALIZED_PNL,
-    LABEL_VALUE,
-    LABEL_YES,
-    MESSAGE_NO_OPEN_POSITIONS,
-    MESSAGE_NO_RUNTIME_STATE,
-    MESSAGE_NO_STDERR_LOG_LINES,
-    MESSAGE_NO_STDOUT_LOG_LINES,
-    MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
-    STATUS_FAIL,
-    STATUS_PASS,
-    TITLE_ALPACA_PAPER_CHECKS,
-    TITLE_BROKER_STATUS,
-    TITLE_PAPER_OPERATION_CHECKS,
-    TITLE_PORTFOLIO,
-    TITLE_POSITIONS,
-    TITLE_PROVIDER_DIAGNOSTICS,
-    TITLE_PROVIDER_SOURCE_LADDER,
-    TITLE_SERVICE_STDERR_TAIL,
-    TITLE_SERVICE_STDOUT_TAIL,
-    TITLE_SERVICE_SUPERVISOR,
-    TITLE_V1_READINESS,
-)
+from agentic_trader import ui_text as text
 from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
 from agentic_trader.json_utils import object_list, object_mapping, object_mapping_list
@@ -133,7 +53,7 @@ def register_status_commands(app: typer.Typer, deps: StatusCommandDeps) -> None:
 def _register_portfolio_command(app: typer.Typer, deps: StatusCommandDeps) -> None:
     @app.command()
     def portfolio(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.portfolio_payload(settings)
@@ -152,8 +72,8 @@ def _register_portfolio_command(app: typer.Typer, deps: StatusCommandDeps) -> No
         if not available:
             console.print(
                 Panel(
-                    MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE.format(error=error),
-                    title=LABEL_OBSERVER_MODE,
+                    text.MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE.format(error=error),
+                    title=text.LABEL_OBSERVER_MODE,
                     border_style="yellow",
                 )
             )
@@ -164,26 +84,26 @@ def _register_portfolio_command(app: typer.Typer, deps: StatusCommandDeps) -> No
 
 
 def _render_portfolio_summary(snapshot: PortfolioSnapshot) -> None:
-    summary = Table(title=TITLE_PORTFOLIO)
-    summary.add_column(LABEL_METRIC)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_CASH, f"{snapshot.cash:.2f}")
-    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
-    summary.add_row(LABEL_EQUITY, f"{snapshot.equity:.2f}")
-    summary.add_row(LABEL_REALIZED_PNL, f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
-    summary.add_row(LABEL_OPEN_POSITIONS, str(snapshot.open_positions))
+    summary = Table(title=text.TITLE_PORTFOLIO)
+    summary.add_column(text.LABEL_METRIC)
+    summary.add_column(text.LABEL_VALUE)
+    summary.add_row(text.LABEL_CASH, f"{snapshot.cash:.2f}")
+    summary.add_row(text.LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
+    summary.add_row(text.LABEL_EQUITY, f"{snapshot.equity:.2f}")
+    summary.add_row(text.LABEL_REALIZED_PNL, f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(text.LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(text.LABEL_OPEN_POSITIONS, str(snapshot.open_positions))
     console.print(summary)
 
 
 def _render_positions(positions: list[PositionSnapshot]) -> None:
-    positions_table = Table(title=TITLE_POSITIONS)
-    positions_table.add_column(LABEL_SYMBOL)
-    positions_table.add_column(LABEL_QUANTITY)
-    positions_table.add_column(LABEL_AVERAGE_PRICE)
-    positions_table.add_column(LABEL_MARKET_PRICE)
-    positions_table.add_column(LABEL_MARKET_VALUE)
-    positions_table.add_column(LABEL_UNREALIZED_PNL)
+    positions_table = Table(title=text.TITLE_POSITIONS)
+    positions_table.add_column(text.LABEL_SYMBOL)
+    positions_table.add_column(text.LABEL_QUANTITY)
+    positions_table.add_column(text.LABEL_AVERAGE_PRICE)
+    positions_table.add_column(text.LABEL_MARKET_PRICE)
+    positions_table.add_column(text.LABEL_MARKET_VALUE)
+    positions_table.add_column(text.LABEL_UNREALIZED_PNL)
     for position in positions:
         positions_table.add_row(
             position.symbol,
@@ -198,8 +118,8 @@ def _render_positions(positions: list[PositionSnapshot]) -> None:
     else:
         console.print(
             Panel(
-                MESSAGE_NO_OPEN_POSITIONS,
-                title=TITLE_POSITIONS,
+                text.MESSAGE_NO_OPEN_POSITIONS,
+                title=text.TITLE_POSITIONS,
                 border_style="yellow",
             )
         )
@@ -210,7 +130,7 @@ def _register_runtime_status_commands(
 ) -> None:
     @app.command()
     def status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         state = deps.read_service_state(settings)
@@ -222,7 +142,7 @@ def _register_runtime_status_commands(
 
     @app.command("supervisor-status")
     def supervisor_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.service_supervisor_payload(settings)
@@ -237,44 +157,44 @@ def _render_supervisor_payload(payload: dict[str, object]) -> None:
     if state_json is None:
         console.print(
             Panel(
-                MESSAGE_NO_RUNTIME_STATE,
-                title=TITLE_SERVICE_SUPERVISOR,
+                text.MESSAGE_NO_RUNTIME_STATE,
+                title=text.TITLE_SERVICE_SUPERVISOR,
                 border_style="yellow",
             )
         )
         return
 
     state = ServiceStateSnapshot.model_validate(state_json)
-    table = Table(title=TITLE_SERVICE_SUPERVISOR)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_RUNTIME, str(payload["runtime_state"]))
+    table = Table(title=text.TITLE_SERVICE_SUPERVISOR)
+    table.add_column(text.LABEL_FIELD)
+    table.add_column(text.LABEL_VALUE)
+    table.add_row(text.LABEL_RUNTIME, str(payload["runtime_state"]))
     table.add_row(
-        LABEL_LIVE_PROCESS,
-        LABEL_YES if payload["live_process"] else LABEL_NO,
+        text.LABEL_LIVE_PROCESS,
+        text.LABEL_YES if payload["live_process"] else text.LABEL_NO,
     )
-    table.add_row(LABEL_BACKGROUND_MODE, str(state.background_mode))
-    table.add_row(LABEL_LAUNCH_COUNT, str(state.launch_count))
-    table.add_row(LABEL_RESTART_COUNT, str(state.restart_count))
-    table.add_row(LABEL_LAST_TERMINAL_STATE, state.last_terminal_state or "-")
-    table.add_row(LABEL_LAST_TERMINAL_AT, state.last_terminal_at or "-")
-    table.add_row(LABEL_STDOUT_LOG, state.stdout_log_path or "-")
-    table.add_row(LABEL_STDERR_LOG, state.stderr_log_path or "-")
-    table.add_row(LABEL_STATUS_NOTE, str(payload["status_message"]))
+    table.add_row(text.LABEL_BACKGROUND_MODE, str(state.background_mode))
+    table.add_row(text.LABEL_LAUNCH_COUNT, str(state.launch_count))
+    table.add_row(text.LABEL_RESTART_COUNT, str(state.restart_count))
+    table.add_row(text.LABEL_LAST_TERMINAL_STATE, state.last_terminal_state or "-")
+    table.add_row(text.LABEL_LAST_TERMINAL_AT, state.last_terminal_at or "-")
+    table.add_row(text.LABEL_STDOUT_LOG, state.stdout_log_path or "-")
+    table.add_row(text.LABEL_STDERR_LOG, state.stderr_log_path or "-")
+    table.add_row(text.LABEL_STATUS_NOTE, str(payload["status_message"]))
     console.print(table)
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["stdout_tail"]))
-            or MESSAGE_NO_STDOUT_LOG_LINES,
-            title=TITLE_SERVICE_STDOUT_TAIL,
+            or text.MESSAGE_NO_STDOUT_LOG_LINES,
+            title=text.TITLE_SERVICE_STDOUT_TAIL,
             border_style="cyan",
         )
     )
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["stderr_tail"]))
-            or MESSAGE_NO_STDERR_LOG_LINES,
-            title=TITLE_SERVICE_STDERR_TAIL,
+            or text.MESSAGE_NO_STDERR_LOG_LINES,
+            title=text.TITLE_SERVICE_STDERR_TAIL,
             border_style="yellow",
         )
     )
@@ -283,7 +203,7 @@ def _render_supervisor_payload(payload: dict[str, object]) -> None:
 def _register_broker_status_command(app: typer.Typer, deps: StatusCommandDeps) -> None:
     @app.command("broker-status")
     def broker_status(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.broker_payload(settings)
@@ -294,24 +214,24 @@ def _register_broker_status_command(app: typer.Typer, deps: StatusCommandDeps) -
 
 
 def _render_broker_status(payload: dict[str, object]) -> None:
-    table = Table(title=TITLE_BROKER_STATUS)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_BACKEND, str(payload["backend"]))
-    table.add_row(LABEL_ADAPTER, str(payload["adapter_name"]))
-    table.add_row(LABEL_STATE, str(payload["state"]))
-    table.add_row(LABEL_SIMULATED, str(payload["simulated"]))
+    table = Table(title=text.TITLE_BROKER_STATUS)
+    table.add_column(text.LABEL_FIELD)
+    table.add_column(text.LABEL_VALUE)
+    table.add_row(text.LABEL_BACKEND, str(payload["backend"]))
+    table.add_row(text.LABEL_ADAPTER, str(payload["adapter_name"]))
+    table.add_row(text.LABEL_STATE, str(payload["state"]))
+    table.add_row(text.LABEL_SIMULATED, str(payload["simulated"]))
     table.add_row(
-        LABEL_LIVE_EXECUTION_ENABLED,
+        text.LABEL_LIVE_EXECUTION_ENABLED,
         str(payload["live_execution_enabled"]),
     )
-    table.add_row(LABEL_KILL_SWITCH_ACTIVE, str(payload["kill_switch_active"]))
-    table.add_row(LABEL_LIVE_REQUESTED, str(payload["live_requested"]))
-    table.add_row(LABEL_LIVE_READY, str(payload["live_ready"]))
-    table.add_row(LABEL_MESSAGE, str(payload["message"]))
+    table.add_row(text.LABEL_KILL_SWITCH_ACTIVE, str(payload["kill_switch_active"]))
+    table.add_row(text.LABEL_LIVE_REQUESTED, str(payload["live_requested"]))
+    table.add_row(text.LABEL_LIVE_READY, str(payload["live_ready"]))
+    table.add_row(text.LABEL_MESSAGE, str(payload["message"]))
     healthcheck = object_mapping(payload.get("healthcheck"))
     if healthcheck:
-        table.add_row(LABEL_HEALTHCHECK, str(healthcheck.get("message", "-")))
+        table.add_row(text.LABEL_HEALTHCHECK, str(healthcheck.get("message", "-")))
     console.print(table)
 
 
@@ -320,7 +240,7 @@ def _register_provider_readiness_commands(
 ) -> None:
     @app.command("provider-diagnostics")
     def provider_diagnostics(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.provider_diagnostics_payload(settings)
@@ -334,9 +254,9 @@ def _register_provider_readiness_commands(
         check_provider: bool = typer.Option(
             False,
             "--provider-check/--skip-provider-check",
-            help=HELP_V1_PROVIDER_CHECK,
+            help=text.HELP_V1_PROVIDER_CHECK,
         ),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.v1_readiness_payload(settings, check_provider=check_provider)
@@ -347,28 +267,28 @@ def _register_provider_readiness_commands(
 
 
 def _render_provider_diagnostics(payload: dict[str, object]) -> None:
-    summary = Table(title=TITLE_PROVIDER_DIAGNOSTICS)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
+    summary = Table(title=text.TITLE_PROVIDER_DIAGNOSTICS)
+    summary.add_column(text.LABEL_FIELD)
+    summary.add_column(text.LABEL_VALUE)
     llm = object_mapping(payload.get("llm"))
     market_data = object_mapping(payload.get("market_data"))
     news = object_mapping(payload.get("news"))
     alpaca = object_mapping(payload.get("alpaca"))
-    summary.add_row(LABEL_LLM_PROVIDER, str(llm.get("provider", "-")))
-    summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
-    summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
+    summary.add_row(text.LABEL_LLM_PROVIDER, str(llm.get("provider", "-")))
+    summary.add_row(text.LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
+    summary.add_row(text.LABEL_BASE_URL, str(llm.get("base_url", "-")))
     summary.add_row(
-        LABEL_MARKET_PROVIDER,
+        text.LABEL_MARKET_PROVIDER,
         str(market_data.get("selected_provider", "-")),
     )
-    summary.add_row(LABEL_MARKET_ROLE, str(market_data.get("selected_role", "-")))
-    summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
+    summary.add_row(text.LABEL_MARKET_ROLE, str(market_data.get("selected_role", "-")))
+    summary.add_row(text.LABEL_NEWS_MODE, str(news.get("mode", "-")))
     summary.add_row(
-        LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-"))
+        text.LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-"))
     )
-    summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
+    summary.add_row(text.LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
     summary.add_row(
-        LABEL_ALPACA_CREDENTIALS_CONFIGURED,
+        text.LABEL_ALPACA_CREDENTIALS_CONFIGURED,
         str(alpaca.get("credentials_configured", False)),
     )
     console.print(summary)
@@ -376,14 +296,14 @@ def _render_provider_diagnostics(payload: dict[str, object]) -> None:
 
 
 def _render_provider_ladder(payload: dict[str, object]) -> None:
-    provider_table = Table(title=TITLE_PROVIDER_SOURCE_LADDER)
-    provider_table.add_column(LABEL_PROVIDER)
-    provider_table.add_column(LABEL_TYPE)
-    provider_table.add_column(LABEL_ROLE)
-    provider_table.add_column(LABEL_ENABLED)
-    provider_table.add_column(LABEL_API_KEY)
-    provider_table.add_column(LABEL_FRESHNESS)
-    provider_table.add_column(LABEL_NOTES)
+    provider_table = Table(title=text.TITLE_PROVIDER_SOURCE_LADDER)
+    provider_table.add_column(text.LABEL_PROVIDER)
+    provider_table.add_column(text.LABEL_TYPE)
+    provider_table.add_column(text.LABEL_ROLE)
+    provider_table.add_column(text.LABEL_ENABLED)
+    provider_table.add_column(text.LABEL_API_KEY)
+    provider_table.add_column(text.LABEL_FRESHNESS)
+    provider_table.add_column(text.LABEL_NOTES)
     for row in object_mapping_list(payload.get("providers", [])):
         provider_table.add_row(
             str(row.get("provider_id", "-")),
@@ -403,28 +323,28 @@ def _render_v1_readiness(payload: dict[str, object]) -> None:
     paper_allowed = bool(paper.get("allowed"))
     console.print(
         Panel(
-            str(payload.get("summary", MESSAGE_V1_READINESS_STATUS_UNAVAILABLE)),
-            title=TITLE_V1_READINESS,
+            str(payload.get("summary", text.MESSAGE_V1_READINESS_STATUS_UNAVAILABLE)),
+            title=text.TITLE_V1_READINESS,
             border_style="green" if paper_allowed else "yellow",
         )
     )
-    _render_readiness_checks(TITLE_PAPER_OPERATION_CHECKS, paper)
-    _render_readiness_checks(TITLE_ALPACA_PAPER_CHECKS, alpaca)
+    _render_readiness_checks(text.TITLE_PAPER_OPERATION_CHECKS, paper)
+    _render_readiness_checks(text.TITLE_ALPACA_PAPER_CHECKS, alpaca)
 
 
 def _render_readiness_checks(title: str, payload: Mapping[str, object]) -> None:
     checks = payload.get("checks", [])
     table = Table(title=title)
-    table.add_column(LABEL_CHECK)
-    table.add_column(LABEL_STATE)
-    table.add_column(LABEL_BLOCKING)
-    table.add_column(LABEL_DETAILS)
+    table.add_column(text.LABEL_CHECK)
+    table.add_column(text.LABEL_STATE)
+    table.add_column(text.LABEL_BLOCKING)
+    table.add_column(text.LABEL_DETAILS)
     for item in object_mapping_list(checks):
         passed = bool(item.get("passed"))
         state_label = (
-            f"[green]{STATUS_PASS}[/green]"
+            f"[green]{text.STATUS_PASS}[/green]"
             if passed
-            else f"[red]{STATUS_FAIL}[/red]"
+            else f"[red]{text.STATUS_FAIL}[/red]"
         )
         table.add_row(
             str(item.get("name", "-")),
@@ -438,7 +358,7 @@ def _render_readiness_checks(title: str, payload: Mapping[str, object]) -> None:
 def _register_finance_ops_commands(app: typer.Typer, deps: StatusCommandDeps) -> None:
     @app.command("finance-ops")
     def finance_ops(
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.finance_ops_payload(settings)
@@ -452,15 +372,15 @@ def _register_finance_ops_commands(app: typer.Typer, deps: StatusCommandDeps) ->
         apply_changes: bool = typer.Option(
             False,
             "--apply",
-            help=HELP_POSITION_PLAN_REPAIR_APPLY,
+            help=text.HELP_POSITION_PLAN_REPAIR_APPLY,
         ),
         max_holding_bars: int = typer.Option(
             20,
             min=1,
             max=500,
-            help=HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
+            help=text.HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
         ),
-        json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
     ) -> None:
         settings = deps.get_settings()
         try:
@@ -476,10 +396,10 @@ def _register_finance_ops_commands(app: typer.Typer, deps: StatusCommandDeps) ->
         except Exception as exc:
             console.print(
                 Panel(
-                    MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE.format(
+                    text.MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE.format(
                         error=exc
                     ),
-                    title=LABEL_OBSERVER_MODE,
+                    title=text.LABEL_OBSERVER_MODE,
                     border_style="yellow",
                 )
             )
