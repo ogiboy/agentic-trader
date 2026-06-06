@@ -4,7 +4,6 @@ from agentic_trader.config import Settings
 from agentic_trader.runtime_status import AgentActivityView, RuntimeStatusView
 from agentic_trader.schemas import ServiceStateSnapshot
 from agentic_trader.ui_text import (
-    UI_LIST_SEPARATOR,
     UITextCatalog,
     get_ui_text,
     t,
@@ -23,17 +22,17 @@ def runtime_cycle_lines(
 ) -> list[str]:
     """
     Builds a list of labeled lines describing the runtime cycle and view state for UI display.
-    
+
     Parameters:
         settings (Settings): Configuration used when `state` is None to supply defaults (e.g., runtime_mode).
         state (ServiceStateSnapshot | None): Current runtime snapshot; when None, fields fall back to `settings` or "-" as described below.
         view (RuntimeStatusView): Current runtime view containing runtime_state and optional nested state fields.
-    
+
     Returns:
         list[str]: Lines with labels and values for:
             - runtime state (from `view.runtime_state`)
             - runtime mode (from `state.runtime_mode` or `settings.runtime_mode`)
-            - watched symbols (joined by `UI_LIST_SEPARATOR` or "-" when missing)
+            - watched symbols (joined by `t("list.separator")` or "-" when missing)
             - current symbol (from `view.state.current_symbol` or "-")
             - cycle count (from `view.state.cycle_count` or "-")
             - interval / lookback (formatted as "interval / lookback" with "-" for missing parts)
@@ -48,7 +47,7 @@ def runtime_cycle_lines(
         label_line(
             t("label.watched.symbols"),
             (
-                UI_LIST_SEPARATOR.join(state.symbols)
+                t("list.separator").join(state.symbols)
                 if state is not None and state.symbols
                 else "-"
             ),
@@ -86,11 +85,11 @@ def runtime_cycle_lines(
 def agent_activity_lines(activity: AgentActivityView) -> list[str]:
     """
     Builds five labeled lines summarizing an agent's current activity and last completed stage.
-    
+
     Parameters:
         activity (AgentActivityView): View containing `current_stage`, `current_stage_status`,
             `current_stage_message`, `last_completed_stage`, and `last_completed_message`.
-    
+
     Returns:
         list[str]: Five strings with localized labels and values in this order:
             1. Current stage (or "-" if missing)
@@ -121,7 +120,7 @@ def broker_gate_lines(
 ) -> list[str]:
     """
     Builds labeled status lines describing broker backend, broker state, kill-switch, and V1 paper gate.
-    
+
     Parameters:
         broker (Mapping[str, object]): Mapping containing broker fields; expected keys include
             "backend", "state", and "kill_switch_active".
@@ -129,7 +128,7 @@ def broker_gate_lines(
             "allowed".
         copy (UITextCatalog | None): Optional UI text catalog to use for localized labels and status
             strings. If omitted, the module default UI text is used.
-    
+
     Returns:
         list[str]: Four labeled lines (broker backend, broker state, kill switch status, V1 paper gate status).
     """
@@ -159,10 +158,10 @@ def broker_gate_lines(
 def last_outcome_lines(activity: AgentActivityView) -> list[str]:
     """
     Format the last outcome information from an agent activity into labeled UI lines.
-    
+
     Parameters:
         activity (AgentActivityView): Activity view containing last outcome type and message.
-    
+
     Returns:
         list[str]: Two labeled lines — the last outcome type (or "-" if missing) and the last outcome message — when a last outcome message exists; otherwise a single labeled line indicating that the last outcome is still awaited.
     """

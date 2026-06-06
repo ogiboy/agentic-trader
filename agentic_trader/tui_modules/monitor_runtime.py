@@ -25,55 +25,6 @@ from agentic_trader.tui_modules.monitor_lines import (
     runtime_cycle_lines,
 )
 from agentic_trader.ui_text import (
-    LABEL_BACKGROUND_MODE,
-    LABEL_BASE_URL,
-    LABEL_CONTINUOUS,
-    LABEL_CREATED,
-    LABEL_CURRENT_SYMBOL,
-    LABEL_CYCLE,
-    LABEL_CYCLE_COUNT,
-    LABEL_HEARTBEAT,
-    LABEL_HEARTBEAT_AGE,
-    LABEL_KEY,
-    LABEL_LAST_RECORDED_ERROR,
-    LABEL_LAST_RECORDED_MESSAGE,
-    LABEL_LAST_RECORDED_STATE,
-    LABEL_LAST_TERMINAL_AT,
-    LABEL_LAST_TERMINAL_STATE,
-    LABEL_LATEST_ORDER,
-    LABEL_LAUNCH_COUNT,
-    LABEL_LEVEL,
-    LABEL_LIVE_PROCESS,
-    LABEL_MESSAGE,
-    LABEL_MODEL,
-    LABEL_MODEL_AVAILABLE,
-    LABEL_NO,
-    LABEL_OBSERVER_MODE,
-    LABEL_OLLAMA_REACHABLE,
-    LABEL_PID,
-    LABEL_RESTART_COUNT,
-    LABEL_RUNTIME,
-    LABEL_RUNTIME_DIR,
-    LABEL_STAGE,
-    LABEL_STATE,
-    LABEL_STATUS,
-    LABEL_STATUS_NOTE,
-    LABEL_STOP_REQUESTED,
-    LABEL_STRICT_LLM,
-    LABEL_SYMBOL,
-    LABEL_TYPE,
-    LABEL_UPDATED,
-    LABEL_VALUE,
-    LABEL_YES,
-    MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS,
-    MESSAGE_NO_RUNTIME_EVENTS,
-    MESSAGE_NO_RUNTIME_STATE,
-    TITLE_CURRENT_CYCLE,
-    TITLE_DECISION_WORKFLOW,
-    TITLE_RUNTIME_EVENTS,
-    TITLE_RUNTIME_MODE,
-    TITLE_RUNTIME_STATUS,
-    TITLE_SYSTEM_STATUS,
     t,
 )
 
@@ -99,7 +50,7 @@ def observer_mode_panel(feature: str, error: str | None = None) -> Panel:
     body = t("observer.mode.temporarily_unavailable", feature=feature)
     if error:
         body += f"\n\n{error}"
-    return Panel(body, title=LABEL_OBSERVER_MODE, border_style="yellow")
+    return Panel(body, title=t("label.observer_mode"), border_style="yellow")
 
 
 def render_runtime_state(state: ServiceStateSnapshot | None) -> None:
@@ -107,39 +58,43 @@ def render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     if view.state is None:
         console.print(
             Panel(
-                MESSAGE_NO_RUNTIME_STATE,
-                title=TITLE_RUNTIME_STATUS,
+                t("message.no_runtime_state"),
+                title=t("title.runtime_status"),
                 border_style="yellow",
             )
         )
         return
     snapshot = view.state
 
-    table = Table(title=TITLE_RUNTIME_STATUS)
-    table.add_column(LABEL_KEY)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_RUNTIME, view.runtime_state)
-    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
-    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
-    table.add_row(LABEL_UPDATED, snapshot.updated_at)
-    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
+    table = Table(title=t("title.runtime_status"))
+    table.add_column(t("label.key"))
+    table.add_column(t("label.value"))
+    table.add_row(t("label.runtime"), view.runtime_state)
     table.add_row(
-        LABEL_HEARTBEAT_AGE,
+        t("label.live_process"), t("label.yes") if view.live_process else t("label.no")
+    )
+    table.add_row(t("label.last_recorded_state"), view.last_recorded_state or "-")
+    table.add_row(t("label.updated"), snapshot.updated_at)
+    table.add_row(t("label.heartbeat"), snapshot.last_heartbeat_at or "-")
+    table.add_row(
+        t("label.heartbeat_age"),
         f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
-    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
-    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
-    table.add_row(LABEL_BACKGROUND_MODE, str(snapshot.background_mode))
-    table.add_row(LABEL_LAUNCH_COUNT, str(snapshot.launch_count))
-    table.add_row(LABEL_RESTART_COUNT, str(snapshot.restart_count))
-    table.add_row(LABEL_LAST_TERMINAL_STATE, snapshot.last_terminal_state or "-")
-    table.add_row(LABEL_LAST_TERMINAL_AT, snapshot.last_terminal_at or "-")
-    table.add_row(LABEL_STATUS_NOTE, view.status_message)
-    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
-    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
+    table.add_row(t("label.cycle_count"), str(snapshot.cycle_count))
+    table.add_row(t("label.current_symbol"), snapshot.current_symbol or "-")
+    table.add_row(
+        t("label.pid"), str(snapshot.pid) if snapshot.pid is not None else "-"
+    )
+    table.add_row(t("label.stop_requested"), str(snapshot.stop_requested))
+    table.add_row(t("label.continuous"), str(snapshot.continuous))
+    table.add_row(t("label.background_mode"), str(snapshot.background_mode))
+    table.add_row(t("label.launch_count"), str(snapshot.launch_count))
+    table.add_row(t("label.restart_count"), str(snapshot.restart_count))
+    table.add_row(t("label.last_terminal_state"), snapshot.last_terminal_state or "-")
+    table.add_row(t("label.last_terminal_at"), snapshot.last_terminal_at or "-")
+    table.add_row(t("label.status_note"), view.status_message)
+    table.add_row(t("label.last_recorded_message"), snapshot.message or "-")
+    table.add_row(t("label.last_recorded_error"), snapshot.last_error or "-")
     console.print(table)
 
 
@@ -147,8 +102,8 @@ def render_runtime_events(events: list[ServiceEvent]) -> None:
     if not events:
         console.print(
             Panel(
-                MESSAGE_NO_RUNTIME_EVENTS,
-                title=TITLE_RUNTIME_EVENTS,
+                t("message.no_runtime_events"),
+                title=t("title.runtime_events"),
                 border_style="yellow",
             )
         )
@@ -157,12 +112,12 @@ def render_runtime_events(events: list[ServiceEvent]) -> None:
 
 
 def runtime_events_table(events: list[ServiceEvent]) -> Table:
-    table = Table(title=TITLE_RUNTIME_EVENTS)
-    table.add_column(LABEL_CREATED)
-    table.add_column(LABEL_LEVEL)
-    table.add_column(LABEL_TYPE)
-    table.add_column(LABEL_CYCLE)
-    table.add_column(LABEL_SYMBOL)
+    table = Table(title=t("title.runtime_events"))
+    table.add_column(t("label.created"))
+    table.add_column(t("label.level"))
+    table.add_column(t("label.type"))
+    table.add_column(t("label.cycle"))
+    table.add_column(t("label.symbol"))
     if not events:
         table.add_row("-", "-", "-", "-", "-")
         return table
@@ -180,13 +135,13 @@ def runtime_events_table(events: list[ServiceEvent]) -> Table:
 def agent_activity_table(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Table:
-    table = Table(title=TITLE_DECISION_WORKFLOW)
-    table.add_column(LABEL_STAGE)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_MESSAGE)
+    table = Table(title=t("title.decision_workflow"))
+    table.add_column(t("label.stage"))
+    table.add_column(t("label.status"))
+    table.add_column(t("label.message"))
     activity = build_agent_activity_view(state, events)
     if not activity.stage_statuses:
-        table.add_row("-", "-", MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS)
+        table.add_row("-", "-", t("message.no_live_agent_stage_events"))
         return table
     for stage in activity.stage_statuses:
         table.add_row(stage.stage, stage.status, stage.message)
@@ -211,40 +166,44 @@ def current_activity_panel(
         *last_outcome_lines(activity),
     ]
     body = "\n".join(lines)
-    return Panel(body, title=TITLE_CURRENT_CYCLE, border_style="bright_cyan")
+    return Panel(body, title=t("title.current_cycle"), border_style="bright_cyan")
 
 
 def runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
-    table = Table(title=TITLE_RUNTIME_STATUS)
-    table.add_column(LABEL_KEY)
-    table.add_column(LABEL_VALUE)
+    table = Table(title=t("title.runtime_status"))
+    table.add_column(t("label.key"))
+    table.add_column(t("label.value"))
     view = build_runtime_status_view(state)
     if view.state is None:
-        table.add_row(LABEL_STATE, MESSAGE_NO_RUNTIME_STATE)
+        table.add_row(t("label.state"), t("message.no_runtime_state"))
         return table
     snapshot = view.state
-    table.add_row(LABEL_RUNTIME, view.runtime_state)
-    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
-    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
-    table.add_row(LABEL_UPDATED, snapshot.updated_at)
-    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
+    table.add_row(t("label.runtime"), view.runtime_state)
     table.add_row(
-        LABEL_HEARTBEAT_AGE,
+        t("label.live_process"), t("label.yes") if view.live_process else t("label.no")
+    )
+    table.add_row(t("label.last_recorded_state"), view.last_recorded_state or "-")
+    table.add_row(t("label.updated"), snapshot.updated_at)
+    table.add_row(t("label.heartbeat"), snapshot.last_heartbeat_at or "-")
+    table.add_row(
+        t("label.heartbeat_age"),
         f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
-    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
-    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
-    table.add_row(LABEL_BACKGROUND_MODE, str(snapshot.background_mode))
-    table.add_row(LABEL_LAUNCH_COUNT, str(snapshot.launch_count))
-    table.add_row(LABEL_RESTART_COUNT, str(snapshot.restart_count))
-    table.add_row(LABEL_LAST_TERMINAL_STATE, snapshot.last_terminal_state or "-")
-    table.add_row(LABEL_LAST_TERMINAL_AT, snapshot.last_terminal_at or "-")
-    table.add_row(LABEL_STATUS_NOTE, view.status_message)
-    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
-    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
+    table.add_row(t("label.cycle_count"), str(snapshot.cycle_count))
+    table.add_row(t("label.current_symbol"), snapshot.current_symbol or "-")
+    table.add_row(
+        t("label.pid"), str(snapshot.pid) if snapshot.pid is not None else "-"
+    )
+    table.add_row(t("label.stop_requested"), str(snapshot.stop_requested))
+    table.add_row(t("label.continuous"), str(snapshot.continuous))
+    table.add_row(t("label.background_mode"), str(snapshot.background_mode))
+    table.add_row(t("label.launch_count"), str(snapshot.launch_count))
+    table.add_row(t("label.restart_count"), str(snapshot.restart_count))
+    table.add_row(t("label.last_terminal_state"), snapshot.last_terminal_state or "-")
+    table.add_row(t("label.last_terminal_at"), snapshot.last_terminal_at or "-")
+    table.add_row(t("label.status_note"), view.status_message)
+    table.add_row(t("label.last_recorded_message"), snapshot.message or "-")
+    table.add_row(t("label.last_recorded_error"), snapshot.last_error or "-")
     return table
 
 
@@ -257,32 +216,33 @@ def system_status_table(
 ) -> Table:
     health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
-    table = Table(title=TITLE_SYSTEM_STATUS)
-    table.add_column(LABEL_KEY)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
+    table = Table(title=t("title.system_status"))
+    table.add_column(t("label.key"))
+    table.add_column(t("label.value"))
+    table.add_row(t("label.runtime_dir"), str(settings.runtime_dir))
     table.add_row(
-        TITLE_RUNTIME_MODE,
+        t("title.runtime_mode"),
         (
             runtime_state.runtime_mode
             if runtime_state is not None
             else settings.runtime_mode
         ),
     )
-    table.add_row(LABEL_MODEL, settings.model_name)
-    table.add_row(LABEL_BASE_URL, settings.base_url)
+    table.add_row(t("label.model"), settings.model_name)
+    table.add_row(t("label.base_url"), settings.base_url)
     table.add_row(
-        LABEL_OLLAMA_REACHABLE,
-        LABEL_YES if health_status.service_reachable else LABEL_NO,
+        t("label.ollama_reachable"),
+        t("label.yes") if health_status.service_reachable else t("label.no"),
     )
     table.add_row(
-        LABEL_MODEL_AVAILABLE,
-        LABEL_YES if health_status.model_available else LABEL_NO,
+        t("label.model_available"),
+        t("label.yes") if health_status.model_available else t("label.no"),
     )
-    table.add_row(LABEL_STRICT_LLM, str(settings.strict_llm))
+    table.add_row(t("label.strict_llm"), str(settings.strict_llm))
     if db is not None:
         table.add_row(
-            LABEL_LATEST_ORDER, latest_order[0] if latest_order is not None else "-"
+            t("label.latest_order"),
+            latest_order[0] if latest_order is not None else "-",
         )
     return table
 

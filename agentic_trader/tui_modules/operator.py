@@ -19,27 +19,7 @@ from agentic_trader.tui_modules.monitor_runtime import (
     observer_mode_panel,
     safe_open_read_db,
 )
-from agentic_trader.ui_text import (
-    LABEL_ACTION,
-    LABEL_KEY,
-    MENU_ACTION_BACK,
-    MENU_ACTION_OPEN_OPERATOR_CHAT,
-    MENU_ACTION_PARSE_OPERATOR_INSTRUCTION,
-    MESSAGE_CHAT_EXIT_HINT,
-    PROMPT_APPLY_PREFERENCE_UPDATE,
-    PROMPT_CHAT_PERSONA,
-    PROMPT_CONTINUE,
-    PROMPT_INSTRUCTION,
-    PROMPT_SELECT_ACTION,
-    PROMPT_YOU,
-    STYLE_KEY_COLUMN,
-    TITLE_CHAT,
-    TITLE_INSTRUCTION_APPLICATION,
-    TITLE_OPERATOR_CHAT_MEMORY_CONTEXT,
-    TITLE_OPERATOR_DESK,
-    TITLE_PARSED_OPERATOR_INSTRUCTION,
-    TITLE_UPDATED_PREFERENCES,
-)
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.workflows.service import ensure_llm_ready
 
 
@@ -47,7 +27,7 @@ def select_chat_persona() -> ChatPersona:
     return cast(
         ChatPersona,
         Prompt.ask(
-            PROMPT_CHAT_PERSONA,
+            ui_t("prompt.chat_persona"),
             choices=[
                 "operator_liaison",
                 "regime_analyst",
@@ -67,8 +47,8 @@ def render_chat_transcript(
     console.print(banner())
     console.print(
         Panel(
-            MESSAGE_CHAT_EXIT_HINT,
-            title=TITLE_CHAT.format(persona=persona),
+            ui_t("message.chat_exit_hint"),
+            title=ui_t("title.chat").format(persona=persona),
             border_style="cyan",
         )
     )
@@ -84,7 +64,7 @@ def chat_screen(settings: Settings, db: TradingDatabase) -> None:
     transcript: list[tuple[str, str]] = []
     while True:
         render_chat_transcript(persona=persona, transcript=transcript)
-        user_message = Prompt.ask(PROMPT_YOU)
+        user_message = Prompt.ask(ui_t("prompt.you"))
         if user_message.strip().lower() in {"/exit", "exit", "quit"}:
             return
         transcript.append(("operator", user_message))
@@ -102,7 +82,7 @@ def render_instruction_result(instruction: OperatorInstruction) -> None:
     console.print(
         Panel(
             instruction.model_dump_json(indent=2),
-            title=TITLE_PARSED_OPERATOR_INSTRUCTION,
+            title=ui_t("title.parsed_operator_instruction"),
             border_style="cyan",
         )
     )
@@ -113,14 +93,14 @@ def apply_instruction_update_if_confirmed(
 ) -> None:
     if not instruction.should_update_preferences:
         return
-    if not Confirm.ask(PROMPT_APPLY_PREFERENCE_UPDATE, default=False):
+    if not Confirm.ask(ui_t("prompt.apply_preference_update"), default=False):
         return
 
     updated = apply_preference_update(db, instruction.preference_update)
     console.print(
         Panel(
             updated.model_dump_json(indent=2),
-            title=TITLE_UPDATED_PREFERENCES,
+            title=ui_t("title.updated_preferences"),
             border_style="green",
         )
     )
@@ -129,7 +109,7 @@ def apply_instruction_update_if_confirmed(
 def instruction_screen(settings: Settings, db: TradingDatabase) -> None:
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
-    message = Prompt.ask(PROMPT_INSTRUCTION)
+    message = Prompt.ask(ui_t("prompt.instruction"))
     instruction = interpret_operator_instruction(
         llm=llm,
         db=db,
@@ -145,18 +125,22 @@ def operator_menu(settings: Settings) -> None:
     while True:
         console.clear()
         console.print(banner())
-        table = Table(title=TITLE_OPERATOR_DESK)
-        table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
-        table.add_column(LABEL_ACTION)
-        table.add_row("1", MENU_ACTION_OPEN_OPERATOR_CHAT)
-        table.add_row("2", MENU_ACTION_PARSE_OPERATOR_INSTRUCTION)
-        table.add_row("3", MENU_ACTION_BACK)
+        table = Table(title=ui_t("title.operator_desk"))
+        table.add_column(ui_t("label.key"), style=ui_t("style.key_column"))
+        table.add_column(ui_t("label.action"))
+        table.add_row("1", ui_t("menu.action_open_operator_chat"))
+        table.add_row("2", ui_t("menu.action_parse_operator_instruction"))
+        table.add_row("3", ui_t("menu.action_back"))
         console.print(table)
-        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(
+            ui_t("prompt.select_action"), choices=["1", "2", "3"], default="1"
+        )
         if choice == "1":
             db = safe_open_read_db(settings)
             if db is None:
-                console.print(observer_mode_panel(TITLE_OPERATOR_CHAT_MEMORY_CONTEXT))
+                console.print(
+                    observer_mode_panel(ui_t("title.operator_chat_memory_context"))
+                )
             else:
                 try:
                     chat_screen(settings, db)
@@ -167,9 +151,9 @@ def operator_menu(settings: Settings) -> None:
                 db = open_db(settings, read_only=False)
             except Exception as exc:
                 console.print(
-                    observer_mode_panel(TITLE_INSTRUCTION_APPLICATION, str(exc))
+                    observer_mode_panel(ui_t("title.instruction_application"), str(exc))
                 )
-                Prompt.ask(PROMPT_CONTINUE, default="")
+                Prompt.ask(ui_t("prompt.continue"), default="")
                 continue
             try:
                 instruction_screen(settings, db)
