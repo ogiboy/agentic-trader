@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -23,6 +24,20 @@ MINIMAL_WEBGUI_ENV_KEYS = (
     "WINDIR",
     "VIRTUAL_ENV",
 )
+WEBGUI_SECRET_ENV_PATTERN = re.compile(
+    r"(?i)(api[_-]?key|access[_-]?key|secret|token|password|credential|authorization)"
+)
+WEBGUI_REQUIRED_SECRET_ENV_KEYS = {
+    "AGENTIC_TRADER_WEBGUI_TOKEN",
+}
+
+
+def _safe_agentic_trader_env(key: str) -> bool:
+    if not key.startswith("AGENTIC_TRADER_"):
+        return False
+    if key in WEBGUI_REQUIRED_SECRET_ENV_KEYS:
+        return True
+    return WEBGUI_SECRET_ENV_PATTERN.search(key) is None
 
 
 def is_port_available(host: str, port: int) -> bool:
@@ -39,7 +54,7 @@ def webgui_env() -> dict[str, str]:
     env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] = "1"
     env["WATCHPACK_POLLING"] = os.environ.get("WATCHPACK_POLLING", "true")
     for key, value in os.environ.items():
-        if key.startswith("AGENTIC_TRADER_"):
+        if _safe_agentic_trader_env(key):
             env.setdefault(key, value)
     return env
 
