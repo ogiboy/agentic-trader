@@ -15,7 +15,7 @@ members = [
 
 [[package]]
 name = "agentic-trader"
-version = "0.14.7"
+version = "0.14.11"
 source = { editable = "." }
 dependencies = [
     { name = "alpaca-py" },
@@ -2678,7 +2678,7 @@ wheels = [
 
 [[package]]
 name = "research-flow"
-version = "0.14.7"
+version = "0.14.11"
 source = { editable = "sidecars/research_flow" }
 dependencies = [
     { name = "crewai", extra = ["tools"] },

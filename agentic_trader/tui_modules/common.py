@@ -8,13 +8,7 @@ from rich.table import Table
 
 from agentic_trader.config import Settings
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.ui_text import (
-    LABEL_ACTION,
-    LABEL_KEY,
-    MESSAGE_CONTROL_ROOM_CLOSED,
-    STYLE_KEY_COLUMN,
-    TITLE_EXIT,
-)
+from agentic_trader.ui_text import t
 
 console = Console()
 
@@ -32,17 +26,46 @@ def open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
 
 
 def style_key(text: str) -> str:
-    return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
+    """
+    Wraps the given text with the configured key-column Rich markup style.
+    
+    Parameters:
+        text (str): The text to be wrapped.
+    
+    Returns:
+        styled_text (str): The input string surrounded by Rich style tags using the style token from t("style.key.column").
+    """
+    style = t("style.key.column")
+    return f"[{style}]{text}[/{style}]"
 
 
 def split_csv(value: str) -> list[str]:
+    """
+    Split a comma-separated string into trimmed, uppercase tokens and omit empty entries.
+    
+    Parameters:
+        value (str): Input CSV string; items may contain surrounding whitespace and mixed case.
+    
+    Returns:
+        list[str]: Tokens from `value` with whitespace removed and converted to uppercase, excluding any empty items.
+    """
     return [item.strip().upper() for item in value.split(",") if item.strip()]
 
 
 def menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) -> Table:
+    """
+    Create a two-column Rich Table for a menu, listing keys and their corresponding actions.
+    
+    Parameters:
+        title (str): Title displayed at the top of the table.
+        items (Sequence[TuiMenuAction | tuple[str, str]]): Sequence of menu entries; each entry is either a TuiMenuAction (rows use its `key` and `label`) or a 2-tuple (key, label).
+    
+    Returns:
+        table (Table): A Rich Table with two columns (key and action) populated from `items`.
+    """
     table = Table(title=title)
-    table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
-    table.add_column(LABEL_ACTION)
+    table.add_column(t("label.key"), style=t("style.key.column"))
+    table.add_column(t("label.action"))
     for item in items:
         if isinstance(item, TuiMenuAction):
             table.add_row(item.key, item.label)
@@ -68,11 +91,21 @@ def run_readonly_db_menu_action(settings: Settings, action: TuiMenuAction) -> No
 
 
 def banner() -> Panel:
+    """
+    Create a control-room banner panel that adapts its layout to the current terminal width.
+    
+    For terminals narrower than 120 columns the panel contains a centered compact title and subtitle;
+    for wider terminals it contains an ASCII-art title with a full subtitle. Text and styles are
+    sourced from localization via `t(...)`.
+    
+    Returns:
+        panel (Panel): A Rich Panel containing the rendered banner.
+    """
     if console.width < 120:
         compact = (
             "[bold green]AGENTIC TRADER[/bold green] "
-            "[cyan]// CONTROL ROOM[/cyan]\n"
-            "[dim]Strict LLM gate, portfolio state, runtime controls.[/dim]"
+            f"[cyan]// {t('title.control.room').upper()}[/cyan]\n"
+            f"[dim]{t('message.control.room.compact.subtitle')}[/dim]"
         )
         return Panel(Align.center(compact), border_style="bright_blue")
 
@@ -85,13 +118,16 @@ def banner() -> Panel:
 ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝       ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 """
     subtitle = (
-        "[bold cyan]Agentic Trader control room[/bold cyan]\n"
-        "[dim]Strict LLM gate, saved preferences, portfolio state, recent runs, and launch controls.[/dim]"
+        f"[bold cyan]{t('title.control.room')}[/bold cyan]\n"
+        f"[dim]{t('message.control.room.full.subtitle')}[/dim]"
     )
     return Panel(f"[green]{art}[/green]\n{subtitle}", border_style="bright_blue")
 
 
 def exit_cleanly() -> None:
-    console.print(
-        Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue")
-    )
+    """
+    Display a closing panel indicating the control room has been closed.
+    
+    The panel shows a localized "closed" message, uses a localized "Exit" title, and renders with a blue border.
+    """
+    console.print(Panel(t("message.control.room.closed"), title=t("title.exit"), border_style="blue"))

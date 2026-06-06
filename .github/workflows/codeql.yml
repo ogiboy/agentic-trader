@@ -7,18 +7,26 @@ on:
       - ".agents/**"
       - ".claude/**"
       - ".claude-flow/**"
-      - "CLAUDE.md"
       - "skills-lock.json"
+      - ".ai/qa/artifacts/**"
+      - "runtime/**"
+      - "dist/**"
+      - "build/**"
+      - "**/node_modules/**"
   pull_request:
     branches: [main, webgui, devdocs, V1]
     paths-ignore:
       - ".agents/**"
       - ".claude/**"
       - ".claude-flow/**"
-      - "CLAUDE.md"
       - "skills-lock.json"
+      - ".ai/qa/artifacts/**"
+      - "runtime/**"
+      - "dist/**"
+      - "build/**"
+      - "**/node_modules/**"
   schedule:
-    - cron: '34 3 * * 2'
+    - cron: "34 3 * * 2"
   workflow_dispatch:
 
 permissions:

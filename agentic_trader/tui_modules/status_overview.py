@@ -22,63 +22,60 @@ from agentic_trader.tui_modules.monitor_tables import (
     render_preferences,
     render_recent_runs,
 )
-from agentic_trader.ui_text import (
-    LABEL_ALPACA_PAPER_READY,
-    LABEL_BASE_URL,
-    LABEL_BROKER,
-    LABEL_DATABASE,
-    LABEL_DB_VIEWS,
-    LABEL_KEY,
-    LABEL_KILL_SWITCH,
-    LABEL_LLM_READY,
-    LABEL_MODEL,
-    LABEL_MODEL_AVAILABLE,
-    LABEL_NO,
-    LABEL_OBSERVER_MODE,
-    LABEL_OLLAMA_REACHABLE,
-    LABEL_PROVIDER_WARNINGS,
-    LABEL_RUNTIME,
-    LABEL_RUNTIME_DIR,
-    LABEL_STRICT_LLM,
-    LABEL_V1_PAPER_READY,
-    LABEL_VALUE,
-    LABEL_YES,
-    TITLE_INVESTMENT_PREFERENCES,
-    TITLE_PORTFOLIO,
-    TITLE_RUNTIME_MODE,
-    TITLE_SYSTEM_SNAPSHOT,
-    TITLE_SYSTEM_STATUS,
-    get_ui_text,
-)
+from agentic_trader.ui_text import t
 
 console = Console()
 
 
+def _yes_no(value: object) -> str:
+    """
+    Provide a localized 'yes' or 'no' label for a value's truthiness.
+    
+    Parameters:
+        value (object): The value to evaluate for truthiness.
+    
+    Returns:
+        str: Localized "yes" label if `value` is truthy, localized "no" label otherwise.
+    """
+    return t("label.yes") if value else t("label.no")
+
+
 def render_status(settings: Settings, db: TradingDatabase | None) -> None:
+    """
+    Render a full system status view including runtime details, LLM health, current activity panels, preferences/recent runs (when available), and recent runtime events.
+    
+    Prints a Rich-formatted table and several panels to the module console. The display includes runtime directory, database path, runtime mode, model and base URL, LLM reachability and availability, strict LLM flag, the current runtime state panel, a current activity panel, and an observer or preferences/runs panel depending on `db`. Also renders a short runtime event feed.
+    
+    Parameters:
+        settings (Settings): Application settings and configuration used to populate the status display.
+        db (TradingDatabase | None): Optional trading database; when provided, preferences and recent runs are rendered. If `None`, an observer-mode panel is shown instead.
+    """
     health = LocalLLM(settings).health_check()
     runtime_state = read_service_state(settings)
-    status = Table(title=TITLE_SYSTEM_STATUS)
-    status.add_column(LABEL_KEY)
-    status.add_column(LABEL_VALUE)
-    status.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
-    status.add_row(LABEL_DATABASE, str(settings.database_path))
+    status = Table(title=t("title.system.status"))
+    status.add_column(t("label.key"))
+    status.add_column(t("label.value"))
+    status.add_row(t("label.runtime.dir"), str(settings.runtime_dir))
+    status.add_row(t("label.database"), str(settings.database_path))
     status.add_row(
-        TITLE_RUNTIME_MODE,
+        t("title.runtime.mode"),
         (
             runtime_state.runtime_mode
             if runtime_state is not None
             else settings.runtime_mode
         ),
     )
-    status.add_row(LABEL_MODEL, settings.model_name)
-    status.add_row(LABEL_BASE_URL, settings.base_url)
+    status.add_row(t("label.model"), settings.model_name)
+    status.add_row(t("label.base.url"), settings.base_url)
     status.add_row(
-        LABEL_OLLAMA_REACHABLE, LABEL_YES if health.service_reachable else LABEL_NO
+        t("label.ollama.reachable"),
+        _yes_no(health.service_reachable),
     )
     status.add_row(
-        LABEL_MODEL_AVAILABLE, LABEL_YES if health.model_available else LABEL_NO
+        t("label.model.available"),
+        _yes_no(health.model_available),
     )
-    status.add_row(LABEL_STRICT_LLM, str(settings.strict_llm))
+    status.add_row(t("label.strict.llm"), str(settings.strict_llm))
     console.print(status)
     render_runtime_state(runtime_state)
     console.print(
@@ -88,7 +85,9 @@ def render_status(settings: Settings, db: TradingDatabase | None) -> None:
     )
     if db is None:
         console.print(
-            observer_mode_panel(TITLE_INVESTMENT_PREFERENCES + " / " + TITLE_PORTFOLIO)
+            observer_mode_panel(
+                f"{t('title.investment.preferences')} / {t('title.portfolio')}"
+            )
         )
     else:
         console.print(render_preferences(db.load_preferences()))
@@ -97,7 +96,13 @@ def render_status(settings: Settings, db: TradingDatabase | None) -> None:
 
 
 def render_compact_status(settings: Settings, db: TradingDatabase | None) -> None:
-    text = get_ui_text()
+    """
+    Render a compact system snapshot table showing runtime state, model name, LLM and provider readiness, broker status, kill-switch, provider warnings count, and whether database views are available.
+    
+    Parameters:
+        settings (Settings): Application settings and runtime configuration used to build the snapshot.
+        db (TradingDatabase | None): Trading database instance; when `None` the snapshot shows observer-mode as the DB status.
+    """
     health = LocalLLM(settings).health_check()
     runtime_state = read_service_state(settings)
     runtime_view = build_runtime_status_view(runtime_state)
@@ -106,42 +111,42 @@ def render_compact_status(settings: Settings, db: TradingDatabase | None) -> Non
     readiness = object_mapping(v1_readiness_payload(settings, check_provider=False))
     paper = object_mapping(readiness.get("paper_operations"))
     alpaca = object_mapping(readiness.get("alpaca_paper"))
-    table = Table(title=TITLE_SYSTEM_SNAPSHOT, expand=True)
-    table.add_column(LABEL_KEY, style="cyan")
-    table.add_column(LABEL_VALUE)
+    table = Table(title=t("title.system.snapshot"), expand=True)
+    table.add_column(t("label.key"), style="cyan")
+    table.add_column(t("label.value"))
     table.add_row(
-        LABEL_RUNTIME,
+        t("label.runtime"),
         f"{runtime_view.runtime_state} / {runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode}",
     )
-    table.add_row(LABEL_MODEL, settings.model_name)
+    table.add_row(t("label.model"), settings.model_name)
     table.add_row(
-        LABEL_LLM_READY,
-        LABEL_YES if health.service_reachable and health.model_available else LABEL_NO,
+        t("label.llm.ready"),
+        _yes_no(health.service_reachable and health.model_available),
     )
     table.add_row(
-        LABEL_BROKER,
+        t("label.broker"),
         f"{broker['backend']} / {broker['state']}",
     )
     table.add_row(
-        LABEL_V1_PAPER_READY,
-        LABEL_YES if paper.get("allowed") else LABEL_NO,
+        t("label.v1.paper.ready"),
+        _yes_no(paper.get("allowed")),
     )
     table.add_row(
-        LABEL_ALPACA_PAPER_READY,
-        LABEL_YES if alpaca.get("ready") else LABEL_NO,
+        t("label.alpaca.paper.ready"),
+        _yes_no(alpaca.get("ready")),
     )
     warnings = object_list(provider.get("warnings"))
     table.add_row(
-        LABEL_PROVIDER_WARNINGS,
+        t("label.provider.warnings"),
         str(len(warnings)),
     )
     table.add_row(
-        LABEL_KILL_SWITCH,
-        LABEL_YES if broker["kill_switch_active"] else LABEL_NO,
+        t("label.kill.switch"),
+        _yes_no(broker["kill_switch_active"]),
     )
     table.add_row(
-        LABEL_DB_VIEWS,
-        text.status_readable if db is not None else LABEL_OBSERVER_MODE,
+        t("label.db.views"),
+        t("status.readable") if db is not None else t("label.observer.mode"),
     )
     console.print(table)
 

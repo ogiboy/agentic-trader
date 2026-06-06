@@ -6,35 +6,7 @@ from agentic_trader.config import Settings
 from agentic_trader.diagnostics import provider_diagnostics_payload
 from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.json_utils import object_list, object_mapping, object_mapping_list
-from agentic_trader.ui_text import (
-    LABEL_ALPACA_CREDENTIALS_CONFIGURED,
-    LABEL_ALPACA_FEED,
-    LABEL_ALPACA_PAPER_ENDPOINT,
-    LABEL_API_KEY,
-    LABEL_BASE_URL,
-    LABEL_BLOCKING,
-    LABEL_DEFAULT_MODEL,
-    LABEL_ENABLED,
-    LABEL_FIELD,
-    LABEL_FRESHNESS,
-    LABEL_HEALTHCHECK,
-    LABEL_LLM_PROVIDER,
-    LABEL_MARKET_PROVIDER,
-    LABEL_MARKET_ROLE,
-    LABEL_NEWS_MODE,
-    LABEL_PROVIDER,
-    LABEL_PROVIDER_WARNINGS,
-    LABEL_REASONS,
-    LABEL_ROLE,
-    LABEL_TYPE,
-    LABEL_VALUE,
-    STYLE_KEY_COLUMN,
-    TITLE_BROKER_STATUS,
-    TITLE_PROVIDER_DIAGNOSTICS,
-    TITLE_PROVIDER_SOURCE_LADDER,
-    UI_LIST_SEPARATOR,
-    get_ui_text,
-)
+from agentic_trader.ui_text import t
 
 console = Console()
 
@@ -57,58 +29,78 @@ BROKER_STATUS_KEYS: tuple[str, ...] = (
 
 
 def render_broker_status(settings: Settings) -> None:
+    """
+    Render a Rich table showing the broker's runtime status and health information.
+    
+    The table displays each field from the broker runtime payload (as defined by BROKER_STATUS_KEYS),
+    the healthcheck message if present, and any blocking reasons joined by the configured list separator.
+    
+    Parameters:
+        settings (Settings): Application settings used to fetch the broker runtime payload.
+    """
     payload = broker_runtime_payload(settings)
-    table = Table(title=TITLE_BROKER_STATUS)
-    table.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
-    table.add_column(LABEL_VALUE)
+    table = Table(title=t("title.broker.status"))
+    table.add_column(t("label.field"), style=t("style.key.column"))
+    table.add_column(t("label.value"))
     for key in BROKER_STATUS_KEYS:
         rendered_key = key.replace("_", " ").title()
         table.add_row(rendered_key, str(payload.get(key, "-")))
     healthcheck = payload.get("healthcheck")
     healthcheck_mapping = object_mapping(healthcheck)
     if healthcheck_mapping:
-        table.add_row(LABEL_HEALTHCHECK, str(healthcheck_mapping.get("message", "-")))
+        table.add_row(
+            t("label.healthcheck"), str(healthcheck_mapping.get("message", "-"))
+        )
         blockers = object_list(healthcheck_mapping.get("blocking_reasons"))
         if blockers:
             table.add_row(
-                LABEL_BLOCKING + " " + LABEL_REASONS,
-                UI_LIST_SEPARATOR.join(str(item) for item in blockers) or "-",
+                f"{t('label.blocking')} {t('label.reasons')}",
+                t("ui.list.separator").join(str(item) for item in blockers) or "-",
             )
     console.print(table)
 
 
 def render_provider_diagnostics(settings: Settings) -> None:
-    text = get_ui_text()
+    """
+    Render provider diagnostics to the console.
+    
+    Builds and prints a summary table of provider-related diagnostics (LLM, market data, news, and Alpaca configuration), prints a warnings panel if any warnings are present, and builds and prints a provider "source ladder" table showing provider id, type, role, enabled state, API key readiness, and freshness.
+    
+    Parameters:
+        settings (Settings): Application settings used to fetch the provider diagnostics payload.
+    """
     payload = object_mapping(provider_diagnostics_payload(settings))
-    summary = Table(title=TITLE_PROVIDER_DIAGNOSTICS)
-    summary.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
-    summary.add_column(LABEL_VALUE)
+    summary = Table(title=t("title.provider.diagnostics"))
+    summary.add_column(t("label.field"), style=t("style.key.column"))
+    summary.add_column(t("label.value"))
     llm = object_mapping(payload.get("llm"))
     market = object_mapping(payload.get("market_data"))
     news = object_mapping(payload.get("news"))
     alpaca = object_mapping(payload.get("alpaca"))
     if llm:
-        summary.add_row(LABEL_LLM_PROVIDER, str(llm.get("provider", "-")))
-        summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
-        summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
+        summary.add_row(t("label.llm.provider"), str(llm.get("provider", "-")))
+        summary.add_row(t("label.default.model"), str(llm.get("default_model", "-")))
+        summary.add_row(t("label.base.url"), str(llm.get("base_url", "-")))
     if market:
         summary.add_row(
-            LABEL_MARKET_PROVIDER, str(market.get("selected_provider", "-"))
+            t("label.market.provider"),
+            str(market.get("selected_provider", "-")),
         )
-        summary.add_row(LABEL_MARKET_ROLE, str(market.get("selected_role", "-")))
+        summary.add_row(t("label.market.role"), str(market.get("selected_role", "-")))
     if news:
-        summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
+        summary.add_row(t("label.news.mode"), str(news.get("mode", "-")))
     if alpaca:
         summary.add_row(
-            LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-"))
+            t("label.alpaca.paper.endpoint"),
+            str(alpaca.get("paper_endpoint", "-")),
         )
-        summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
+        summary.add_row(t("label.alpaca.feed"), str(alpaca.get("data_feed", "-")))
         summary.add_row(
-            LABEL_ALPACA_CREDENTIALS_CONFIGURED,
+            t("label.alpaca.credentials.configured"),
             (
-                text.status_configured
+                t("status.configured")
                 if alpaca.get("credentials_configured")
-                else text.status_missing
+                else t("status.missing")
             ),
         )
     console.print(summary)
@@ -118,18 +110,18 @@ def render_provider_diagnostics(settings: Settings) -> None:
         console.print(
             Panel(
                 "\n".join(str(warning) for warning in warnings),
-                title=LABEL_PROVIDER_WARNINGS,
+                title=t("label.provider.warnings"),
                 border_style="yellow",
             )
         )
 
-    table = Table(title=TITLE_PROVIDER_SOURCE_LADDER)
-    table.add_column(LABEL_PROVIDER, style=STYLE_KEY_COLUMN)
-    table.add_column(LABEL_TYPE)
-    table.add_column(LABEL_ROLE)
-    table.add_column(LABEL_ENABLED)
-    table.add_column(LABEL_API_KEY)
-    table.add_column(LABEL_FRESHNESS)
+    table = Table(title=t("title.provider.source.ladder"))
+    table.add_column(t("label.provider"), style=t("style.key.column"))
+    table.add_column(t("label.type"))
+    table.add_column(t("label.role"))
+    table.add_column(t("label.enabled"))
+    table.add_column(t("label.api.key"))
+    table.add_column(t("label.freshness"))
     for row in object_mapping_list(payload.get("providers")):
         table.add_row(
             str(row.get("provider_id", "-")),

@@ -8,7 +8,12 @@ TR_MESSAGES_COPY: dict[str, str] = {
     "message_all_agent_stages_llm_path": "Tum agent asamalari LLM yolu ile tamamlandi.",
     "message_background_service_not_active": "Su anda aktif managed service yok.",
     "message_background_service_restarted": "Background orchestrator PID {pid} ile yeniden baslatildi.",
-    "message_control_room_closed": "Control room temiz kapandi.",
+    "message_control_room_compact_subtitle": "Strict LLM kapısı, portföy durumu, runtime kontrolleri.",
+    "message_control_room_closed": "Control room temiz kapandı.",
+    "message_control_room_full_subtitle": (
+        "Strict LLM kapısı, kayıtlı tercihler, portföy durumu, son run'lar "
+        "ve launch kontrolleri."
+    ),
     "message_fallback_used_in": "Fallback kullanilan asamalar",
     "message_evidence_bundle_written": "Bundle {bundle_dir} icine yazildi",
     "message_no_elevated_portfolio_risk_warnings": "Bu rapor icin yuksek portfoy risk uyarisi yok.",

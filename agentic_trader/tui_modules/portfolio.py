@@ -13,21 +13,16 @@ from agentic_trader.tui_modules.monitor_tables import (
     risk_report_table,
     trade_journal_table,
 )
-from agentic_trader.ui_text import (
-    MENU_ACTION_BACK,
-    MENU_ACTION_SHOW_DAILY_RISK_REPORT,
-    MENU_ACTION_SHOW_PAPER_PORTFOLIO,
-    MENU_ACTION_SHOW_TRADE_JOURNAL,
-    PROMPT_CONTINUE,
-    PROMPT_SELECT_ACTION,
-    TITLE_DAILY_RISK_REPORT,
-    TITLE_PAPER_PORTFOLIO,
-    TITLE_PORTFOLIO_AND_RISK,
-    TITLE_TRADE_JOURNAL,
-)
+from agentic_trader.ui_text import t
 
 
 def show_portfolio(db: TradingDatabase) -> None:
+    """
+    Display the portfolio view and its risk report to the console.
+    
+    Parameters:
+        db (TradingDatabase): Trading database used to build the portfolio and risk report views.
+    """
     console.print(portfolio_renderable(db))
     console.print(risk_report_table(db))
 
@@ -41,23 +36,30 @@ def show_risk_report(db: TradingDatabase) -> None:
 
 
 def portfolio_menu(settings: Settings) -> None:
+    """
+    Display an interactive portfolio and risk menu in the TUI and run the selected read-only action.
+    
+    Shows options to view the paper portfolio (with risk report), the trade journal, or the daily risk report. Presents a "back" option to exit the menu. The provided Settings object is used when executing the selected read-only database actions.
+    Parameters:
+        settings (Settings): Application settings used to run the selected read-only database menu actions.
+    """
     actions = {
         "1": TuiMenuAction(
             "1",
-            MENU_ACTION_SHOW_PAPER_PORTFOLIO,
-            TITLE_PAPER_PORTFOLIO,
+            t("menu.action.show.paper.portfolio"),
+            t("title.paper.portfolio"),
             show_portfolio,
         ),
         "2": TuiMenuAction(
             "2",
-            MENU_ACTION_SHOW_TRADE_JOURNAL,
-            TITLE_TRADE_JOURNAL,
+            t("menu.action.show.trade.journal"),
+            t("title.trade.journal"),
             show_trade_journal,
         ),
         "3": TuiMenuAction(
             "3",
-            MENU_ACTION_SHOW_DAILY_RISK_REPORT,
-            TITLE_DAILY_RISK_REPORT,
+            t("menu.action.show.daily.risk.report"),
+            t("title.daily.risk.report"),
             show_risk_report,
         ),
     }
@@ -65,14 +67,14 @@ def portfolio_menu(settings: Settings) -> None:
         console.clear()
         console.print(
             menu_table(
-                TITLE_PORTFOLIO_AND_RISK,
-                [*actions.values(), ("4", MENU_ACTION_BACK)],
+                t("title.portfolio.and.risk"),
+                [*actions.values(), ("4", t("menu.action.back"))],
             )
         )
         choice = Prompt.ask(
-            PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1"
+            t("prompt.select.action"), choices=["1", "2", "3", "4"], default="1"
         )
         if choice == "4":
             return
         run_readonly_db_menu_action(settings, actions[choice])
-        Prompt.ask(PROMPT_CONTINUE, default="")
+        Prompt.ask(t("prompt.continue"), default="")

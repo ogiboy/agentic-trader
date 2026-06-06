@@ -4,30 +4,10 @@ from agentic_trader.config import Settings
 from agentic_trader.runtime_status import AgentActivityView, RuntimeStatusView
 from agentic_trader.schemas import ServiceStateSnapshot
 from agentic_trader.ui_text import (
-    LABEL_BROKER_BACKEND,
-    LABEL_BROKER_STATE,
-    LABEL_COMPLETED_NOTE,
-    LABEL_CURRENT_NOTE,
-    LABEL_CURRENT_STAGE,
-    LABEL_CURRENT_SYMBOL,
-    LABEL_CYCLE,
-    LABEL_INTERVAL,
-    LABEL_KILL_SWITCH,
-    LABEL_LAST_COMPLETED_STAGE,
-    LABEL_LAST_OUTCOME,
-    LABEL_LAST_OUTCOME_TYPE,
-    LABEL_LOOKBACK,
-    LABEL_RUNTIME,
-    LABEL_STAGE_MESSAGE,
-    LABEL_STAGE_STATUS,
-    LABEL_V1_PAPER_GATE,
-    LABEL_WATCHED_SYMBOLS,
-    MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
-    MESSAGE_WAITING_FOR_LAST_OUTCOME,
-    TITLE_RUNTIME_MODE,
     UI_LIST_SEPARATOR,
     UITextCatalog,
     get_ui_text,
+    t,
 )
 
 
@@ -41,14 +21,32 @@ def runtime_cycle_lines(
     state: ServiceStateSnapshot | None,
     view: RuntimeStatusView,
 ) -> list[str]:
+    """
+    Builds a list of labeled lines describing the runtime cycle and view state for UI display.
+    
+    Parameters:
+        settings (Settings): Configuration used when `state` is None to supply defaults (e.g., runtime_mode).
+        state (ServiceStateSnapshot | None): Current runtime snapshot; when None, fields fall back to `settings` or "-" as described below.
+        view (RuntimeStatusView): Current runtime view containing runtime_state and optional nested state fields.
+    
+    Returns:
+        list[str]: Lines with labels and values for:
+            - runtime state (from `view.runtime_state`)
+            - runtime mode (from `state.runtime_mode` or `settings.runtime_mode`)
+            - watched symbols (joined by `UI_LIST_SEPARATOR` or "-" when missing)
+            - current symbol (from `view.state.current_symbol` or "-")
+            - cycle count (from `view.state.cycle_count` or "-")
+            - interval / lookback (formatted as "interval / lookback" with "-" for missing parts)
+            - current note/message (from `view.state.message` or "-")
+    """
     return [
-        label_line(LABEL_RUNTIME, view.runtime_state),
+        label_line(t("label.runtime"), view.runtime_state),
         label_line(
-            TITLE_RUNTIME_MODE,
+            t("title.runtime.mode"),
             state.runtime_mode if state is not None else settings.runtime_mode,
         ),
         label_line(
-            LABEL_WATCHED_SYMBOLS,
+            t("label.watched.symbols"),
             (
                 UI_LIST_SEPARATOR.join(state.symbols)
                 if state is not None and state.symbols
@@ -56,7 +54,7 @@ def runtime_cycle_lines(
             ),
         ),
         label_line(
-            LABEL_CURRENT_SYMBOL,
+            t("label.current.symbol"),
             (
                 view.state.current_symbol
                 if view.state is not None and view.state.current_symbol
@@ -64,17 +62,18 @@ def runtime_cycle_lines(
             ),
         ),
         label_line(
-            LABEL_CYCLE, view.state.cycle_count if view.state is not None else "-"
+            t("label.cycle"),
+            view.state.cycle_count if view.state is not None else "-",
         ),
         label_line(
-            f"{LABEL_INTERVAL} / {LABEL_LOOKBACK}",
+            f"{t('label.interval')} / {t('label.lookback')}",
             (
                 f"{state.interval if state is not None and state.interval else '-'} / "
                 f"{state.lookback if state is not None and state.lookback else '-'}"
             ),
         ),
         label_line(
-            LABEL_CURRENT_NOTE,
+            t("label.current.note"),
             (
                 view.state.message
                 if view.state is not None and view.state.message
@@ -85,15 +84,32 @@ def runtime_cycle_lines(
 
 
 def agent_activity_lines(activity: AgentActivityView) -> list[str]:
+    """
+    Builds five labeled lines summarizing an agent's current activity and last completed stage.
+    
+    Parameters:
+        activity (AgentActivityView): View containing `current_stage`, `current_stage_status`,
+            `current_stage_message`, `last_completed_stage`, and `last_completed_message`.
+    
+    Returns:
+        list[str]: Five strings with localized labels and values in this order:
+            1. Current stage (or "-" if missing)
+            2. Stage status (or "-" if missing)
+            3. Stage message (or a localized "no activity recorded" message if missing)
+            4. Last completed stage (or "-" if missing)
+            5. Completed note (or "-" if missing)
+    """
     return [
-        label_line(LABEL_CURRENT_STAGE, activity.current_stage or "-"),
-        label_line(LABEL_STAGE_STATUS, activity.current_stage_status or "-"),
+        label_line(t("label.current.stage"), activity.current_stage or "-"),
+        label_line(t("label.stage.status"), activity.current_stage_status or "-"),
         label_line(
-            LABEL_STAGE_MESSAGE,
-            activity.current_stage_message or MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
+            t("label.stage.message"),
+            activity.current_stage_message or t("message.no.agent.activity.recorded"),
         ),
-        label_line(LABEL_LAST_COMPLETED_STAGE, activity.last_completed_stage or "-"),
-        label_line(LABEL_COMPLETED_NOTE, activity.last_completed_message or "-"),
+        label_line(
+            t("label.last.completed.stage"), activity.last_completed_stage or "-"
+        ),
+        label_line(t("label.completed.note"), activity.last_completed_message or "-"),
     ]
 
 
@@ -103,12 +119,26 @@ def broker_gate_lines(
     paper_operations: Mapping[str, object],
     copy: UITextCatalog | None = None,
 ) -> list[str]:
+    """
+    Builds labeled status lines describing broker backend, broker state, kill-switch, and V1 paper gate.
+    
+    Parameters:
+        broker (Mapping[str, object]): Mapping containing broker fields; expected keys include
+            "backend", "state", and "kill_switch_active".
+        paper_operations (Mapping[str, object]): Mapping containing paper gate fields; expected key:
+            "allowed".
+        copy (UITextCatalog | None): Optional UI text catalog to use for localized labels and status
+            strings. If omitted, the module default UI text is used.
+    
+    Returns:
+        list[str]: Four labeled lines (broker backend, broker state, kill switch status, V1 paper gate status).
+    """
     text = copy or get_ui_text()
     return [
-        label_line(LABEL_BROKER_BACKEND, broker.get("backend", "-")),
-        label_line(LABEL_BROKER_STATE, broker.get("state", "-")),
+        label_line(t("label.broker.backend", catalog=text), broker.get("backend", "-")),
+        label_line(t("label.broker.state", catalog=text), broker.get("state", "-")),
         label_line(
-            LABEL_KILL_SWITCH,
+            t("label.kill.switch", catalog=text),
             (
                 text.status_active
                 if broker.get("kill_switch_active")
@@ -116,7 +146,7 @@ def broker_gate_lines(
             ),
         ),
         label_line(
-            LABEL_V1_PAPER_GATE,
+            t("label.v1.paper.gate", catalog=text),
             (
                 text.status_allowed
                 if paper_operations.get("allowed")
@@ -127,12 +157,21 @@ def broker_gate_lines(
 
 
 def last_outcome_lines(activity: AgentActivityView) -> list[str]:
+    """
+    Format the last outcome information from an agent activity into labeled UI lines.
+    
+    Parameters:
+        activity (AgentActivityView): Activity view containing last outcome type and message.
+    
+    Returns:
+        list[str]: Two labeled lines — the last outcome type (or "-" if missing) and the last outcome message — when a last outcome message exists; otherwise a single labeled line indicating that the last outcome is still awaited.
+    """
     if activity.last_outcome_message is not None:
         return [
-            label_line(LABEL_LAST_OUTCOME_TYPE, activity.last_outcome_type or "-"),
-            label_line(LABEL_LAST_OUTCOME, activity.last_outcome_message),
+            label_line(t("label.last.outcome.type"), activity.last_outcome_type or "-"),
+            label_line(t("label.last.outcome"), activity.last_outcome_message),
         ]
-    return [label_line(LABEL_LAST_OUTCOME, MESSAGE_WAITING_FOR_LAST_OUTCOME)]
+    return [label_line(t("label.last.outcome"), t("message.waiting.for.last.outcome"))]
 
 
 __all__ = (

@@ -13,7 +13,9 @@ class MessageTextFields:
     message_all_agent_stages_llm_path: str
     message_background_service_not_active: str
     message_background_service_restarted: str
+    message_control_room_compact_subtitle: str
     message_control_room_closed: str
+    message_control_room_full_subtitle: str
     message_fallback_used_in: str
     message_evidence_bundle_written: str
     message_no_elevated_portfolio_risk_warnings: str

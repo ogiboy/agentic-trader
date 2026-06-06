@@ -1,6 +1,7 @@
 import pytest
 from pytest import MonkeyPatch
 
+import agentic_trader
 from agentic_trader import ui_text
 
 
@@ -70,6 +71,9 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.title_operator_desk == ui_text.TITLE_OPERATOR_DESK
     assert catalog.title_portfolio_and_risk == ui_text.TITLE_PORTFOLIO_AND_RISK
     assert catalog.title_main_menu == ui_text.TITLE_MAIN_MENU
+    assert catalog.title_control_room == "Agentic Trader Control Room"
+    assert catalog.title_live_monitor == "Agentic Trader Live Monitor"
+    assert catalog.message_control_room_compact_subtitle.startswith("Strict LLM gate")
     assert catalog.label_strict_llm == ui_text.LABEL_STRICT_LLM
     assert catalog.label_action == ui_text.LABEL_ACTION
     assert catalog.label_llm_ready == ui_text.LABEL_LLM_READY
@@ -394,7 +398,11 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_operator_desk == "Operator Desk"
     assert catalog.title_portfolio_and_risk == "Portfolio Ve Risk"
     assert catalog.title_main_menu == "Ana Menu"
+    assert catalog.title_control_room == "Agentic Trader Kontrol Odası"
+    assert catalog.title_live_monitor == "Agentic Trader Live Monitor"
+    assert catalog.message_control_room_full_subtitle.startswith("Strict LLM kapısı")
     assert catalog.label_action == "Aksiyon"
+    assert catalog.label_regions == "Bölgeler"
     assert catalog.label_regime == "Regime"
     assert catalog.title_context_summary == "Context Ozeti"
     assert catalog.label_execution_rationale == "Execution Gerekcesi"
@@ -432,6 +440,21 @@ def test_translation_facade_resolves_domain_first_keys() -> None:
     assert ui_text.t("runtime.status.title", locale="tr") == "Runtime Durumu"
 
 
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    (
+        ("title.provider.source.ladder", "Provider Source Ladder"),
+        ("label.alpaca.paper.ready", "Alpaca Paper Ready"),
+        ("style.key.column", "bold cyan"),
+        ("ui.list.separator", ", "),
+    ),
+)
+def test_translation_facade_resolves_category_first_keys(
+    key: str, expected: str
+) -> None:
+    assert ui_text.t(key, locale="en") == expected
+
+
 def test_translation_facade_formats_domain_messages() -> None:
     rendered = ui_text.t(
         "observer.mode.temporarily_unavailable",
@@ -451,3 +474,104 @@ def test_translation_facade_uses_environment_locale(monkeypatch: MonkeyPatch) ->
 def test_translation_facade_raises_for_unknown_keys() -> None:
     with pytest.raises(ui_text.MissingUITranslationError):
         ui_text.t("missing.namespace.key")
+
+
+# ---------------------------------------------------------------------------
+# Tests for PR: i18n keys added for control room titles and messages
+# ---------------------------------------------------------------------------
+
+
+def test_translation_facade_new_control_room_keys_english() -> None:
+    """New title and message keys added in this PR resolve correctly in English."""
+    assert ui_text.t("title.control.room", locale="en") == "Agentic Trader Control Room"
+    assert ui_text.t("title.live.monitor", locale="en") == "Agentic Trader Live Monitor"
+    assert (
+        ui_text.t("message.control.room.compact.subtitle", locale="en")
+        == "Strict LLM gate, portfolio state, runtime controls."
+    )
+    full_subtitle = ui_text.t("message.control.room.full.subtitle", locale="en")
+    assert full_subtitle.startswith("Strict LLM gate")
+    assert "saved preferences" in full_subtitle
+    assert "launch controls" in full_subtitle
+    assert (
+        ui_text.t("message.control.room.closed", locale="en")
+        == "Control room closed cleanly."
+    )
+
+
+def test_translation_facade_new_control_room_keys_turkish() -> None:
+    """New title and message keys added in this PR resolve correctly in Turkish."""
+    assert (
+        ui_text.t("title.control.room", locale="tr") == "Agentic Trader Kontrol Odası"
+    )
+    # title_live_monitor is the same string in both locales
+    assert ui_text.t("title.live.monitor", locale="tr") == "Agentic Trader Live Monitor"
+    compact = ui_text.t("message.control.room.compact.subtitle", locale="tr")
+    assert compact.startswith("Strict LLM kapısı")
+    full = ui_text.t("message.control.room.full.subtitle", locale="tr")
+    assert full.startswith("Strict LLM kapısı")
+    assert "kayıtlı tercihler" in full
+    # Verify the Turkish message_control_room_closed uses proper dotless-i diacritic
+    closed = ui_text.t("message.control.room.closed", locale="tr")
+    assert closed == "Control room temiz kapandı."
+    assert "ı" in closed  # dotless i confirming diacritic fix
+
+
+@pytest.mark.parametrize(
+    ("key", "locale", "expected"),
+    (
+        ("label.intervention", "tr", "Müdahale"),
+        ("label.regions", "tr", "Bölgeler"),
+        ("label.sectors", "tr", "Sektörler"),
+    ),
+)
+def test_translation_facade_turkish_label_unicode_corrections(
+    key: str, locale: str, expected: str
+) -> None:
+    """Turkish label corrections from this PR: diacritics now included correctly."""
+    assert ui_text.t(key, locale=locale) == expected
+
+
+def test_catalog_turkish_label_corrections_via_get_ui_text() -> None:
+    """
+    Verify the diacritic corrections land on the UITextCatalog fields directly,
+    not only via the translation facade.
+    """
+    catalog = ui_text.get_ui_text("tr")
+    assert catalog.label_intervention == "Müdahale"
+    assert catalog.label_regions == "Bölgeler"
+    assert catalog.label_sectors == "Sektörler"
+
+
+def test_message_text_fields_catalog_has_new_control_room_attributes() -> None:
+    """MessageTextFields dataclass gained two new fields in this PR."""
+    catalog = ui_text.get_ui_text("en")
+    # Verify the new fields are present and non-empty on both locales
+    assert catalog.message_control_room_compact_subtitle
+    assert catalog.message_control_room_full_subtitle
+    tr_catalog = ui_text.get_ui_text("tr")
+    assert tr_catalog.message_control_room_compact_subtitle
+    assert tr_catalog.message_control_room_full_subtitle
+
+
+def test_title_text_fields_catalog_has_new_title_attributes() -> None:
+    """TitleTextFields dataclass gained title_control_room and title_live_monitor."""
+    for locale in ("en", "tr"):
+        catalog = ui_text.get_ui_text(locale)
+        assert catalog.title_control_room
+        assert catalog.title_live_monitor
+
+
+def test_control_room_full_subtitle_does_not_contain_format_placeholders() -> None:
+    """The full subtitle messages are plain strings with no format placeholders."""
+    en = ui_text.get_ui_text("en")
+    tr = ui_text.get_ui_text("tr")
+    assert "{" not in en.message_control_room_full_subtitle
+    assert "{" not in en.message_control_room_compact_subtitle
+    assert "{" not in tr.message_control_room_full_subtitle
+    assert "{" not in tr.message_control_room_compact_subtitle
+
+
+def test_package_version_bumped_to_0_14_11() -> None:
+    """Package __version__ was bumped to 0.14.11 in this PR."""
+    assert agentic_trader.__version__ == "0.14.11"

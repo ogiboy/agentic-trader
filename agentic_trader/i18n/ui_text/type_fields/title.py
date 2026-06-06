@@ -33,11 +33,13 @@ class TitleTextFields:
     title_camofox_start_failed: str
     title_chat: str
     title_choose_surface: str
+    title_control_room: str
     title_context_summary: str
     title_current_cycle: str
     title_decision_workflow: str
     title_decision_evidence_explorer: str
     title_llm_status: str
+    title_live_monitor: str
     title_observer_api: str
     title_observer_api_blocked: str
     title_operator_instruction: str
