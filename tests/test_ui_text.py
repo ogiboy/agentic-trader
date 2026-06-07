@@ -35,6 +35,18 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.title_latest_run_review == ui_text.TITLE_LATEST_RUN_REVIEW
     assert catalog.title_run_completed == ui_text.TITLE_RUN_COMPLETED
     assert catalog.title_service_spawned == ui_text.TITLE_SERVICE_SPAWNED
+    assert catalog.title_launch_blocked == "Launch Blocked"
+    assert catalog.title_service_started == "Background Service Started"
+    assert catalog.title_service_stopped == "Service Stopped"
+    assert catalog.message_artifact_label_invalid == (
+        "Artifact label must be a single directory name."
+    )
+    assert catalog.message_background_service_started == (
+        "Orchestrator is running in the background with PID {pid}."
+    )
+    assert catalog.message_no_new_results_before_stop == (
+        "No new results were produced before the orchestrator stopped."
+    )
     assert catalog.title_parsed_operator_instruction == (
         ui_text.TITLE_PARSED_OPERATOR_INSTRUCTION
     )
@@ -308,6 +320,18 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_uv_available == "uv Kullanilabilir"
     assert catalog.title_launch_plan == "Baslatma Plani"
     assert catalog.message_launch_symbol_required == "En az bir sembol gereklidir."
+    assert catalog.title_launch_blocked == "Launch Bloklandi"
+    assert catalog.title_service_started == "Background Service Baslatildi"
+    assert catalog.title_service_stopped == "Service Durdu"
+    assert catalog.message_artifact_label_invalid == (
+        "Artifact etiketi tek bir dizin adi olmalidir."
+    )
+    assert catalog.message_background_service_started == (
+        "Orchestrator background'da PID {pid} ile calisiyor."
+    )
+    assert catalog.message_no_new_results_before_stop == (
+        "Orchestrator durmadan once yeni sonuc uretmedi."
+    )
     assert catalog.title_positions == "Pozisyonlar"
     assert catalog.title_service_stdout_tail == "Service Stdout Kuyrugu"
     assert catalog.label_average_price == "Ortalama Fiyat"

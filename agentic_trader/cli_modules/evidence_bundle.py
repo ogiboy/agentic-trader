@@ -37,6 +37,12 @@ class EvidenceBundleCollectors:
 
 
 def _claim_timestamped_dir(root: Path, label: str) -> Path:
+    if Path(label).name != label or "/" in label or "\\" in label or label in {
+        "",
+        ".",
+        "..",
+    }:
+        raise ValueError(ui_t("message.artifact_label_invalid"))
     root.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, 1000):
         suffix = "" if attempt == 1 else f"-{attempt}"

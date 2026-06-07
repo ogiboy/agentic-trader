@@ -146,7 +146,7 @@ def _register_launch_command(
         except Exception as exc:
             console.print(
                 _render_health_panel(
-                    "Launch Blocked",
+                    ui_t("title.launch_blocked"),
                     str(exc),
                     border_style="red",
                 )
@@ -223,8 +223,8 @@ def _start_launch_background(
     )
     console.print(
         _render_health_panel(
-            "Background Service Started",
-            f"Orchestrator is running in the background with PID {pid}.",
+            ui_t("title.service_started"),
+            ui_t("message.background_service_started").format(pid=pid),
             border_style="green",
         )
     )
@@ -260,8 +260,8 @@ def _render_launch_results(
     if not results:
         console.print(
             _render_health_panel(
-                "Service Stopped",
-                "No new results were produced before the orchestrator stopped.",
+                ui_t("title.service_stopped"),
+                ui_t("message.no_new_results_before_stop"),
                 border_style="yellow",
             )
         )

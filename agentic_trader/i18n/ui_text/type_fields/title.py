@@ -102,12 +102,15 @@ class TitleTextFields:
     title_restart_blocked: str
     title_runtime_events: str
     title_runtime_gate_open: str
+    title_launch_blocked: str
     title_launch_plan: str
     title_runtime_mode: str
     title_runtime_mode_transition_checklist: str
     title_runtime_control: str
     title_runtime_status: str
     title_service_status: str
+    title_service_started: str
+    title_service_stopped: str
     title_service_spawned: str
     title_service_restarted: str
     title_service_stderr_tail: str

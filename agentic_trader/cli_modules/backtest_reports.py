@@ -368,19 +368,19 @@ def write_walk_forward_backtest_summary(
 ) -> str:
     rendered = "\n".join(
         [
-            f"# Walk-Forward Backtest: {report.symbol}",
+            f"# {ui_t('title.walk_forward_backtest')}: {report.symbol}",
             "",
-            f"- Interval: {report.interval}",
-            f"- Lookback: {report.lookback}",
-            f"- Warmup Bars: {report.warmup_bars}",
-            f"- Cycles: {report.total_cycles}",
-            f"- Trades: {report.total_trades}",
-            f"- Closed Trades: {report.closed_trades}",
+            f"- {ui_t('label.interval')}: {report.interval}",
+            f"- {ui_t('label.lookback')}: {report.lookback}",
+            f"- {ui_t('label.warmup_bars')}: {report.warmup_bars}",
+            f"- {ui_t('label.cycles')}: {report.total_cycles}",
+            f"- {ui_t('label.trades')}: {report.total_trades}",
+            f"- {ui_t('label.closed_trades')}: {report.closed_trades}",
             f"- {ui_t('label.win_rate')}: {report.win_rate:.2%}",
-            f"- Expectancy: {report.expectancy:.2f}",
-            f"- Total Return: {report.total_return_pct:.2%}",
-            f"- Max Drawdown: {report.max_drawdown_pct:.2%}",
-            f"- Exposure: {report.exposure_pct:.2%}",
+            f"- {ui_t('label.expectancy')}: {report.expectancy:.2f}",
+            f"- {ui_t('label.total_return')}: {report.total_return_pct:.2%}",
+            f"- {ui_t('label.max_drawdown')}: {report.max_drawdown_pct:.2%}",
+            f"- {ui_t('label.exposure')}: {report.exposure_pct:.2%}",
         ]
     )
     return _write_summary(output, rendered)

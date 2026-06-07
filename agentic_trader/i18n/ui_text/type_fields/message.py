@@ -11,6 +11,8 @@ class MessageTextFields:
 
     message_action_cancelled_returning: str
     message_all_agent_stages_llm_path: str
+    message_artifact_label_invalid: str
+    message_background_service_started: str
     message_background_service_not_active: str
     message_background_service_restarted: str
     message_control_room_compact_subtitle: str
@@ -29,6 +31,7 @@ class MessageTextFields:
     message_no_orders_recorded: str
     message_no_agent_activity_recorded: str
     message_no_live_agent_stage_events: str
+    message_no_new_results_before_stop: str
     message_memory_explorer_temporarily_unavailable: str
     message_no_action_selected: str
     message_no_retrieval_inspection_context: str
