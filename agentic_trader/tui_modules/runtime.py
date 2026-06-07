@@ -112,7 +112,17 @@ def prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | 
         return continuous, poll_seconds, None
 
     max_cycles_input = Prompt.ask(ui_t("prompt.max_cycles"), default="")
-    max_cycles = int(max_cycles_input) if max_cycles_input.strip() else None
+    max_cycles = None
+    if max_cycles_input.strip():
+        try:
+            max_cycles = int(max_cycles_input)
+        except ValueError:
+            console.print(
+                Panel(
+                    f"Invalid input '{max_cycles_input}'. Using unlimited cycles.",
+                    border_style="yellow",
+                )
+            )
     return continuous, poll_seconds, max_cycles
 
 

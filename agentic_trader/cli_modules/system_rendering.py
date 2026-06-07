@@ -10,7 +10,9 @@ from agentic_trader.ui_text import (
     t,
 )
 
-MODEL_SERVICE_LABEL = t("label.model_service")
+
+def get_model_service_label() -> str:
+    return t("label.model_service")
 
 
 def render_setup_status(payload: dict[str, object]) -> None:
@@ -24,7 +26,7 @@ def render_setup_status(payload: dict[str, object]) -> None:
     model_service = cast(dict[str, object], payload.get("model_service", {}))
     camofox_service = cast(dict[str, object], payload.get("camofox_service", {}))
     webgui_service = cast(dict[str, object], payload.get("webgui_service", {}))
-    summary.add_row(MODEL_SERVICE_LABEL, str(model_service.get("message", "-")))
+    summary.add_row(get_model_service_label(), str(model_service.get("message", "-")))
     summary.add_row(t("label.camofox"), str(camofox_service.get("message", "-")))
     summary.add_row(t("label.web_gui"), str(webgui_service.get("message", "-")))
     console.print(summary)
@@ -84,7 +86,7 @@ def render_tool_ownership(payload: dict[str, object]) -> None:
 
 
 def render_model_service_status(payload: dict[str, object]) -> None:
-    table = Table(title=MODEL_SERVICE_LABEL)
+    table = Table(title=get_model_service_label())
     table.add_column(t("label.field"))
     table.add_column(t("label.value"))
     for key in (
@@ -190,7 +192,7 @@ def render_operator_launcher_status(payload: dict[str, object]) -> None:
         str(webgui_service.get("url") or "agentic-trader webgui-service start"),
     )
     table.add_row(
-        MODEL_SERVICE_LABEL,
+        get_model_service_label(),
         (
             t("status.ready")
             if model_service.get("model_available")
