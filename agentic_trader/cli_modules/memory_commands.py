@@ -8,7 +8,7 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
 from agentic_trader.json_utils import object_mapping
@@ -58,16 +58,16 @@ def _register_memory_explorer_command(
 ) -> None:
     @app.command("memory-explorer")
     def memory_explorer(
-        symbol: str | None = typer.Option(None, help=text.HELP_SYMBOL),
-        interval: str | None = typer.Option(None, help=text.HELP_INTERVAL),
-        lookback: str = typer.Option("180d", help=text.HELP_LOOKBACK),
+        symbol: str | None = typer.Option(None, help=ui_t("help.symbol")),
+        interval: str | None = typer.Option(None, help=ui_t("help.interval")),
+        lookback: str = typer.Option("180d", help=ui_t("help.lookback")),
         limit: int = typer.Option(
-            5, min=1, max=20, help=text.HELP_MEMORY_EXPLORER_LIMIT
+            5, min=1, max=20, help=ui_t("help.memory_explorer_limit")
         ),
         use_latest_run: bool = typer.Option(
-            True, help=text.HELP_MEMORY_EXPLORER_USE_LATEST_RUN
+            True, help=ui_t("help.memory_explorer_use_latest_run")
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.memory_explorer_payload(
@@ -84,10 +84,10 @@ def _register_memory_explorer_command(
         if not payload["available"]:
             console.print(
                 Panel(
-                    text.MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE.format(
+                    ui_t("message.memory_explorer_temporarily_unavailable").format(
                         error=payload["error"]
                     ),
-                    title=text.LABEL_OBSERVER_MODE,
+                    title=ui_t("label.observer_mode"),
                     border_style="yellow",
                 )
             )
@@ -104,8 +104,8 @@ def _register_retrieval_inspection_command(
 ) -> None:
     @app.command("retrieval-inspection")
     def retrieval_inspection(
-        run_id: str | None = typer.Option(None, help=text.HELP_RUN_ID),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        run_id: str | None = typer.Option(None, help=ui_t("help.run_id")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.retrieval_inspection_payload(settings, run_id=run_id)
@@ -115,10 +115,10 @@ def _register_retrieval_inspection_command(
         if not payload["available"]:
             console.print(
                 Panel(
-                    text.MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE.format(
+                    ui_t("message.retrieval_inspection_temporarily_unavailable").format(
                         error=payload["error"]
                     ),
-                    title=text.LABEL_OBSERVER_MODE,
+                    title=ui_t("label.observer_mode"),
                     border_style="yellow",
                 )
             )
@@ -127,8 +127,8 @@ def _register_retrieval_inspection_command(
         if not stages:
             console.print(
                 Panel(
-                    text.MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
-                    title=text.TITLE_RETRIEVAL_INSPECTION,
+                    ui_t("message.no_retrieval_inspection_context"),
+                    title=ui_t("title.retrieval_inspection"),
                     border_style="yellow",
                 )
             )
@@ -139,17 +139,17 @@ def _register_retrieval_inspection_command(
 def _register_memory_policy_command(app: typer.Typer, deps: MemoryCommandDeps) -> None:
     @app.command("memory-policy")
     def memory_policy(
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         payload = deps.memory_write_policy_snapshot()
         if json_output:
             deps.emit_json(payload)
             return
 
-        table = Table(title=text.TITLE_MEMORY_WRITE_POLICY)
-        table.add_column(text.LABEL_DOMAIN)
-        table.add_column(text.LABEL_ALLOWED_ACTORS)
-        table.add_column(text.LABEL_NOTE)
+        table = Table(title=ui_t("title.memory_write_policy"))
+        table.add_column(ui_t("label.domain"))
+        table.add_column(ui_t("label.allowed_actors"))
+        table.add_column(ui_t("label.note"))
         for domain, policy in payload.items():
             table.add_row(
                 domain,
@@ -163,22 +163,22 @@ def _render_memory_matches(matches: Sequence[HistoricalMemoryMatch]) -> None:
     if not matches:
         console.print(
             Panel(
-                text.MESSAGE_NO_HISTORICAL_MEMORIES,
-                title=text.TITLE_MEMORY_EXPLORER,
+                ui_t("message.no_historical_memories"),
+                title=ui_t("title.memory_explorer"),
                 border_style="yellow",
             )
         )
         return
-    table = Table(title=text.TITLE_MEMORY_EXPLORER)
-    table.add_column(text.LABEL_CREATED)
-    table.add_column(text.LABEL_SYMBOL)
-    table.add_column(text.LABEL_SCORE)
-    table.add_column(text.LABEL_SOURCE)
-    table.add_column(text.STAGE_REGIME)
-    table.add_column(text.LABEL_STRATEGY)
-    table.add_column(text.LABEL_BIAS)
-    table.add_column(text.LABEL_APPROVED)
-    table.add_column(text.LABEL_REASON)
+    table = Table(title=ui_t("title.memory_explorer"))
+    table.add_column(ui_t("label.created"))
+    table.add_column(ui_t("label.symbol"))
+    table.add_column(ui_t("label.score"))
+    table.add_column(ui_t("label.source"))
+    table.add_column(ui_t("stage.regime"))
+    table.add_column(ui_t("label.strategy"))
+    table.add_column(ui_t("label.bias"))
+    table.add_column(ui_t("label.approved"))
+    table.add_column(ui_t("label.reason"))
     for match in matches:
         table.add_row(
             match.created_at,
@@ -217,15 +217,15 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
     recent_runs = cast(list[str], stage["recent_runs"])
     tool_outputs = cast(list[str], stage["tool_outputs"])
     sections = [
-        (f"{text.LABEL_RETRIEVED_MEMORIES}:", retrieved_memories),
-        (f"{text.LABEL_WHY}:", _retrieval_explanation_lines(retrieval_explanations)),
-        (f"{text.LABEL_TRADE_MEMORY}:", memory_notes),
-        (f"{text.LABEL_RECENT_RUNS}:", recent_runs),
+        (f"{ui_t('label.retrieved_memories')}:", retrieved_memories),
+        (f"{ui_t('label.why')}:", _retrieval_explanation_lines(retrieval_explanations)),
+        (f"{ui_t('label.trade_memory')}:", memory_notes),
+        (f"{ui_t('label.recent_runs')}:", recent_runs),
         (
-            f"{text.LABEL_SHARED_BUS}:",
+            f"{ui_t('label.shared_bus')}:",
             [f"{entry['role']}: {entry['summary']}" for entry in shared_memory_bus],
         ),
-        (f"{text.LABEL_TOOL_OUTPUTS}:", tool_outputs),
+        (f"{ui_t('label.tool_outputs')}:", tool_outputs),
     ]
     lines: list[str] = []
     for title, values in sections:
@@ -235,7 +235,7 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
             lines.append("")
         lines.append(title)
         lines.extend(f"- {line}" for line in values)
-    return lines or [text.MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT]
+    return lines or [ui_t("message.no_retrieval_stage_context")]
 
 
 def _retrieval_explanation_lines(
@@ -261,13 +261,15 @@ def _retrieval_explanation_lines(
 def _render_retrieval_inspection(
     stages: list[dict[str, object]], run_id: object
 ) -> None:
-    table = Table(title=text.TITLE_RETRIEVAL_INSPECTION_FOR_RUN.format(run_id=run_id))
-    table.add_column(text.LABEL_ROLE)
-    table.add_column(text.LABEL_RETRIEVED_MEMORIES)
-    table.add_column(text.LABEL_WHY)
-    table.add_column(text.LABEL_TRADE_MEMORY)
-    table.add_column(text.LABEL_SHARED_BUS)
-    table.add_column(text.LABEL_RECENT_RUNS)
+    table = Table(
+        title=ui_t("title.retrieval_inspection_for_run").format(run_id=run_id)
+    )
+    table.add_column(ui_t("label.role"))
+    table.add_column(ui_t("label.retrieved_memories"))
+    table.add_column(ui_t("label.why"))
+    table.add_column(ui_t("label.trade_memory"))
+    table.add_column(ui_t("label.shared_bus"))
+    table.add_column(ui_t("label.recent_runs"))
     for stage in stages:
         table.add_row(*_retrieval_stage_counts(stage))
     console.print(table)
@@ -275,7 +277,7 @@ def _render_retrieval_inspection(
         console.print(
             Panel(
                 "\n".join(_retrieval_stage_lines(stage)),
-                title=text.TITLE_RETRIEVAL_STAGE.format(role=stage["role"]),
+                title=ui_t("title.retrieval_stage").format(role=stage["role"]),
                 border_style="cyan",
             )
         )

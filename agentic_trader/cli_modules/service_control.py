@@ -9,15 +9,7 @@ from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
 from agentic_trader.schemas import ServiceStateSnapshot
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.ui_text import (
-    MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
-    MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED,
-    MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT,
-    MESSAGE_SERVICE_STOP_REQUESTED,
-    TITLE_NOT_RUNNING,
-    TITLE_STALE_STATE_RECOVERED,
-    TITLE_STOP_REQUESTED,
-)
+from agentic_trader.ui_text import t as ui_t
 
 ReadServiceState = Callable[[Settings], ServiceStateSnapshot | None]
 IsProcessAlive = Callable[[int], bool]
@@ -39,8 +31,8 @@ def run_stop_service_command(
     state = read_state(settings)
     if state is None or state.pid is None:
         _print_panel(
-            TITLE_NOT_RUNNING,
-            MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
+            ui_t("title.not_running"),
+            ui_t("message.background_service_not_active"),
             border_style="yellow",
         )
         raise typer.Exit(code=0)
@@ -54,8 +46,8 @@ def run_stop_service_command(
             database_factory=database_factory,
         )
         _print_panel(
-            TITLE_STALE_STATE_RECOVERED,
-            MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED.format(pid=pid),
+            ui_t("title.stale_state_recovered"),
+            ui_t("message.service_stale_runtime_recovered").format(pid=pid),
             border_style="yellow",
         )
         raise typer.Exit(code=0)
@@ -69,8 +61,8 @@ def run_stop_service_command(
         terminate_process=terminate_process,
     )
     _print_panel(
-        TITLE_STOP_REQUESTED,
-        MESSAGE_SERVICE_STOP_REQUESTED.format(pid=pid),
+        ui_t("title.stop_requested"),
+        ui_t("message.service_stop_requested").format(pid=pid),
         border_style="yellow",
     )
 
@@ -84,7 +76,7 @@ def _recover_stale_service_state(
 ) -> None:
     db = database_factory(settings)
     try:
-        message = MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT.format(pid=pid)
+        message = ui_t("message.service_stale_runtime_recovered_event").format(pid=pid)
         db.upsert_service_state(
             state="stopped",
             continuous=state.continuous,

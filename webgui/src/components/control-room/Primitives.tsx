@@ -1,5 +1,7 @@
 import type { ReactNode, SyntheticEvent } from 'react';
 
+import { Input } from '@/components/ui/input';
+
 import type { KeyValueItems, PanelAccent } from '../control-room.helpers';
 import { cx } from '../control-room.helpers';
 
@@ -105,7 +107,7 @@ export function WebguiTokenPrompt({
       <form className='auth-panel__form' onSubmit={onSubmit}>
         <label className='field-label'>
           <span>{copy.tokenLabel}</span>
-          <input
+          <Input
             autoComplete='off'
             autoFocus
             onChange={(event) => onTokenChange(event.target.value)}

@@ -13,5 +13,6 @@ export default getRequestConfig(async () => {
   return {
     locale,
     messages: WEBGUI_MESSAGES[locale],
+    timeZone: 'UTC',
   };
 });

@@ -45,6 +45,8 @@ EN_HELP_COPY: dict[str, str] = {
     "help_model_service_app": "Manage the optional app-owned local model service.",
     "help_model_service_host": "Loopback bind host for app-managed Ollama.",
     "help_model_service_port": "Preferred app-managed Ollama port.",
+    "help_model_service_probe_generation": "Run a tiny Ollama generation probe in addition to lightweight "
+    "service/model checks.",
     "help_memory_explorer_limit": "Maximum number of retrieved historical memories.",
     "help_memory_explorer_use_latest_run": "Use the latest recorded run snapshot when available.",
     "help_ollama_owner": "Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",

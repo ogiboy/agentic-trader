@@ -1,51 +1,419 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-language: "en-US"
+language: en-US
+tone_instructions: "Be concise, direct, security-aware, and actionable. Prioritize correctness, testability, runtime safety, and clear evidence over style-only comments."
 early_access: false
+enable_free_tier: true
+inheritance: true
 
 reviews:
-  profile: "assertive"
+  profile: assertive
   request_changes_workflow: false
+
   high_level_summary: true
+  high_level_summary_instructions: |
+    Write a concise release-note style summary. Separate runtime behavior, tests, CI/security, docs, and UI changes when applicable. Call out any trading-safety, broker, provider, or evidence-bundle impact.
+  high_level_summary_placeholder: "@coderabbitai summary"
+  high_level_summary_in_walkthrough: false
+
+  auto_title_placeholder: "@coderabbitai"
   auto_title_instructions: |
     Generate PR titles that are valid Conventional Commit subjects for this repository's semantic-release guard.
     Use exactly one type from: feat, fix, perf, docs, build, ci, chore, refactor, test, style.
     Format every title as "<type>(optional-scope): <imperative summary>".
     Prefer "fix:" for bug fixes, "feat:" for user-visible behavior, "ci:" for workflow changes, "build:" for dependency or packaging changes, "docs:" for documentation-only changes, "test:" for test-only changes, and "chore:" only for maintenance that does not fit another allowed type.
     Do not generate untyped titles such as "Update dependencies", "Apply suggestions", "Address review comments", or "CodeRabbit suggestions".
+
   review_status: true
+  review_details: true
+  commit_status: true
+  fail_commit_status: true
   collapse_walkthrough: true
-  auto_review:
-    enabled: true
-    drafts: false
-    auto_incremental_review: true
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+
+  suggested_labels: true
+  labeling_instructions:
+    - label: bug
+      instructions: "Apply when the PR fixes incorrect behavior, regressions, exceptions, failed checks, data integrity issues, or broken UI/API behavior."
+    - label: feature
+      instructions: "Apply when the PR adds user-visible runtime, CLI, TUI, provider, broker, dashboard, or workflow capability."
+    - label: security
+      instructions: "Apply when the PR touches secrets, authentication, dependency vulnerabilities, sandboxing, browser automation, external network access, broker execution, or supply-chain risk."
+    - label: tests
+      instructions: "Apply when the PR primarily adds or changes tests, fixtures, mocks, or test infrastructure."
+    - label: ci
+      instructions: "Apply when the PR changes GitHub Actions, release automation, CodeQL, semantic-release, pre-commit, or build validation workflows."
+    - label: docs
+      instructions: "Apply when the PR primarily changes README, docs, prompts, architecture notes, runbooks, or operator guidance."
+    - label: refactor
+      instructions: "Apply when the PR restructures code without intended behavior change."
+    - label: dependencies
+      instructions: "Apply when the PR changes dependency versions, lockfiles, package managers, build metadata, or vulnerability remediation."
+    - label: webgui
+      instructions: "Apply when the PR changes webgui, frontend components, routes, styling, build config, or browser-facing behavior."
+    - label: sidecar
+      instructions: "Apply when the PR changes sidecars, research_flow, CrewAI-style orchestration, subprocess boundaries, or inter-runtime communication."
+  auto_apply_labels: true
+
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  suggested_reviewers_instructions: []
+
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+
   path_filters:
-    - "!.agents/**"
-    - "!.claude/**"
-    - "!.claude-flow/**"
-    - "!**/.agents/**"
-    - "!**/.claude/**"
-    - "!**/.claude-flow/**"
-    - "!CLAUDE.md"
-    - "!skills-lock.json"
+    - "!**/.DS_Store"
+    - "!**/.pytest_cache/**"
+    - "!**/.ruff_cache/**"
+    - "!**/.mypy_cache/**"
+    - "!**/.venv/**"
+    - "!**/venv/**"
     - "!**/node_modules/**"
-    - "!**/dist/**"
-    - "!**/build/**"
     - "!**/.next/**"
     - "!**/out/**"
+    - "!**/dist/**"
+    - "!**/build/**"
     - "!runtime/**"
+    - "!**/gen/**"
+    - "!**/_gen/**"
+    - "!**/generated/**"
+    - "!**/@generated/**"
+    - "!**/vendor/**"
+    - "!**/*.min.js"
+    - "!**/*.min.js.map"
+    - "!**/*.min.css"
+    - "!**/*.map"
+    - "!**/*.lock"
+    - "!uv.lock"
+    - "!poetry.lock"
+    - "!package-lock.json"
+    - "!pnpm-lock.yaml"
+    - "!yarn.lock"
+    - "!skills-lock.json"
+    - "!**/*.pyc"
+    - "!**/*.pyo"
+    - "!**/*.pyd"
+    - "!**/__pycache__/**"
+    - "!**/*.so"
+    - "!**/*.dylib"
+    - "!**/*.dll"
+    - "!**/*.exe"
+    - "!**/*.bin"
+    - "!**/*.db"
+    - "!**/*.sqlite"
+    - "!**/*.sqlite3"
+    - "!**/*.csv"
+    - "!**/*.tsv"
+    - "!**/*.parquet"
+    - "!**/*.pkl"
+    - "!**/*.pickle"
+    - "!**/*.gz"
+    - "!**/*.xz"
+    - "!**/*.bz2"
+    - "!**/*.zip"
+    - "!**/*.7z"
+    - "!**/*.rar"
+    - "!**/*.zst"
+    - "!**/*.tar"
+    - "!**/*.jar"
+    - "!**/*.war"
+    - "!**/*.pdf"
+    - "!**/*.doc"
+    - "!**/*.docx"
+    - "!**/*.xls"
+    - "!**/*.xlsx"
+    - "!**/*.ppt"
+    - "!**/*.pptx"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.bmp"
+    - "!**/*.tiff"
+    - "!**/*.ico"
+    - "!**/*.svg"
+    - "!**/*.webp"
+    - "!**/*.mp3"
+    - "!**/*.wav"
+    - "!**/*.mp4"
+    - "!**/*.mov"
+    - "!**/*.avi"
+    - "!**/*.mkv"
+    - "!**/*.webm"
+    - "!**/*.woff"
+    - "!**/*.woff2"
+    - "!**/*.ttf"
+    - "!**/*.otf"
+    - "!**/*.eot"
+    - "!**/*.tfstate"
+    - "!**/*.tfstate.backup"
     - "agentic_trader/**"
     - "tests/**"
     - "scripts/**"
     - "webgui/src/**"
-    - "docs/app/**"
-    - "docs/components/**"
-    - "docs/content/**"
-    - "docs/lib/**"
+    - "webgui/app/**"
+    - "webgui/components/**"
+    - "webgui/lib/**"
     - "tui/**"
     - "tools/camofox-browser/**"
     - "sidecars/research_flow/**"
+    - "docs/**"
     - ".github/**"
     - ".ai/**"
+    - ".coderabbit.yaml"
+    - "sonar-project.properties"
+    - "*.md"
+    - "*.py"
+    - "*.properties"
+    - "*.toml"
+    - "*.yaml"
+    - "*.yml"
+    - "*.json"
+
+  path_instructions:
+    - path: "agentic_trader/**"
+      instructions: "Focus on trading-runtime correctness, deterministic behavior, paper/live safety gates, provider attribution, error handling, typed payloads, and tests. Treat accidental live execution or silent data fallback as high severity."
+    - path: "agentic_trader/engine/**"
+      instructions: "Check broker execution boundaries, Alpaca paper/live endpoint handling, no-live-until-approved gates, idempotency, order sizing, and failure-mode behavior."
+    - path: "agentic_trader/providers/**"
+      instructions: "Check source attribution, provider fallback visibility, cache staleness, timestamp handling, rate-limit behavior, and data-quality flags."
+    - path: "tests/**"
+      instructions: "Prefer meaningful tests over snapshot churn. Check that safety gates, provider diagnostics, context-pack evidence, and regression cases are covered."
+    - path: "webgui/**"
+      instructions: "Check UI state handling, API contract drift, accessibility basics, build safety, and whether dashboard data is clearly labeled as paper/live/stale."
+    - path: "sidecars/research_flow/**"
+      instructions: "Check process isolation, sidecar boundaries, dependency vulnerability exposure, serialization contracts, and whether the main runtime can safely control or disable the sidecar."
+    - path: ".github/workflows/**"
+      instructions: "Check least-privilege permissions, pinned/action versions where practical, secret exposure, release gating, CodeQL/security scans, and semantic-release title compatibility."
+    - path: ".ai/**"
+      instructions: "Review prompts as production artifacts. Check ambiguity, overloaded constraints, missing error handling, missing success criteria, and instructions that could cause unsafe trading behavior."
+
+  abort_on_close: true
+  disable_cache: false
+
+  slop_detection:
+    enabled: true
+    label: slop
+
+  auto_review:
+    enabled: true
+    description_keyword: ""
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 5
+    ignore_title_keywords:
+      - "wip"
+      - "draft"
+      - "do not review"
+      - "skip review"
+    labels: []
+    drafts: false
+    base_branches:
+      - ".*"
+    ignore_usernames: []
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+    custom:
+      - enabled: true
+        name: "check trading safety gates"
+        instructions: "Inspect the PR for accidental live-trading enablement, broker endpoint mistakes, missing paper-mode defaults, unsafe order execution paths, or missing operator approval gates. Propose minimal targeted fixes only."
+      - enabled: true
+        name: "check provider evidence"
+        instructions: "Inspect changed provider, diagnostics, and review-evidence code for missing source attribution, hidden fallbacks, stale timestamps, incomplete context-pack fields, or evidence-bundle regressions. Propose minimal targeted fixes only."
+      - enabled: true
+        name: "check ci release guard"
+        instructions: "Inspect changed CI/release files for semantic-release compatibility, Conventional Commit title enforcement, least-privilege permissions, and secret exposure. Propose minimal targeted fixes only."
+
+  pre_merge_checks:
+    override_requested_reviewers_only: false
+    docstrings:
+      mode: warning
+      threshold: 70
+    title:
+      mode: error
+      requirements: "The PR title must be a valid Conventional Commit subject: one of feat, fix, perf, docs, build, ci, chore, refactor, test, style; optional scope; imperative summary; no untyped titles."
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+    custom_checks:
+      - mode: error
+        name: "No accidental live trading"
+        instructions: "Fail if the PR enables live trading by default, bypasses explicit external paper enablement, weakens no-live-until-approved behavior, or hides broker endpoint selection."
+      - mode: warning
+        name: "Provider evidence visible"
+        instructions: "Warn if provider fallback, selected provider, source attribution, data quality flags, timestamps, or review evidence artifacts become less visible to operators."
+      - mode: warning
+        name: "Tests cover safety changes"
+        instructions: "Warn if trading safety gates, broker behavior, provider diagnostics, or context-pack/evidence changes are not covered by meaningful tests or documented manual validation."
+      - mode: error
+        name: "No secrets or tokens"
+        instructions: "Fail if changed code, docs, workflows, fixtures, or logs include API keys, broker credentials, auth tokens, private keys, session cookies, or realistic secret-looking placeholders."
+
+  tools:
+    ast-grep:
+      essential_rules: true
+      packages: []
+      rule_dirs: []
+      util_dirs: []
+    shellcheck:
+      enabled: true
+    ruff:
+      enabled: true
+    markdownlint:
+      enabled: true
+    github-checks:
+      enabled: true
+      timeout_ms: 180000
+    languagetool:
+      enabled: true
+      level: default
+      enabled_rules: []
+      disabled_rules: []
+      enabled_categories: []
+      disabled_categories: []
+      enabled_only: false
+    biome:
+      enabled: false
+    hadolint:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    trufflehog:
+      enabled: true
+    checkov:
+      enabled: true
+    eslint:
+      enabled: true
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    opengrep:
+      enabled: true
+    semgrep:
+      enabled: true
+    trivy:
+      enabled: true
+    pylint:
+      enabled: true
+    oxc:
+      enabled: true
+    dotenvLint:
+      enabled: true
+    htmlhint:
+      enabled: true
+    stylelint:
+      enabled: true
+    checkmake:
+      enabled: true
+    osvScanner:
+      enabled: true
 
 chat:
+  art: false
+  allow_non_org_members: false
   auto_reply: true
+  integrations:
+    jira:
+      usage: auto
+    linear:
+      usage: auto
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/CLAUDE.md"
+      - "**/AGENTS.md"
+      - ".github/copilot-instructions.md"
+      - ".github/instructions/*.instructions.md"
+      - ".ai/**/*.md"
+      - files: ".ai/prompts/**/*.prompt.md"
+        applyTo: "**/*"
+  learnings:
+    scope: auto
+    approval_delay: 0
+  issues:
+    scope: auto
+  jira:
+    usage: auto
+    project_keys: []
+  linear:
+    usage: auto
+    team_keys: []
+  pull_requests:
+    scope: auto
+  mcp:
+    usage: auto
+    disabled_servers: []
+  automatic_repository_linking: false
+  linked_repositories: []
+
+code_generation:
+  docstrings:
+    language: en-US
+    path_instructions:
+      - path: "agentic_trader/**/*.py"
+        instructions: "Generate concise Google-style or project-consistent docstrings only for public functions/classes or non-obvious internal logic. Do not restate types already clear from annotations."
+      - path: "tests/**/*.py"
+        instructions: "Avoid verbose docstrings in tests unless they clarify safety-critical scenarios or regression intent."
+  unit_tests:
+    path_instructions:
+      - path: "agentic_trader/**/*.py"
+        instructions: "Prefer focused pytest tests with deterministic fixtures, no live network calls, no real broker calls, and explicit assertions for paper/live safety, provider attribution, and error handling."
+      - path: "webgui/**/*"
+        instructions: "Prefer component/API contract tests for user-visible behavior and state handling. Avoid brittle snapshots unless they protect an intentional contract."
+
+issue_enrichment:
+  auto_enrich:
+    enabled: true
+  planning:
+    enabled: true
+    auto_planning:
+      enabled: true
+      labels:
+        - feature
+        - bug
+        - security
+        - refactor
+        - dependencies
+        - sidecar
+        - webgui
+  labeling:
+    labeling_instructions:
+      - label: bug
+        instructions: "Broken behavior, runtime exception, regression, failed check, incorrect data, or UI/API malfunction."
+      - label: feature
+        instructions: "New capability or user-visible improvement."
+      - label: security
+        instructions: "Secrets, auth, supply chain, dependency vulnerability, sandboxing, broker execution, or external access risk."
+      - label: tests
+        instructions: "Test-only or test-infrastructure issue."
+      - label: ci
+        instructions: "Build, release, GitHub Actions, CodeQL, semantic-release, or automation issue."
+      - label: docs
+        instructions: "Documentation, prompt, runbook, README, or operator guidance issue."
+      - label: dependencies
+        instructions: "Dependency upgrade, vulnerability remediation, package manager, lockfile, or build metadata issue."
+      - label: webgui
+        instructions: "Frontend, dashboard, UI, route, styling, or browser-facing issue."
+      - label: sidecar
+        instructions: "Research sidecar, CrewAI-style orchestration, subprocess boundary, or inter-runtime communication issue."
+    auto_apply_labels: true

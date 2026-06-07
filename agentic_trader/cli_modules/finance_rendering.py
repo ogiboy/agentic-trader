@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console
 from agentic_trader.json_utils import object_mapping, object_mapping_list
 
@@ -15,8 +15,8 @@ def render_finance_ops(payload: dict[str, object]) -> None:
     accounting = object_mapping(payload.get("accounting"))
     console.print(
         Panel(
-            str(payload.get("summary", text.MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE)),
-            title=text.TITLE_FINANCE_OPERATIONS,
+            str(payload.get("summary", ui_t("message.finance_operations_unavailable"))),
+            title=ui_t("title.finance_operations"),
             border_style="green" if payload.get("ready") else "yellow",
         )
     )
@@ -29,14 +29,14 @@ def render_finance_ops(payload: dict[str, object]) -> None:
 
 def render_position_plan_repair(payload: dict[str, object]) -> None:
     applied = bool(payload.get("applied"))
-    table = Table(title=text.TITLE_POSITION_PLAN_REPAIR)
-    table.add_column(text.LABEL_SYMBOL)
-    table.add_column(text.LABEL_STATUS)
-    table.add_column(text.LABEL_PROPOSAL)
-    table.add_column(text.LABEL_ENTRY)
-    table.add_column(text.LABEL_STOP)
-    table.add_column(text.LABEL_TAKE)
-    table.add_column(text.LABEL_REASON)
+    table = Table(title=ui_t("title.position_plan_repair"))
+    table.add_column(ui_t("label.symbol"))
+    table.add_column(ui_t("label.status"))
+    table.add_column(ui_t("label.proposal"))
+    table.add_column(ui_t("label.entry"))
+    table.add_column(ui_t("label.stop"))
+    table.add_column(ui_t("label.take"))
+    table.add_column(ui_t("label.reason"))
     for item in object_mapping_list(payload.get("repairs", [])):
         table.add_row(
             str(item.get("symbol", "-")),
@@ -52,10 +52,10 @@ def render_position_plan_repair(payload: dict[str, object]) -> None:
             str(
                 payload.get(
                     "summary",
-                    text.MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
+                    ui_t("message.position_plan_repair_unavailable"),
                 )
             ),
-            title=text.TITLE_POSITION_PLAN_REPAIR,
+            title=ui_t("title.position_plan_repair"),
             border_style="green" if applied else "yellow",
         )
     )
@@ -69,11 +69,11 @@ def format_optional_float(value: object) -> str:
 
 
 def finance_checks_table(checks: object) -> Table:
-    table = Table(title=text.TITLE_FINANCE_OPERATIONS_CHECKS)
-    table.add_column(text.LABEL_CHECK)
-    table.add_column(text.LABEL_STATUS)
-    table.add_column(text.LABEL_BLOCKING)
-    table.add_column(text.LABEL_DETAILS)
+    table = Table(title=ui_t("title.finance_operations_checks"))
+    table.add_column(ui_t("label.check"))
+    table.add_column(ui_t("label.status"))
+    table.add_column(ui_t("label.blocking"))
+    table.add_column(ui_t("label.details"))
     for check in object_mapping_list(checks):
         table.add_row(
             str(check.get("name", "-")),
@@ -88,19 +88,19 @@ def finance_accounting_table(accounting: Mapping[str, object]) -> Table:
     cost_model = object_mapping(accounting.get("cost_model"))
     mark_source = str(accounting.get("mark_source") or "-")
     mark_status = str(accounting.get("mark_status") or "-")
-    context = Table(title=text.TITLE_DESK_ACCOUNTING_CONTEXT)
-    context.add_column(text.LABEL_FIELD)
-    context.add_column(text.LABEL_VALUE)
-    context.add_row(text.LABEL_CURRENCY, str(accounting.get("currency", "USD")))
+    context = Table(title=ui_t("title.desk_accounting_context"))
+    context.add_column(ui_t("label.field"))
+    context.add_column(ui_t("label.value"))
+    context.add_row(ui_t("label.currency"), str(accounting.get("currency", "USD")))
     context.add_row(
-        text.LABEL_MARKED_AT,
-        str(accounting.get("mark_created_at") or text.MESSAGE_MARK_TIME_UNAVAILABLE),
+        ui_t("label.marked_at"),
+        str(accounting.get("mark_created_at") or ui_t("message.mark_time_unavailable")),
     )
-    context.add_row(text.LABEL_MARK_SOURCE, mark_source)
-    context.add_row(text.LABEL_MARK_STATUS, mark_status)
-    context.add_row(text.LABEL_FEES, str(cost_model.get("fees", "-")))
+    context.add_row(ui_t("label.mark_source"), mark_source)
+    context.add_row(ui_t("label.mark_status"), mark_status)
+    context.add_row(ui_t("label.fees"), str(cost_model.get("fees", "-")))
     context.add_row(
-        text.LABEL_SLIPPAGE,
+        ui_t("label.slippage"),
         (
             "-"
             if cost_model.get("slippage_bps") is None
@@ -108,7 +108,7 @@ def finance_accounting_table(accounting: Mapping[str, object]) -> Table:
         ),
     )
     context.add_row(
-        text.LABEL_REJECTION_EVIDENCE,
+        ui_t("label.rejection_evidence"),
         str(accounting.get("rejection_evidence") or "-"),
     )
     return context
@@ -118,10 +118,10 @@ def finance_ledger_table(ledger_categories: object) -> Table | None:
     rows = object_mapping_list(ledger_categories)
     if not rows:
         return None
-    ledger_table = Table(title=text.TITLE_FINANCE_LEDGER_CATEGORIES)
-    ledger_table.add_column(text.LABEL_CATEGORY)
-    ledger_table.add_column(text.LABEL_V1_SOURCE)
-    ledger_table.add_column(text.LABEL_PURPOSE)
+    ledger_table = Table(title=ui_t("title.finance_ledger_categories"))
+    ledger_table.add_column(ui_t("label.category"))
+    ledger_table.add_column(ui_t("label.v1_source"))
+    ledger_table.add_column(ui_t("label.purpose"))
     for item in rows:
         ledger_table.add_row(
             str(item.get("name", "-")),

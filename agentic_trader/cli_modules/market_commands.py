@@ -8,7 +8,7 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console
 from agentic_trader.cli_modules.run_reports import value_or_dash
 from agentic_trader.config import Settings
@@ -88,17 +88,19 @@ def _register_news_intelligence_command(
 ) -> None:
     @app.command("news-intelligence")
     def news_intelligence(
-        symbol: str = typer.Option(..., help=text.HELP_SYMBOL),
+        symbol: str = typer.Option(..., help=ui_t("help.symbol")),
         company_name: str | None = typer.Option(
-            None, "--company-name", help=text.HELP_NEWS_COMPANY_NAME
+            None, "--company-name", help=ui_t("help.news_company_name")
         ),
-        sector: str | None = typer.Option(None, "--sector", help=text.HELP_NEWS_SECTOR),
+        sector: str | None = typer.Option(
+            None, "--sector", help=ui_t("help.news_sector")
+        ),
         classify_source: str | None = typer.Option(
             None,
             "--classify-source",
-            help=text.HELP_NEWS_CLASSIFY_SOURCE,
+            help=ui_t("help.news_classify_source"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         try:
             payload = deps.news_research_plan(
@@ -117,14 +119,14 @@ def _register_news_intelligence_command(
         console.print(
             Panel(
                 str(payload["prompt_policy"]),
-                title=text.TITLE_NEWS_INTELLIGENCE.format(symbol=payload["symbol"]),
+                title=ui_t("title.news_intelligence").format(symbol=payload["symbol"]),
                 border_style="cyan",
             )
         )
-        table = Table(title=text.TITLE_NEWS_QUERY_PLAN)
-        table.add_column(text.LABEL_KIND)
-        table.add_column(text.LABEL_QUERY)
-        table.add_column(text.LABEL_MATERIALITY)
+        table = Table(title=ui_t("title.news_query_plan"))
+        table.add_column(ui_t("label.kind"))
+        table.add_column(ui_t("label.query"))
+        table.add_column(ui_t("label.materiality"))
         for query in cast(list[dict[str, str]], payload["query_templates"]):
             table.add_row(query["kind"], query["query"], query["materiality_hint"])
         console.print(table)
@@ -145,22 +147,22 @@ def _register_research_cycle_plan_command(
         symbols: str = typer.Option(
             "AAPL",
             "--symbols",
-            help=text.HELP_RESEARCH_CYCLE_PLAN_SYMBOLS,
+            help=ui_t("help.research_cycle_plan_symbols"),
         ),
         cadence_seconds: int = typer.Option(
             900,
             "--cadence-seconds",
             min=60,
-            help=text.HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
+            help=ui_t("help.research_cycle_plan_cadence_seconds"),
         ),
         max_proposals_per_cycle: int = typer.Option(
             1,
             "--max-proposals-per-cycle",
             min=0,
             max=10,
-            help=text.HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE,
+            help=ui_t("help.research_cycle_plan_max_proposals_per_cycle"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         symbol_list = _parse_symbols(symbols)
         try:
@@ -183,35 +185,35 @@ def _register_research_cycle_run_command(
     @app.command("research-cycle-run")
     def research_cycle_run(
         symbols: str = typer.Option(
-            ..., "--symbols", help=text.HELP_RESEARCH_CYCLE_RUN_SYMBOLS
+            ..., "--symbols", help=ui_t("help.research_cycle_run_symbols")
         ),
         cycles: int = typer.Option(
-            1, min=1, max=24, help=text.HELP_RESEARCH_CYCLE_RUN_CYCLES
+            1, min=1, max=24, help=ui_t("help.research_cycle_run_cycles")
         ),
         cadence_seconds: int = typer.Option(
             60,
             "--cadence-seconds",
             min=1,
-            help=text.HELP_RESEARCH_CYCLE_RUN_CADENCE_SECONDS,
+            help=ui_t("help.research_cycle_run_cadence_seconds"),
         ),
         max_proposals_per_cycle: int = typer.Option(
             1,
             "--max-proposals-per-cycle",
             min=0,
             max=10,
-            help=text.HELP_RESEARCH_CYCLE_RUN_MAX_PROPOSALS_PER_CYCLE,
+            help=ui_t("help.research_cycle_run_max_proposals_per_cycle"),
         ),
         persist: bool = typer.Option(
             True,
             "--persist/--no-persist",
-            help=text.HELP_RESEARCH_CYCLE_RUN_PERSIST,
+            help=ui_t("help.research_cycle_run_persist"),
         ),
         sleep_between_cycles: bool = typer.Option(
             True,
             "--sleep/--no-sleep",
-            help=text.HELP_RESEARCH_CYCLE_RUN_SLEEP,
+            help=ui_t("help.research_cycle_run_sleep"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         symbol_list = _parse_symbols(symbols)
@@ -232,10 +234,10 @@ def _register_research_cycle_run_command(
             return
         console.print(
             Panel(
-                text.MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY.format(
+                ui_t("message.research_cycle_run_summary").format(
                     executed_cycles=payload["executed_cycles"]
                 ),
-                title=text.TITLE_RESEARCH_CYCLE_RUN,
+                title=ui_t("title.research_cycle_run"),
                 border_style="green",
             )
         )
@@ -249,14 +251,14 @@ def _render_research_cycle_plan(payload: dict[str, object]) -> None:
     console.print(
         Panel(
             str(payload["safety_policy"]),
-            title=text.TITLE_RESEARCH_CYCLE_PLAN.format(cycle=payload["cycle"]),
+            title=ui_t("title.research_cycle_plan").format(cycle=payload["cycle"]),
             border_style="cyan",
         )
     )
-    table = Table(title=text.TITLE_RESEARCH_CYCLE_PHASES)
-    table.add_column(text.LABEL_PHASE)
-    table.add_column(text.LABEL_PURPOSE)
-    table.add_column(text.LABEL_PRODUCES)
+    table = Table(title=ui_t("title.research_cycle_phases"))
+    table.add_column(ui_t("label.phase"))
+    table.add_column(ui_t("label.purpose"))
+    table.add_column(ui_t("label.produces"))
     for phase in cast(list[dict[str, object]], payload["phases"]):
         produce = cast(list[str] | tuple[str, ...], phase.get("produce", []))
         table.add_row(
@@ -274,9 +276,9 @@ def _register_calendar_status_command(
     def calendar_status(
         symbol: str | None = typer.Option(
             None,
-            help=text.HELP_CALENDAR_STATUS_SYMBOL,
+            help=ui_t("help.calendar_status_symbol"),
         ),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.calendar_payload(settings, symbol=symbol)
@@ -286,10 +288,10 @@ def _register_calendar_status_command(
         if not payload["available"] or payload["session"] is None:
             console.print(
                 Panel(
-                    text.MESSAGE_CALENDAR_STATUS_UNAVAILABLE.format(
+                    ui_t("message.calendar_status_unavailable").format(
                         error=payload["error"]
                     ),
-                    title=text.TITLE_CALENDAR_STATUS,
+                    title=ui_t("title.calendar_status"),
                     border_style="yellow",
                 )
             )
@@ -299,39 +301,39 @@ def _register_calendar_status_command(
 
 
 def _render_market_session(session: MarketSessionStatus) -> None:
-    table = Table(title=text.TITLE_MARKET_SESSION.format(symbol=session.symbol))
-    table.add_column(text.LABEL_FIELD)
-    table.add_column(text.LABEL_VALUE)
-    table.add_row(text.LABEL_VENUE, session.venue)
-    table.add_row(text.LABEL_ASSET_CLASS, session.asset_class)
-    table.add_row(text.LABEL_TIMEZONE, session.timezone)
-    table.add_row(text.LABEL_STATE, session.session_state)
-    table.add_row(text.LABEL_TRADABLE_NOW, str(session.tradable_now))
-    table.add_row(text.LABEL_NOTE, session.note)
+    table = Table(title=ui_t("title.market_session").format(symbol=session.symbol))
+    table.add_column(ui_t("label.field"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.venue"), session.venue)
+    table.add_row(ui_t("label.asset_class"), session.asset_class)
+    table.add_row(ui_t("label.timezone"), session.timezone)
+    table.add_row(ui_t("label.state"), session.session_state)
+    table.add_row(ui_t("label.tradable_now"), str(session.tradable_now))
+    table.add_row(ui_t("label.note"), session.note)
     console.print(table)
 
 
 def _register_news_brief_command(app: typer.Typer, deps: MarketCommandDeps) -> None:
     @app.command("news-brief")
     def news_brief(
-        symbol: str | None = typer.Option(None, help=text.HELP_NEWS_BRIEF_SYMBOL),
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        symbol: str | None = typer.Option(None, help=ui_t("help.news_brief_symbol")),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.news_payload(settings, symbol=symbol)
         if json_output:
             deps.emit_json(payload)
             return
-        news_title = text.TITLE_NEWS_BRIEF.format(
+        news_title = ui_t("title.news_brief").format(
             symbol=value_or_dash(payload["symbol"])
         )
         table = Table(title=news_title)
-        table.add_column(text.LABEL_FIELD)
-        table.add_column(text.LABEL_VALUE)
-        table.add_row(text.LABEL_MODE, str(payload["mode"]))
-        table.add_row(text.LABEL_AVAILABLE, str(payload["available"]))
+        table.add_column(ui_t("label.field"))
+        table.add_column(ui_t("label.value"))
+        table.add_row(ui_t("label.mode"), str(payload["mode"]))
+        table.add_row(ui_t("label.available"), str(payload["available"]))
         headlines = cast(list[dict[str, object]], payload["headlines"])
-        table.add_row(text.LABEL_HEADLINES, str(len(headlines)))
+        table.add_row(ui_t("label.headlines"), str(len(headlines)))
         console.print(table)
         _render_headlines(headlines)
 
@@ -340,8 +342,8 @@ def _render_headlines(headlines: list[dict[str, object]]) -> None:
     if not headlines:
         console.print(
             Panel(
-                text.MESSAGE_NO_TOOL_NEWS_HEADLINES,
-                title=text.TITLE_NEWS_TOOL,
+                ui_t("message.no_tool_news_headlines"),
+                title=ui_t("title.news_tool"),
                 border_style="yellow",
             )
         )
@@ -359,9 +361,9 @@ def _render_headlines(headlines: list[dict[str, object]]) -> None:
 def _register_market_cache_commands(app: typer.Typer, deps: MarketCommandDeps) -> None:
     @app.command("cache-market-data")
     def cache_market_data(
-        symbol: str = typer.Option(..., help=text.HELP_SYMBOL),
-        interval: str = typer.Option("1d", help=text.HELP_INTERVAL),
-        lookback: str = typer.Option("180d", help=text.HELP_LOOKBACK),
+        symbol: str = typer.Option(..., help=ui_t("help.symbol")),
+        interval: str = typer.Option("1d", help=ui_t("help.interval")),
+        lookback: str = typer.Option("180d", help=ui_t("help.lookback")),
     ) -> None:
         settings = deps.get_settings()
         refresh_settings = settings.model_copy(
@@ -373,24 +375,24 @@ def _register_market_cache_commands(app: typer.Typer, deps: MarketCommandDeps) -
         payload = deps.market_cache_payload(refresh_settings)
         console.print(
             Panel(
-                text.MESSAGE_MARKET_SNAPSHOT_CACHED.format(
+                ui_t("message.market_snapshot_cached").format(
                     bar_count=len(frame),
                     cache_dir=payload["cache_dir"],
-                    cache_dir_label=text.LABEL_CACHE_DIR,
+                    cache_dir_label=ui_t("label.cache_dir"),
                     interval=interval,
                     lookback=lookback,
                     snapshot_count=payload["count"],
-                    snapshot_count_label=text.LABEL_SNAPSHOT_COUNT,
+                    snapshot_count_label=ui_t("label.snapshot_count"),
                     symbol=symbol,
                 ),
-                title=text.TITLE_MARKET_SNAPSHOT_CACHED,
+                title=ui_t("title.market_snapshot_cached"),
                 border_style="green",
             )
         )
 
     @app.command("market-cache")
     def market_cache(
-        json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+        json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
     ) -> None:
         settings = deps.get_settings()
         payload = deps.market_cache_payload(settings)
@@ -401,10 +403,10 @@ def _register_market_cache_commands(app: typer.Typer, deps: MarketCommandDeps) -
 
 
 def _render_market_cache(payload: dict[str, object]) -> None:
-    table = Table(title=text.TITLE_MARKET_SNAPSHOT_CACHE)
-    table.add_column(text.LABEL_FILENAME)
-    table.add_column(text.LABEL_SIZE)
-    table.add_column(text.LABEL_MODIFIED)
+    table = Table(title=ui_t("title.market_snapshot_cache"))
+    table.add_column(ui_t("label.filename"))
+    table.add_column(ui_t("label.size"))
+    table.add_column(ui_t("label.modified"))
     entries = cast(list[dict[str, object]], payload["entries"])
     if not entries:
         table.add_row("-", "-", "-")
@@ -418,15 +420,15 @@ def _render_market_cache(payload: dict[str, object]) -> None:
     console.print(table)
     console.print(
         Panel(
-            text.MESSAGE_CACHE_STATUS.format(
+            ui_t("message.cache_status").format(
                 cache_dir=payload["cache_dir"],
-                cache_dir_label=text.LABEL_CACHE_DIR,
+                cache_dir_label=ui_t("label.cache_dir"),
                 mode=payload["mode"],
-                mode_label=text.LABEL_MODE,
+                mode_label=ui_t("label.mode"),
                 snapshot_count=payload["count"],
-                snapshot_count_label=text.LABEL_SNAPSHOT_COUNT,
+                snapshot_count_label=ui_t("label.snapshot_count"),
             ),
-            title=text.TITLE_CACHE_STATUS,
+            title=ui_t("title.cache_status"),
             border_style="cyan",
         )
     )

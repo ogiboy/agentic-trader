@@ -25,42 +25,7 @@ from agentic_trader.tui_modules.status import (
     render_status,
     render_v1_readiness,
 )
-from agentic_trader.ui_text import (
-    LABEL_ACTION,
-    LABEL_KEY,
-    LABEL_OBSERVER_MODE,
-    LABEL_STOP_REQUESTED,
-    MENU_ACTION_BACK,
-    MENU_ACTION_BROKER_STATUS,
-    MENU_ACTION_DOCTOR_SYSTEM_CHECKS,
-    MENU_ACTION_OPEN_LIVE_MONITOR,
-    MENU_ACTION_PROVIDER_DIAGNOSTICS,
-    MENU_ACTION_REQUEST_ORCHESTRATOR_STOP,
-    MENU_ACTION_START_ONE_STRICT_AGENT_CYCLE,
-    MENU_ACTION_START_ORCHESTRATOR_SERVICE,
-    MENU_ACTION_V1_READINESS_GATES,
-    MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
-    MESSAGE_FINAL_STAGE_UPDATE,
-    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_PREPARING_SYMBOL,
-    MESSAGE_SERVICE_SPAWNED_BACKGROUND,
-    MESSAGE_SERVICE_STOP_REQUESTED,
-    MESSAGE_STAGE_UPDATE,
-    MESSAGE_STALE_RUNTIME_PID,
-    PROMPT_CONTINUE,
-    PROMPT_CONTINUOUS_MODE,
-    PROMPT_MAX_CYCLES,
-    PROMPT_OPEN_LIVE_MONITOR_NOW,
-    PROMPT_POLL_INTERVAL_SECONDS,
-    PROMPT_REFRESH_SECONDS,
-    PROMPT_SELECT_ACTION,
-    STYLE_KEY_COLUMN,
-    TITLE_NOT_RUNNING,
-    TITLE_RUN_COMPLETED,
-    TITLE_RUNTIME_CONTROL,
-    TITLE_SERVICE_SPAWNED,
-    TITLE_STALE_RUNTIME,
-)
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
@@ -76,7 +41,7 @@ def strict_one_shot(
 def run_one_shot_symbol(
     settings: Settings, symbol: str, interval: str, lookback: str
 ) -> None:
-    latest_message = MESSAGE_PREPARING_SYMBOL.format(symbol=symbol)
+    latest_message = ui_t("message.preparing_symbol").format(symbol=symbol)
     with console.status(style_key(latest_message), spinner="dots") as status:
 
         def progress(
@@ -87,7 +52,9 @@ def run_one_shot_symbol(
         ) -> None:
             del event
             nonlocal latest_message
-            latest_message = MESSAGE_STAGE_UPDATE.format(stage=stage, message=message)
+            latest_message = ui_t("message.stage_update").format(
+                stage=stage, message=message
+            )
             current_status.update(style_key(latest_message))
 
         artifacts = run_once(
@@ -102,11 +69,11 @@ def run_one_shot_symbol(
     order_id = persist_run(settings=settings, artifacts=artifacts)
     console.print(
         Panel(
-            MESSAGE_FINAL_STAGE_UPDATE.format(
+            ui_t("message.final_stage_update").format(
                 latest_message=latest_message,
                 artifacts_json=json.dumps(artifacts.model_dump(mode="json"), indent=2),
             ),
-            title=TITLE_RUN_COMPLETED.format(symbol=symbol, order_id=order_id),
+            title=ui_t("title.run_completed").format(symbol=symbol, order_id=order_id),
             border_style="green",
         )
     )
@@ -127,8 +94,8 @@ def launch_service(
     )
     console.print(
         Panel(
-            MESSAGE_SERVICE_SPAWNED_BACKGROUND.format(pid=pid),
-            title=TITLE_SERVICE_SPAWNED,
+            ui_t("message.service_spawned_background").format(pid=pid),
+            title=ui_t("title.service_spawned"),
             border_style="green",
         )
     )
@@ -136,38 +103,61 @@ def launch_service(
 
 
 def prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | None]:
-    continuous = Confirm.ask(PROMPT_CONTINUOUS_MODE, default=False)
+    continuous = Confirm.ask(ui_t("prompt.continuous_mode"), default=False)
     poll_seconds = IntPrompt.ask(
-        PROMPT_POLL_INTERVAL_SECONDS,
+        ui_t("prompt.poll_interval_seconds"),
         default=settings.default_poll_seconds,
     )
     if not continuous:
         return continuous, poll_seconds, None
 
-    max_cycles_input = Prompt.ask(PROMPT_MAX_CYCLES, default="")
-    max_cycles = int(max_cycles_input) if max_cycles_input.strip() else None
+    max_cycles_input = Prompt.ask(ui_t("prompt.max_cycles"), default="")
+    max_cycles = None
+    if max_cycles_input.strip():
+        try:
+            parsed_max_cycles = int(max_cycles_input)
+            if parsed_max_cycles >= 1:
+                max_cycles = parsed_max_cycles
+            else:
+                console.print(
+                    Panel(
+                        ui_t("message.invalid_max_cycles_input").format(
+                            value=max_cycles_input
+                        ),
+                        border_style="yellow",
+                    )
+                )
+        except ValueError:
+            console.print(
+                Panel(
+                    ui_t("message.invalid_max_cycles_input").format(
+                        value=max_cycles_input
+                    ),
+                    border_style="yellow",
+                )
+            )
     return continuous, poll_seconds, max_cycles
 
 
 def open_live_monitor_if_requested(settings: Settings) -> None:
-    if Confirm.ask(PROMPT_OPEN_LIVE_MONITOR_NOW, default=True):
+    if Confirm.ask(ui_t("prompt.open_live_monitor_now"), default=True):
         run_live_monitor(settings, refresh_seconds=1.0)
 
 
 def runtime_control_table() -> Table:
-    table = Table(title=TITLE_RUNTIME_CONTROL)
-    table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
-    table.add_column(LABEL_ACTION)
+    table = Table(title=ui_t("title.runtime_control"))
+    table.add_column(ui_t("label.key"), style=ui_t("style.key_column"))
+    table.add_column(ui_t("label.action"))
     for key, action in (
-        ("1", MENU_ACTION_DOCTOR_SYSTEM_CHECKS),
-        ("2", MENU_ACTION_START_ONE_STRICT_AGENT_CYCLE),
-        ("3", MENU_ACTION_START_ORCHESTRATOR_SERVICE),
-        ("4", MENU_ACTION_REQUEST_ORCHESTRATOR_STOP),
-        ("5", MENU_ACTION_OPEN_LIVE_MONITOR),
-        ("6", MENU_ACTION_PROVIDER_DIAGNOSTICS),
-        ("7", MENU_ACTION_V1_READINESS_GATES),
-        ("8", MENU_ACTION_BROKER_STATUS),
-        ("9", MENU_ACTION_BACK),
+        ("1", ui_t("menu.action_doctor_system_checks")),
+        ("2", ui_t("menu.action_start_one_strict_agent_cycle")),
+        ("3", ui_t("menu.action_start_orchestrator_service")),
+        ("4", ui_t("menu.action_request_orchestrator_stop")),
+        ("5", ui_t("menu.action_open_live_monitor")),
+        ("6", ui_t("menu.action_provider_diagnostics")),
+        ("7", ui_t("menu.action_v1_readiness_gates")),
+        ("8", ui_t("menu.action_broker_status")),
+        ("9", ui_t("menu.action_back")),
     ):
         table.add_row(key, action)
     return table
@@ -188,8 +178,10 @@ def load_runtime_preferences(settings: Settings) -> InvestmentPreferences | None
         if db is None:
             console.print(
                 Panel(
-                    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE.format(error="-"),
-                    title=LABEL_OBSERVER_MODE,
+                    ui_t("message.preferences_temporarily_unavailable").format(
+                        error="-"
+                    ),
+                    title=ui_t("label.observer_mode"),
                     border_style="yellow",
                 )
             )
@@ -234,8 +226,8 @@ def runtime_stop_action(settings: Settings) -> None:
     if state is None or state.pid is None:
         console.print(
             Panel(
-                MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
-                title=TITLE_NOT_RUNNING,
+                ui_t("message.background_service_not_active"),
+                title=ui_t("title.not_running"),
                 border_style="yellow",
             )
         )
@@ -243,8 +235,8 @@ def runtime_stop_action(settings: Settings) -> None:
     if not is_process_alive(state.pid):
         console.print(
             Panel(
-                MESSAGE_STALE_RUNTIME_PID.format(pid=state.pid),
-                title=TITLE_STALE_RUNTIME,
+                ui_t("message.stale_runtime_pid").format(pid=state.pid),
+                title=ui_t("title.stale_runtime"),
                 border_style="yellow",
             )
         )
@@ -254,8 +246,8 @@ def runtime_stop_action(settings: Settings) -> None:
     persist_stop_request(settings)
     console.print(
         Panel(
-            MESSAGE_SERVICE_STOP_REQUESTED.format(pid=state.pid),
-            title=LABEL_STOP_REQUESTED,
+            ui_t("message.service_stop_requested").format(pid=state.pid),
+            title=ui_t("label.stop_requested"),
             border_style="yellow",
         )
     )
@@ -263,7 +255,9 @@ def runtime_stop_action(settings: Settings) -> None:
 
 def runtime_monitor_action(settings: Settings) -> None:
     try:
-        refresh_seconds = float(Prompt.ask(PROMPT_REFRESH_SECONDS, default="1.0"))
+        refresh_seconds = float(
+            Prompt.ask(ui_t("prompt.refresh_seconds"), default="1.0")
+        )
         if refresh_seconds <= 0.0:
             refresh_seconds = 1.0
     except ValueError:
@@ -287,11 +281,11 @@ def runtime_menu(settings: Settings) -> None:
         console.print(banner())
         console.print(runtime_control_table())
         choice = Prompt.ask(
-            PROMPT_SELECT_ACTION,
+            ui_t("prompt.select_action"),
             choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"],
             default="1",
         )
         if choice == "9":
             return
         actions[choice](settings)
-        Prompt.ask(PROMPT_CONTINUE, default="")
+        Prompt.ask(ui_t("prompt.continue"), default="")

@@ -11,7 +11,7 @@ from typing import Protocol
 from agentic_trader.config import Settings
 from agentic_trader.runtime_feed import read_service_events, read_service_state
 from agentic_trader.runtime_status import RuntimeStatusView, build_runtime_status_view
-from agentic_trader.ui_text import MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE
+from agentic_trader.ui_text import t as ui_t
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
@@ -37,6 +37,12 @@ class EvidenceBundleCollectors:
 
 
 def _claim_timestamped_dir(root: Path, label: str) -> Path:
+    if Path(label).name != label or "/" in label or "\\" in label or label in {
+        "",
+        ".",
+        "..",
+    }:
+        raise ValueError(ui_t("message.artifact_label_invalid"))
     root.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, 1000):
         suffix = "" if attempt == 1 else f"-{attempt}"
@@ -46,7 +52,7 @@ def _claim_timestamped_dir(root: Path, label: str) -> Path:
         except FileExistsError:
             continue
         return candidate
-    msg = MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE.format(label=repr(label))
+    msg = ui_t("message.unique_artifact_dir_unavailable").format(label=repr(label))
     raise RuntimeError(msg)
 
 

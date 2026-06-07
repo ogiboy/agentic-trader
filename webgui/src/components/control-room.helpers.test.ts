@@ -40,6 +40,24 @@ function withIntl(children: React.ReactNode) {
   );
 }
 
+if (!globalThis.Element.prototype.hasPointerCapture) {
+  globalThis.Element.prototype.hasPointerCapture = () => false;
+}
+
+if (!globalThis.Element.prototype.scrollIntoView) {
+  globalThis.Element.prototype.scrollIntoView = () => undefined;
+}
+
+async function chooseSelectOption(label: string, option: string) {
+  fireEvent.pointerDown(screen.getByRole('combobox', { name: label }), {
+    button: 0,
+    ctrlKey: false,
+    pointerId: 1,
+    pointerType: 'mouse',
+  });
+  fireEvent.click(await screen.findByRole('option', { name: option }));
+}
+
 const dashboardFixture = {
   agentActivity: {
     recent_stage_events: [
@@ -552,9 +570,7 @@ describe('control-room formatting helpers', () => {
     await screen.findByText('Strict one-shot cycle completed.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
-    fireEvent.change(screen.getByLabelText('Role'), {
-      target: { value: 'risk_steward' },
-    });
+    await chooseSelectOption('Role', 'Risk Steward');
     fireEvent.change(
       screen.getByPlaceholderText('Ask for a review, status, or explanation.'),
       { target: { value: 'Explain current risk' } },
@@ -563,9 +579,7 @@ describe('control-room formatting helpers', () => {
     await screen.findByText('Operator reply received.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    fireEvent.change(screen.getByLabelText('Mode'), {
-      target: { value: 'apply' },
-    });
+    await chooseSelectOption('Mode', 'apply');
     fireEvent.change(
       screen.getByPlaceholderText(
         'Make the system more conservative and protective.',

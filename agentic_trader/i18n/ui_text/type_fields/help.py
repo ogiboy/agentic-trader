@@ -49,6 +49,7 @@ class HelpTextFields:
     help_model_service_app: str
     help_model_service_host: str
     help_model_service_port: str
+    help_model_service_probe_generation: str
     help_memory_explorer_limit: str
     help_memory_explorer_use_latest_run: str
     help_ollama_owner: str

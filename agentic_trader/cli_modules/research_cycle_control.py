@@ -11,16 +11,7 @@ from agentic_trader.schemas import (
     ResearchCycleControlAction,
     ResearchCycleOperatorControl,
 )
-from agentic_trader.ui_text import (
-    LABEL_NO,
-    LABEL_RESEARCH_CYCLE_CONTROL,
-    LABEL_TRIGGER_NOW_REQUESTED,
-    LABEL_YES,
-    MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
-    MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
-    MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
-    TITLE_RESEARCH_CYCLE_CONTROL,
-)
+from agentic_trader.ui_text import t as ui_t
 
 
 class GetResearchControl(Protocol):
@@ -81,9 +72,9 @@ def _selected_research_action(
     if trigger_now:
         selected_actions.append("trigger_now")
     if len(selected_actions) > 1:
-        raise typer.BadParameter(MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION)
+        raise typer.BadParameter(ui_t("message.research_cycle_choose_one_action"))
     if reason is not None and not selected_actions:
-        raise typer.BadParameter(MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION)
+        raise typer.BadParameter(ui_t("message.research_cycle_reason_requires_action"))
     return selected_actions[0] if selected_actions else None
 
 
@@ -104,13 +95,17 @@ def research_cycle_control_payload(
 def render_research_cycle_control(control: ResearchCycleOperatorControl) -> None:
     console.print(
         Panel(
-            MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS.format(
-                label=LABEL_RESEARCH_CYCLE_CONTROL,
+            ui_t("message.research_cycle_control_status").format(
+                label=ui_t("label.research_cycle_control"),
                 status=control.status,
-                trigger_label=LABEL_TRIGGER_NOW_REQUESTED,
-                trigger_now=(LABEL_YES if control.trigger_now_requested else LABEL_NO),
+                trigger_label=ui_t("label.trigger_now_requested"),
+                trigger_now=(
+                    ui_t("label.yes")
+                    if control.trigger_now_requested
+                    else ui_t("label.no")
+                ),
             ),
-            title=TITLE_RESEARCH_CYCLE_CONTROL,
+            title=ui_t("title.research_cycle_control"),
             border_style="cyan",
         )
     )

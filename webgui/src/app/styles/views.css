@@ -193,6 +193,17 @@
   padding: 0 10px;
 }
 
+.field-select {
+  min-height: 40px;
+  width: 100%;
+  justify-content: space-between;
+  border-color: var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: minmax(0, 240px);

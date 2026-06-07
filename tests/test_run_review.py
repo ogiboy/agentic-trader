@@ -2,6 +2,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from agentic_trader.cli import app
@@ -20,6 +21,7 @@ from agentic_trader.schemas import (
     RunArtifacts,
     StrategyPlan,
 )
+from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
 
 
@@ -117,7 +119,9 @@ def _artifacts(
     )
 
 
-def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
+def test_review_run_and_export_report_commands(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -134,12 +138,22 @@ def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
     review_result = runner.invoke(app, ["review-run"], env=env)
     trace_result = runner.invoke(app, ["trace-run"], env=env)
     export_path = tmp_path / "run-review.md"
+    closed_databases = 0
+    original_close = TradingDatabase.close
+
+    def tracking_close(db: TradingDatabase) -> None:
+        nonlocal closed_databases
+        closed_databases += 1
+        original_close(db)
+
+    monkeypatch.setattr(TradingDatabase, "close", tracking_close)
     export_result = runner.invoke(
         app, ["export-report", "--output", str(export_path)], env=env
     )
 
     assert review_result.exit_code == 0
     assert trace_result.exit_code == 0
+    assert closed_databases >= 1
     assert "Run Review" in review_result.output
     assert "Fundamental" in review_result.output
     assert "Agent Trace" in trace_result.output
@@ -194,7 +208,7 @@ def test_trade_context_surfaces_canonical_analysis(tmp_path: Path) -> None:
 
 def test_ink_review_surfaces_fundamental_truth() -> None:
     script = """
-import { getFundamentalAssessmentLines } from './tui/review-lines.mjs';
+import { getFundamentalAssessmentLines } from './tui/src/review-lines.mjs';
 const lines = getFundamentalAssessmentLines({
   overall_bias: 'supportive',
   risk_flags: ['high_debt_risk'],
@@ -226,7 +240,7 @@ console.log(JSON.stringify(lines));
 
 def test_ink_review_reads_canonical_analysis_snapshot() -> None:
     script = """
-import { getCanonicalAnalysisLines } from './tui/review-lines.mjs';
+import { getCanonicalAnalysisLines } from './tui/src/review-lines.mjs';
 const lines = getCanonicalAnalysisLines({
   snapshot: {
     summary: 'Canonical summary',

@@ -1058,6 +1058,31 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
     assert broker["backend"] == "paper"
 
 
+@pytest.mark.parametrize(
+    "label",
+    ("../escape", "nested/name", "nested\\name", "..", "."),
+)
+def test_evidence_bundle_label_rejects_path_segments(
+    label: str, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path / "runtime",
+        database_path=tmp_path / "runtime" / "agentic_trader.duckdb",
+    )
+    artifacts_root = tmp_path / "artifacts"
+
+    with pytest.raises(ValueError):
+        cli_module.build_evidence_bundle(
+            settings,
+            output_dir=artifacts_root,
+            label=label,
+            include_latest_smoke=False,
+        )
+
+    assert not (tmp_path / "escape").exists()
+    assert not artifacts_root.exists()
+
+
 def test_hardware_profile_json_reports_recommendations(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

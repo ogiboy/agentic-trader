@@ -7,69 +7,28 @@ from rich.table import Table
 
 from agentic_trader.cli_modules.common import console
 from agentic_trader.ui_text import (
-    LABEL_CAMOFOX,
-    LABEL_CATEGORY,
-    LABEL_CORE_READY,
-    LABEL_FIELD,
-    LABEL_MEANING,
-    LABEL_MODE,
-    LABEL_NEXT,
-    LABEL_NOTES,
-    LABEL_OPTIONAL_RUNTIME_READY,
-    LABEL_OWNERSHIP,
-    LABEL_PATH,
-    LABEL_PLATFORM,
-    LABEL_RUNTIME_DAEMON,
-    LABEL_SETUP,
-    LABEL_SOURCE,
-    LABEL_STATUS,
-    LABEL_SURFACE,
-    LABEL_TOOL,
-    LABEL_UPDATED,
-    LABEL_VALUE,
-    LABEL_WEB_GUI,
-    LABEL_WORKSPACE,
-    LAUNCHER_OPTION_CONTINUE_TUI,
-    LAUNCHER_OPTION_EXIT,
-    LAUNCHER_OPTION_OPEN_WEB_GUI,
-    LAUNCHER_OPTION_REFRESH,
-    STATUS_ACTIVE,
-    STATUS_APP_OWNED,
-    STATUS_EXTERNAL,
-    STATUS_NEEDS_ATTENTION,
-    STATUS_READY,
-    TITLE_AVAILABLE_MODELS,
-    TITLE_CAMOFOX_BROWSER_HELPER,
-    TITLE_CAMOFOX_STDERR_TAIL,
-    TITLE_CHOOSE_SURFACE,
-    TITLE_MODEL_SERVICE_STDERR_TAIL,
-    TITLE_OPERATOR_LAUNCHER,
-    TITLE_RECOMMENDED_NEXT_COMMANDS,
-    TITLE_SETUP_STATUS,
-    TITLE_TOOL_OWNERSHIP,
-    TITLE_TOOL_READINESS,
-    TITLE_WEB_GUI_SERVICE,
-    TITLE_WEB_GUI_STDERR_TAIL,
     t,
 )
 
-LABEL_MODEL_SERVICE = t("label.model_service")
+
+def get_model_service_label() -> str:
+    return t("label.model_service")
 
 
 def render_setup_status(payload: dict[str, object]) -> None:
-    summary = Table(title=TITLE_SETUP_STATUS)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_PLATFORM, str(payload["platform"]))
-    summary.add_row(LABEL_WORKSPACE, str(payload["workspace_root"]))
-    summary.add_row(LABEL_CORE_READY, str(payload["core_ready"]))
-    summary.add_row(LABEL_OPTIONAL_RUNTIME_READY, str(payload["optional_ready"]))
+    summary = Table(title=t("title.setup_status"))
+    summary.add_column(t("label.field"))
+    summary.add_column(t("label.value"))
+    summary.add_row(t("label.platform"), str(payload["platform"]))
+    summary.add_row(t("label.workspace"), str(payload["workspace_root"]))
+    summary.add_row(t("label.core_ready"), str(payload["core_ready"]))
+    summary.add_row(t("label.optional_runtime_ready"), str(payload["optional_ready"]))
     model_service = cast(dict[str, object], payload.get("model_service", {}))
     camofox_service = cast(dict[str, object], payload.get("camofox_service", {}))
     webgui_service = cast(dict[str, object], payload.get("webgui_service", {}))
-    summary.add_row(LABEL_MODEL_SERVICE, str(model_service.get("message", "-")))
-    summary.add_row(LABEL_CAMOFOX, str(camofox_service.get("message", "-")))
-    summary.add_row(LABEL_WEB_GUI, str(webgui_service.get("message", "-")))
+    summary.add_row(get_model_service_label(), str(model_service.get("message", "-")))
+    summary.add_row(t("label.camofox"), str(camofox_service.get("message", "-")))
+    summary.add_row(t("label.web_gui"), str(webgui_service.get("message", "-")))
     console.print(summary)
 
     ownership = cast(dict[str, object] | None, payload.get("tool_ownership"))
@@ -80,13 +39,13 @@ def render_setup_status(payload: dict[str, object]) -> None:
 
 def _render_tool_readiness(payload: dict[str, object]) -> None:
     tools = cast(list[dict[str, object]], payload["tools"])
-    table = Table(title=TITLE_TOOL_READINESS)
-    table.add_column(LABEL_TOOL)
-    table.add_column(LABEL_CATEGORY)
-    table.add_column(LABEL_OWNERSHIP)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_PATH)
-    table.add_column(LABEL_NOTES)
+    table = Table(title=t("title.tool_readiness"))
+    table.add_column(t("label.tool"))
+    table.add_column(t("label.category"))
+    table.add_column(t("label.ownership"))
+    table.add_column(t("label.status"))
+    table.add_column(t("label.path"))
+    table.add_column(t("label.notes"))
     for tool in tools:
         notes = ", ".join(cast(list[str], tool.get("notes", [])))
         table.add_row(
@@ -101,19 +60,19 @@ def _render_tool_readiness(payload: dict[str, object]) -> None:
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["recommended_commands"])),
-            title=TITLE_RECOMMENDED_NEXT_COMMANDS,
+            title=t("title.recommended_next_commands"),
             border_style="cyan",
         )
     )
 
 
 def render_tool_ownership(payload: dict[str, object]) -> None:
-    table = Table(title=TITLE_TOOL_OWNERSHIP)
-    table.add_column(LABEL_TOOL)
-    table.add_column(LABEL_MODE)
-    table.add_column(LABEL_SOURCE)
-    table.add_column(LABEL_UPDATED)
-    table.add_column(LABEL_MEANING)
+    table = Table(title=t("title.tool_ownership"))
+    table.add_column(t("label.tool"))
+    table.add_column(t("label.mode"))
+    table.add_column(t("label.source"))
+    table.add_column(t("label.updated"))
+    table.add_column(t("label.meaning"))
     decisions = cast(list[dict[str, object]], payload.get("decisions", []))
     for decision in decisions:
         table.add_row(
@@ -127,9 +86,9 @@ def render_tool_ownership(payload: dict[str, object]) -> None:
 
 
 def render_model_service_status(payload: dict[str, object]) -> None:
-    table = Table(title=LABEL_MODEL_SERVICE)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
+    table = Table(title=get_model_service_label())
+    table.add_column(t("label.field"))
+    table.add_column(t("label.value"))
     for key in (
         "provider",
         "command_available",
@@ -152,17 +111,17 @@ def render_model_service_status(payload: dict[str, object]) -> None:
     console.print(
         Panel(
             "\n".join(cast(list[str], payload.get("available_models", []))) or "-",
-            title=TITLE_AVAILABLE_MODELS,
+            title=t("title.available_models"),
             border_style="green",
         )
     )
-    _render_tail(payload, key="stderr_tail", title=TITLE_MODEL_SERVICE_STDERR_TAIL)
+    _render_tail(payload, key="stderr_tail", title=t("title.model_service_stderr_tail"))
 
 
 def render_webgui_service_status(payload: dict[str, object]) -> None:
-    table = Table(title=TITLE_WEB_GUI_SERVICE)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
+    table = Table(title=t("title.web_gui_service"))
+    table.add_column(t("label.field"))
+    table.add_column(t("label.value"))
     for key in (
         "command_available",
         "command_path",
@@ -177,13 +136,13 @@ def render_webgui_service_status(payload: dict[str, object]) -> None:
     ):
         table.add_row(key, str(payload.get(key, "-")))
     console.print(table)
-    _render_tail(payload, key="stderr_tail", title=TITLE_WEB_GUI_STDERR_TAIL)
+    _render_tail(payload, key="stderr_tail", title=t("title.web_gui_stderr_tail"))
 
 
 def render_camofox_service_status(payload: dict[str, object]) -> None:
-    table = Table(title=TITLE_CAMOFOX_BROWSER_HELPER)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
+    table = Table(title=t("title.camofox_browser_helper"))
+    table.add_column(t("label.field"))
+    table.add_column(t("label.value"))
     for key in (
         "command_available",
         "command_path",
@@ -202,7 +161,7 @@ def render_camofox_service_status(payload: dict[str, object]) -> None:
     ):
         table.add_row(key, str(payload.get(key, "-")))
     console.print(table)
-    _render_tail(payload, key="stderr_tail", title=TITLE_CAMOFOX_STDERR_TAIL)
+    _render_tail(payload, key="stderr_tail", title=t("title.camofox_stderr_tail"))
 
 
 def render_operator_launcher_status(payload: dict[str, object]) -> None:
@@ -211,44 +170,48 @@ def render_operator_launcher_status(payload: dict[str, object]) -> None:
     camofox_service = cast(dict[str, object], payload["camofox_service"])
     webgui_service = cast(dict[str, object], payload["webgui_service"])
     setup = cast(dict[str, object], payload["setup"])
-    table = Table(title=TITLE_OPERATOR_LAUNCHER)
-    table.add_column(LABEL_SURFACE)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_NEXT)
+    table = Table(title=t("title.operator_launcher"))
+    table.add_column(t("label.surface"))
+    table.add_column(t("label.status"))
+    table.add_column(t("label.next"))
     table.add_row(
-        LABEL_RUNTIME_DAEMON,
-        STATUS_ACTIVE if payload["runtime_active"] else str(payload["runtime_state"]),
+        t("label.runtime_daemon"),
+        (
+            t("status.active")
+            if payload["runtime_active"]
+            else str(payload["runtime_state"])
+        ),
         (
             f"{', '.join(cast(list[str], plan['symbols']))} "
             f"{plan['interval']} {plan['lookback']} / poll {plan['poll_seconds']}s"
         ),
     )
     table.add_row(
-        LABEL_WEB_GUI,
+        t("label.web_gui"),
         _webgui_status_label(webgui_service),
         str(webgui_service.get("url") or "agentic-trader webgui-service start"),
     )
     table.add_row(
-        LABEL_MODEL_SERVICE,
+        get_model_service_label(),
         (
-            STATUS_READY
+            t("status.ready")
             if model_service.get("model_available")
             else str(model_service.get("message"))
         ),
         str(model_service.get("base_url") or model_service.get("configured_base_url")),
     )
     table.add_row(
-        LABEL_CAMOFOX,
+        t("label.camofox"),
         (
-            STATUS_READY
+            t("status.ready")
             if camofox_service.get("health_ok")
             else str(camofox_service.get("message"))
         ),
         str(camofox_service.get("base_url") or "agentic-trader camofox-service start"),
     )
     table.add_row(
-        LABEL_SETUP,
-        STATUS_READY if setup.get("core_ready") else STATUS_NEEDS_ATTENTION,
+        t("label.setup"),
+        t("status.ready") if setup.get("core_ready") else t("status.needs_attention"),
         "agentic-trader setup-status --json",
     )
     console.print(table)
@@ -256,13 +219,13 @@ def render_operator_launcher_status(payload: dict[str, object]) -> None:
         Panel(
             "\n".join(
                 [
-                    LAUNCHER_OPTION_OPEN_WEB_GUI,
-                    LAUNCHER_OPTION_CONTINUE_TUI,
-                    LAUNCHER_OPTION_REFRESH,
-                    LAUNCHER_OPTION_EXIT,
+                    t("launcher.option_open_web_gui"),
+                    t("launcher.option_continue_tui"),
+                    t("launcher.option_refresh"),
+                    t("launcher.option_exit"),
                 ]
             ),
-            title=TITLE_CHOOSE_SURFACE,
+            title=t("title.choose_surface"),
             border_style="cyan",
         )
     )
@@ -270,9 +233,9 @@ def render_operator_launcher_status(payload: dict[str, object]) -> None:
 
 def _webgui_status_label(webgui_service: dict[str, object]) -> str:
     if webgui_service.get("app_owned"):
-        return STATUS_APP_OWNED
+        return t("status.app_owned")
     if webgui_service.get("service_reachable"):
-        return STATUS_EXTERNAL
+        return t("status.external")
     return str(webgui_service.get("message"))
 
 

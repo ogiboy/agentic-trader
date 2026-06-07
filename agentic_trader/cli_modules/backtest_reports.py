@@ -14,48 +14,7 @@ from agentic_trader.schemas import (
     BacktestComparisonReport,
     BacktestReport,
 )
-from agentic_trader.ui_text import (
-    LABEL_AGENT,
-    LABEL_BASELINE,
-    LABEL_CLOSED_TRADES,
-    LABEL_CYCLES,
-    LABEL_DELTA,
-    LABEL_ENDING_EQUITY,
-    LABEL_ENTRY,
-    LABEL_ENTRY_PX,
-    LABEL_EXIT,
-    LABEL_EXIT_PX,
-    LABEL_EXPECTANCY,
-    LABEL_EXPOSURE,
-    LABEL_FALLBACK_CYCLES,
-    LABEL_FIELD,
-    LABEL_INTERVAL,
-    LABEL_LOOKBACK,
-    LABEL_MAX_DRAWDOWN,
-    LABEL_METRIC,
-    LABEL_PNL,
-    LABEL_REASON,
-    LABEL_RETURN,
-    LABEL_SIDE,
-    LABEL_TOTAL_RETURN,
-    LABEL_TRADES,
-    LABEL_VALUE,
-    LABEL_WARMUP_BARS,
-    LABEL_WIN_RATE,
-    LABEL_WITH_MEMORY,
-    LABEL_WITHOUT_MEMORY,
-    MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON,
-    MESSAGE_BACKTEST_COMPARISON_WRITTEN,
-    MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN,
-    MESSAGE_BACKTEST_SUMMARY_WRITTEN,
-    MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
-    TITLE_BACKTEST_COMPARISON,
-    TITLE_BACKTEST_MEMORY_ABLATION,
-    TITLE_BACKTEST_TRADES,
-    TITLE_EXPORTED,
-    TITLE_TRAINING_DIAGNOSTIC_MODE,
-    TITLE_WALK_FORWARD_BACKTEST,
-)
+from agentic_trader.ui_text import t as ui_t
 
 EnsureReady = Callable[[Settings], object]
 RunComparison = Callable[..., BacktestComparisonReport]
@@ -84,7 +43,7 @@ def run_backtest_command(
         ensure_ready=ensure_ready,
     )
     if compare_baseline and compare_memory:
-        raise typer.BadParameter(MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON)
+        raise typer.BadParameter(ui_t("message.backtest_choose_one_comparison"))
     if compare_baseline:
         _run_baseline_comparison(
             settings=settings,
@@ -133,8 +92,8 @@ def _training_backtest_allow_fallback(
             raise
         console.print(
             Panel(
-                MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK.format(error=exc),
-                title=TITLE_TRAINING_DIAGNOSTIC_MODE,
+                ui_t("message.training_diagnostic_fallback").format(error=exc),
+                title=ui_t("title.training_diagnostic_mode"),
                 border_style="yellow",
             )
         )
@@ -165,7 +124,7 @@ def _run_baseline_comparison(
     if output is not None:
         write_backtest_comparison_summary(output, comparison)
         _print_backtest_exported(
-            MESSAGE_BACKTEST_COMPARISON_WRITTEN.format(output=output)
+            ui_t("message.backtest_comparison_written").format(output=output)
         )
 
 
@@ -192,7 +151,7 @@ def _run_memory_ablation(
     if output is not None:
         write_backtest_ablation_summary(output, ablation)
         _print_backtest_exported(
-            MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN.format(output=output)
+            ui_t("message.backtest_memory_ablation_written").format(output=output)
         )
 
 
@@ -218,42 +177,44 @@ def _run_walk_forward(
     render_backtest_report(report)
     if output is not None:
         write_walk_forward_backtest_summary(output, report)
-        _print_backtest_exported(MESSAGE_BACKTEST_SUMMARY_WRITTEN.format(output=output))
+        _print_backtest_exported(
+            ui_t("message.backtest_summary_written").format(output=output)
+        )
 
 
 def _print_backtest_exported(message: str) -> None:
-    console.print(Panel(message, title=TITLE_EXPORTED, border_style="green"))
+    console.print(Panel(message, title=ui_t("title.exported"), border_style="green"))
 
 
 def render_backtest_report(report: BacktestReport) -> None:
-    summary = Table(title=TITLE_WALK_FORWARD_BACKTEST + " / " + report.symbol)
-    summary.add_column(LABEL_FIELD)
-    summary.add_column(LABEL_VALUE)
-    summary.add_row(LABEL_INTERVAL, report.interval)
-    summary.add_row(LABEL_LOOKBACK, report.lookback)
-    summary.add_row(LABEL_WARMUP_BARS, str(report.warmup_bars))
-    summary.add_row(LABEL_CYCLES, str(report.total_cycles))
-    summary.add_row(LABEL_TRADES, str(report.total_trades))
-    summary.add_row(LABEL_CLOSED_TRADES, str(report.closed_trades))
-    summary.add_row(LABEL_WIN_RATE, f"{report.win_rate:.2%}")
-    summary.add_row(LABEL_EXPECTANCY, f"{report.expectancy:.2f}")
-    summary.add_row(LABEL_TOTAL_RETURN, f"{report.total_return_pct:.2%}")
-    summary.add_row(LABEL_MAX_DRAWDOWN, f"{report.max_drawdown_pct:.2%}")
-    summary.add_row(LABEL_EXPOSURE, f"{report.exposure_pct:.2%}")
-    summary.add_row(LABEL_FALLBACK_CYCLES, str(report.fallback_cycles))
+    summary = Table(title=ui_t("title.walk_forward_backtest") + " / " + report.symbol)
+    summary.add_column(ui_t("label.field"))
+    summary.add_column(ui_t("label.value"))
+    summary.add_row(ui_t("label.interval"), report.interval)
+    summary.add_row(ui_t("label.lookback"), report.lookback)
+    summary.add_row(ui_t("label.warmup_bars"), str(report.warmup_bars))
+    summary.add_row(ui_t("label.cycles"), str(report.total_cycles))
+    summary.add_row(ui_t("label.trades"), str(report.total_trades))
+    summary.add_row(ui_t("label.closed_trades"), str(report.closed_trades))
+    summary.add_row(ui_t("label.win_rate"), f"{report.win_rate:.2%}")
+    summary.add_row(ui_t("label.expectancy"), f"{report.expectancy:.2f}")
+    summary.add_row(ui_t("label.total_return"), f"{report.total_return_pct:.2%}")
+    summary.add_row(ui_t("label.max_drawdown"), f"{report.max_drawdown_pct:.2%}")
+    summary.add_row(ui_t("label.exposure"), f"{report.exposure_pct:.2%}")
+    summary.add_row(ui_t("label.fallback_cycles"), str(report.fallback_cycles))
     console.print(summary)
     _render_backtest_trades(report)
 
 
 def _render_backtest_trades(report: BacktestReport) -> None:
-    trades = Table(title=TITLE_BACKTEST_TRADES)
-    trades.add_column(LABEL_ENTRY)
-    trades.add_column(LABEL_EXIT)
-    trades.add_column(LABEL_SIDE)
-    trades.add_column(LABEL_ENTRY_PX)
-    trades.add_column(LABEL_EXIT_PX)
-    trades.add_column(LABEL_PNL)
-    trades.add_column(LABEL_REASON)
+    trades = Table(title=ui_t("title.backtest_trades"))
+    trades.add_column(ui_t("label.entry"))
+    trades.add_column(ui_t("label.exit"))
+    trades.add_column(ui_t("label.side"))
+    trades.add_column(ui_t("label.entry_px"))
+    trades.add_column(ui_t("label.exit_px"))
+    trades.add_column(ui_t("label.pnl"))
+    trades.add_column(ui_t("label.reason"))
     if not report.trades:
         trades.add_row("-", "-", "-", "-", "-", "-", "-")
     else:
@@ -271,55 +232,55 @@ def _render_backtest_trades(report: BacktestReport) -> None:
 
 
 def render_backtest_comparison(report: BacktestComparisonReport) -> None:
-    table = Table(title=TITLE_BACKTEST_COMPARISON + " / " + report.symbol)
-    table.add_column(LABEL_METRIC)
-    table.add_column(LABEL_AGENT)
-    table.add_column(LABEL_BASELINE)
-    table.add_column(LABEL_DELTA)
+    table = Table(title=ui_t("title.backtest_comparison") + " / " + report.symbol)
+    table.add_column(ui_t("label.metric"))
+    table.add_column(ui_t("label.agent"))
+    table.add_column(ui_t("label.baseline"))
+    table.add_column(ui_t("label.delta"))
     table.add_row(
-        LABEL_TRADES,
+        ui_t("label.trades"),
         str(report.agent.total_trades),
         str(report.baseline.total_trades),
         str(report.agent.total_trades - report.baseline.total_trades),
     )
     table.add_row(
-        LABEL_CLOSED_TRADES,
+        ui_t("label.closed_trades"),
         str(report.agent.closed_trades),
         str(report.baseline.closed_trades),
         str(report.agent.closed_trades - report.baseline.closed_trades),
     )
     table.add_row(
-        LABEL_WIN_RATE,
+        ui_t("label.win_rate"),
         f"{report.agent.win_rate:.2%}",
         f"{report.baseline.win_rate:.2%}",
         f"{report.agent.win_rate - report.baseline.win_rate:.2%}",
     )
     table.add_row(
-        LABEL_EXPECTANCY,
+        ui_t("label.expectancy"),
         f"{report.agent.expectancy:.2f}",
         f"{report.baseline.expectancy:.2f}",
         f"{report.agent.expectancy - report.baseline.expectancy:.2f}",
     )
     table.add_row(
-        LABEL_RETURN,
+        ui_t("label.return"),
         f"{report.agent.total_return_pct:.2%}",
         f"{report.baseline.total_return_pct:.2%}",
         f"{report.total_return_delta_pct:.2%}",
     )
     table.add_row(
-        LABEL_MAX_DRAWDOWN,
+        ui_t("label.max_drawdown"),
         f"{report.agent.max_drawdown_pct:.2%}",
         f"{report.baseline.max_drawdown_pct:.2%}",
         f"{report.agent.max_drawdown_pct - report.baseline.max_drawdown_pct:.2%}",
     )
     table.add_row(
-        LABEL_EXPOSURE,
+        ui_t("label.exposure"),
         f"{report.agent.exposure_pct:.2%}",
         f"{report.baseline.exposure_pct:.2%}",
         f"{report.agent.exposure_pct - report.baseline.exposure_pct:.2%}",
     )
     table.add_row(
-        LABEL_ENDING_EQUITY,
+        ui_t("label.ending_equity"),
         f"{report.agent.ending_equity:.2f}",
         f"{report.baseline.ending_equity:.2f}",
         f"{report.ending_equity_delta:.2f}",
@@ -328,37 +289,37 @@ def render_backtest_comparison(report: BacktestComparisonReport) -> None:
 
 
 def render_backtest_ablation(report: BacktestAblationReport) -> None:
-    table = Table(title=TITLE_BACKTEST_MEMORY_ABLATION + " / " + report.symbol)
-    table.add_column(LABEL_METRIC)
-    table.add_column(LABEL_WITH_MEMORY)
-    table.add_column(LABEL_WITHOUT_MEMORY)
-    table.add_column(LABEL_DELTA)
+    table = Table(title=ui_t("title.backtest_memory_ablation") + " / " + report.symbol)
+    table.add_column(ui_t("label.metric"))
+    table.add_column(ui_t("label.with_memory"))
+    table.add_column(ui_t("label.without_memory"))
+    table.add_column(ui_t("label.delta"))
     table.add_row(
-        LABEL_TRADES,
+        ui_t("label.trades"),
         str(report.with_memory.total_trades),
         str(report.without_memory.total_trades),
         str(report.with_memory.total_trades - report.without_memory.total_trades),
     )
     table.add_row(
-        LABEL_WIN_RATE,
+        ui_t("label.win_rate"),
         f"{report.with_memory.win_rate:.2%}",
         f"{report.without_memory.win_rate:.2%}",
         f"{report.with_memory.win_rate - report.without_memory.win_rate:.2%}",
     )
     table.add_row(
-        LABEL_EXPECTANCY,
+        ui_t("label.expectancy"),
         f"{report.with_memory.expectancy:.2f}",
         f"{report.without_memory.expectancy:.2f}",
         f"{report.with_memory.expectancy - report.without_memory.expectancy:.2f}",
     )
     table.add_row(
-        LABEL_RETURN,
+        ui_t("label.return"),
         f"{report.with_memory.total_return_pct:.2%}",
         f"{report.without_memory.total_return_pct:.2%}",
         f"{report.total_return_delta_pct:.2%}",
     )
     table.add_row(
-        LABEL_ENDING_EQUITY,
+        ui_t("label.ending_equity"),
         f"{report.with_memory.ending_equity:.2f}",
         f"{report.without_memory.ending_equity:.2f}",
         f"{report.ending_equity_delta:.2f}",
@@ -407,19 +368,19 @@ def write_walk_forward_backtest_summary(
 ) -> str:
     rendered = "\n".join(
         [
-            f"# Walk-Forward Backtest: {report.symbol}",
+            f"# {ui_t('title.walk_forward_backtest')}: {report.symbol}",
             "",
-            f"- Interval: {report.interval}",
-            f"- Lookback: {report.lookback}",
-            f"- Warmup Bars: {report.warmup_bars}",
-            f"- Cycles: {report.total_cycles}",
-            f"- Trades: {report.total_trades}",
-            f"- Closed Trades: {report.closed_trades}",
-            f"- {LABEL_WIN_RATE}: {report.win_rate:.2%}",
-            f"- Expectancy: {report.expectancy:.2f}",
-            f"- Total Return: {report.total_return_pct:.2%}",
-            f"- Max Drawdown: {report.max_drawdown_pct:.2%}",
-            f"- Exposure: {report.exposure_pct:.2%}",
+            f"- {ui_t('label.interval')}: {report.interval}",
+            f"- {ui_t('label.lookback')}: {report.lookback}",
+            f"- {ui_t('label.warmup_bars')}: {report.warmup_bars}",
+            f"- {ui_t('label.cycles')}: {report.total_cycles}",
+            f"- {ui_t('label.trades')}: {report.total_trades}",
+            f"- {ui_t('label.closed_trades')}: {report.closed_trades}",
+            f"- {ui_t('label.win_rate')}: {report.win_rate:.2%}",
+            f"- {ui_t('label.expectancy')}: {report.expectancy:.2f}",
+            f"- {ui_t('label.total_return')}: {report.total_return_pct:.2%}",
+            f"- {ui_t('label.max_drawdown')}: {report.max_drawdown_pct:.2%}",
+            f"- {ui_t('label.exposure')}: {report.exposure_pct:.2%}",
         ]
     )
     return _write_summary(output, rendered)

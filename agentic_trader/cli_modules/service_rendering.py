@@ -12,37 +12,7 @@ from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.schemas import ServiceStateSnapshot
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import OrderRow
-from agentic_trader.ui_text import (
-    LABEL_CONTINUOUS,
-    LABEL_CURRENT_SYMBOL,
-    LABEL_CYCLE_COUNT,
-    LABEL_HEARTBEAT,
-    LABEL_HEARTBEAT_AGE,
-    LABEL_INTERVAL,
-    LABEL_KEY,
-    LABEL_LAST_RECORDED_ERROR,
-    LABEL_LAST_RECORDED_MESSAGE,
-    LABEL_LAST_RECORDED_STATE,
-    LABEL_LIVE_PROCESS,
-    LABEL_LOOKBACK,
-    LABEL_MAX_CYCLES,
-    LABEL_MODE,
-    LABEL_NO,
-    LABEL_PID,
-    LABEL_POLL_SECONDS,
-    LABEL_RUNTIME,
-    LABEL_SERVICE,
-    LABEL_STARTED,
-    LABEL_STATUS_NOTE,
-    LABEL_STOP_REQUESTED,
-    LABEL_SYMBOLS,
-    LABEL_UPDATED,
-    LABEL_VALUE,
-    LABEL_YES,
-    MESSAGE_NO_RUNTIME_STATE,
-    TITLE_SERVICE_STATUS,
-    UI_LIST_SEPARATOR,
-)
+from agentic_trader.ui_text import t as ui_t
 
 
 def read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
@@ -83,46 +53,53 @@ def render_service_state(state: ServiceStateSnapshot | None) -> None:
     if view.state is None:
         console.print(
             Panel(
-                MESSAGE_NO_RUNTIME_STATE,
-                title=TITLE_SERVICE_STATUS,
+                ui_t("message.no_runtime_state"),
+                title=ui_t("title.service_status"),
                 border_style="yellow",
             )
         )
         return
     snapshot = view.state
 
-    table = Table(title=TITLE_SERVICE_STATUS)
-    table.add_column(LABEL_KEY)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_SERVICE, snapshot.service_name)
-    table.add_row(LABEL_MODE, snapshot.runtime_mode)
-    table.add_row(LABEL_RUNTIME, view.runtime_state)
-    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
-    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
-    table.add_row(LABEL_UPDATED, snapshot.updated_at)
-    table.add_row(LABEL_STARTED, snapshot.started_at or "-")
-    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
+    table = Table(title=ui_t("title.service_status"))
+    table.add_column(ui_t("label.key"))
+    table.add_column(ui_t("label.value"))
+    table.add_row(ui_t("label.service"), snapshot.service_name)
+    table.add_row(ui_t("label.mode"), snapshot.runtime_mode)
+    table.add_row(ui_t("label.runtime"), view.runtime_state)
     table.add_row(
-        LABEL_HEARTBEAT_AGE,
+        ui_t("label.live_process"),
+        ui_t("label.yes") if view.live_process else ui_t("label.no"),
+    )
+    table.add_row(ui_t("label.last_recorded_state"), view.last_recorded_state or "-")
+    table.add_row(ui_t("label.updated"), snapshot.updated_at)
+    table.add_row(ui_t("label.started"), snapshot.started_at or "-")
+    table.add_row(ui_t("label.heartbeat"), snapshot.last_heartbeat_at or "-")
+    table.add_row(
+        ui_t("label.heartbeat_age"),
         f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
+    table.add_row(ui_t("label.continuous"), str(snapshot.continuous))
     table.add_row(
-        LABEL_POLL_SECONDS,
+        ui_t("label.poll_seconds"),
         str(snapshot.poll_seconds) if snapshot.poll_seconds is not None else "-",
     )
-    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
-    table.add_row(LABEL_SYMBOLS, UI_LIST_SEPARATOR.join(snapshot.symbols) or "-")
-    table.add_row(LABEL_INTERVAL, snapshot.interval or "-")
-    table.add_row(LABEL_LOOKBACK, snapshot.lookback or "-")
+    table.add_row(ui_t("label.cycle_count"), str(snapshot.cycle_count))
     table.add_row(
-        LABEL_MAX_CYCLES,
+        ui_t("label.symbols"), ui_t("list.separator").join(snapshot.symbols) or "-"
+    )
+    table.add_row(ui_t("label.interval"), snapshot.interval or "-")
+    table.add_row(ui_t("label.lookback"), snapshot.lookback or "-")
+    table.add_row(
+        ui_t("label.max_cycles"),
         str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-",
     )
-    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
-    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row(LABEL_STATUS_NOTE, view.status_message)
-    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
-    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
+    table.add_row(ui_t("label.current_symbol"), snapshot.current_symbol or "-")
+    table.add_row(
+        ui_t("label.pid"), str(snapshot.pid) if snapshot.pid is not None else "-"
+    )
+    table.add_row(ui_t("label.stop_requested"), str(snapshot.stop_requested))
+    table.add_row(ui_t("label.status_note"), view.status_message)
+    table.add_row(ui_t("label.last_recorded_message"), snapshot.message or "-")
+    table.add_row(ui_t("label.last_recorded_error"), snapshot.last_error or "-")
     console.print(table)

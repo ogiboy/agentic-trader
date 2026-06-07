@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Protocol
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import open_db
 from agentic_trader.config import Settings
 from agentic_trader.diagnostics import v1_readiness_payload
@@ -111,9 +111,7 @@ def position_plan_coverage_payload(
             db.close()
         available = True
         error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         positions: list[PositionSnapshot] = []
         plans: list[PositionPlanSnapshot] = []
         available = False
@@ -213,22 +211,22 @@ def risk_report_from_portfolio(
 
     warnings: list[str] = []
     if snapshot.open_positions >= settings.max_open_positions:
-        warnings.append(text.MESSAGE_OPEN_POSITION_COUNT_ELEVATED)
+        warnings.append(ui_t("message.open_position_count_elevated"))
     if gross_exposure / equity > settings.max_gross_exposure_pct:
         warnings.append(
-            text.MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY.format(
+            ui_t("message.gross_exposure_above_equity").format(
                 limit=f"{settings.max_gross_exposure_pct:.0%}"
             )
         )
     if largest_position / equity > settings.max_position_pct:
         warnings.append(
-            text.MESSAGE_LARGEST_POSITION_ABOVE_EQUITY.format(
+            ui_t("message.largest_position_above_equity").format(
                 limit=f"{settings.max_position_pct:.0%}"
             )
         )
     if portfolio_hhi > 0.25:
         warnings.append(
-            text.MESSAGE_PORTFOLIO_CONCENTRATION_HHI.format(score=portfolio_hhi)
+            ui_t("message.portfolio_concentration_hhi").format(score=portfolio_hhi)
         )
 
     return DailyRiskReport(

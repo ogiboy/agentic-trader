@@ -1,6 +1,7 @@
 import { CheckCircle2, RefreshCw, RotateCcw, XCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
+import { Textarea } from '@/components/ui/textarea';
 import type {
   DashboardData,
   ProposalActionKind,
@@ -165,7 +166,7 @@ export function ProposalDeskView({
               </div>
             ) : null}
             <div className='composer'>
-              <textarea
+              <Textarea
                 onChange={(event) => onProposalNoteChange(event.target.value)}
                 placeholder={t('notePlaceholder')}
                 value={proposalNote}

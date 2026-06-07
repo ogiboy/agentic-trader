@@ -3,7 +3,7 @@
 import typer
 from rich.panel import Panel
 
-from agentic_trader import ui_text as text
+from agentic_trader.ui_text import t as ui_t
 from agentic_trader.cli_modules.common import console, emit_json, emit_json_error
 from agentic_trader.cli_modules.proposal_actions import promote_candidate_payload
 from agentic_trader.cli_modules.proposal_desk_state import settings as _settings
@@ -17,17 +17,19 @@ from agentic_trader.schemas import ProposalCandidateRecord, TradeProposalRecord
 
 
 def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the command signature.
-    symbol: str = typer.Option(..., "--symbol", help=text.HELP_SYMBOL),  # NOSONAR
-    preset: str = typer.Option("momentum", "--preset", help=text.HELP_IDEA_PRESET),
+    symbol: str = typer.Option(..., "--symbol", help=ui_t("help.symbol")),  # NOSONAR
+    preset: str = typer.Option("momentum", "--preset", help=ui_t("help.idea_preset")),
     price: float = typer.Option(
-        ..., "--price", min=0.01, help=text.HELP_TRADE_REFERENCE_PRICE
+        ..., "--price", min=0.01, help=ui_t("help.trade_reference_price")
     ),
-    volume: float = typer.Option(..., "--volume", min=0.0, help=text.HELP_IDEA_VOLUME),
+    volume: float = typer.Option(
+        ..., "--volume", min=0.0, help=ui_t("help.idea_volume")
+    ),
     change_pct: float = typer.Option(
-        ..., "--change-pct", help=text.HELP_IDEA_CHANGE_PCT
+        ..., "--change-pct", help=ui_t("help.idea_change_pct")
     ),
     relative_volume: float = typer.Option(0.0, "--relative-volume", min=0.0),
-    gap_pct: float = typer.Option(0.0, "--gap-pct", help=text.HELP_IDEA_GAP_PCT),
+    gap_pct: float = typer.Option(0.0, "--gap-pct", help=ui_t("help.idea_gap_pct")),
     range_pct: float = typer.Option(0.0, "--range-pct", min=0.0),
     rsi: float | None = typer.Option(None, "--rsi", min=0.0, max=100.0),
     ema_9: float | None = typer.Option(None, "--ema-9", min=0.0),
@@ -42,37 +44,37 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
     invalidation_condition: str | None = typer.Option(
         None,
         "--invalidation-condition",
-        help=text.HELP_TRADE_INVALIDATION,
+        help=ui_t("help.trade_invalidation"),
     ),
-    thesis: str = typer.Option("", "--thesis", help=text.HELP_TRADE_THESIS),
+    thesis: str = typer.Option("", "--thesis", help=ui_t("help.trade_thesis")),
     materiality: str = typer.Option(
-        "", "--materiality", help=text.HELP_CANDIDATE_MATERIALITY
+        "", "--materiality", help=ui_t("help.candidate_materiality")
     ),
     freshness: str = typer.Option(
         "operator_supplied_current",
         "--freshness",
-        help=text.HELP_CANDIDATE_FRESHNESS,
+        help=ui_t("help.candidate_freshness"),
     ),
     liquidity: str = typer.Option(
-        "", "--liquidity", help=text.HELP_CANDIDATE_LIQUIDITY
+        "", "--liquidity", help=ui_t("help.candidate_liquidity")
     ),
     risk_notes: str = typer.Option(
-        "", "--risk-notes", help=text.HELP_CANDIDATE_RISK_NOTES
+        "", "--risk-notes", help=ui_t("help.candidate_risk_notes")
     ),
     source: str = typer.Option(
-        "idea-scanner", "--source", help=text.HELP_CANDIDATE_SOURCE
+        "idea-scanner", "--source", help=ui_t("help.candidate_source")
     ),
     enrich_provider_context: bool = typer.Option(
         True,
         "--enrich-provider-context/--no-enrich-provider-context",
-        help=text.HELP_ENRICH_PROVIDER_CONTEXT,
+        help=ui_t("help.enrich_provider_context"),
     ),
     fetch_provider_news: bool = typer.Option(
         False,
         "--fetch-provider-news/--no-fetch-provider-news",
-        help=text.HELP_FETCH_PROVIDER_NEWS,
+        help=ui_t("help.fetch_provider_news"),
     ),
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
     """Persist a scanner/research candidate without approving or submitting it."""
     settings = _settings()
@@ -90,9 +92,9 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
 
 
 def proposal_candidate_promote(
-    candidate_id: str = typer.Argument(..., help=text.HELP_PROPOSAL_CANDIDATE_ID),
-    review_notes: str = typer.Option("", help=text.HELP_PROMOTION_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
+    candidate_id: str = typer.Argument(..., help=ui_t("help.proposal_candidate_id")),
+    review_notes: str = typer.Option("", help=ui_t("help.promotion_notes")),
+    json_output: bool = typer.Option(False, "--json", help=ui_t("help.json")),
 ) -> None:
     """Promote a proposal candidate into a pending manual-review trade proposal."""
     settings = _settings()
@@ -107,7 +109,7 @@ def proposal_candidate_promote(
             emit_json_error(exc)
             raise typer.Exit(code=2) from exc
         console.print(
-            Panel(str(exc), title=text.TITLE_PROMOTION_BLOCKED, border_style="red")
+            Panel(str(exc), title=ui_t("title.promotion_blocked"), border_style="red")
         )
         raise typer.Exit(code=2) from exc
     if json_output:
@@ -117,11 +119,11 @@ def proposal_candidate_promote(
     proposal = TradeProposalRecord.model_validate(payload["proposal"])
     console.print(
         Panel(
-            text.MESSAGE_PROPOSAL_CANDIDATE_PROMOTED.format(
+            ui_t("message.proposal_candidate_promoted").format(
                 candidate_id=candidate.candidate_id,
                 proposal_id=proposal.proposal_id,
             ),
-            title=text.TITLE_PROPOSAL_CANDIDATE_PROMOTED,
+            title=ui_t("title.proposal_candidate_promoted"),
             border_style="green",
         )
     )

@@ -8,12 +8,7 @@ from rich.prompt import Prompt
 
 from agentic_trader.cli_modules.common import console
 from agentic_trader.config import Settings
-from agentic_trader.ui_text import (
-    MESSAGE_NO_ACTION_SELECTED,
-    PROMPT_SELECT_ACTION,
-    TITLE_EXIT,
-    TITLE_WEB_GUI_START_FAILED,
-)
+from agentic_trader.ui_text import t as ui_t
 
 SettingsProvider = Callable[[], Settings]
 LauncherStatusProvider = Callable[[Settings], Any]
@@ -38,7 +33,7 @@ def run_operator_launcher(
         payload = launcher_status_provider(settings).model_dump(mode="json")
         render_launcher_status(payload)
         choice = Prompt.ask(
-            PROMPT_SELECT_ACTION,
+            ui_t("prompt.select_action"),
             choices=["1", "2", "3", "4", "8", "q"],
             default="2",
         )
@@ -60,8 +55,8 @@ def run_operator_launcher(
         break
     console.print(
         render_health_panel(
-            TITLE_EXIT,
-            MESSAGE_NO_ACTION_SELECTED,
+            ui_t("title.exit"),
+            ui_t("message.no_action_selected"),
             border_style="blue",
         )
     )
@@ -81,7 +76,7 @@ def _start_webgui_from_launcher(
 
         console.print(
             render_health_panel(
-                TITLE_WEB_GUI_START_FAILED,
+                ui_t("title.web_gui_start_failed"),
                 redact_sensitive_text(exc, max_length=240),
                 border_style="red",
             )

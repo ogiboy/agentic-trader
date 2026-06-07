@@ -1,8 +1,11 @@
-import { pathToFileURL } from "node:url";
-import React from "react";
-import { normalizeChatHistory } from "./chat-history.mjs";
-import { once } from "./cli-runtime.mjs";
-import { InteractiveDashboardApp, StaticDashboardApp } from "./DashboardApp.mjs";
+import { pathToFileURL } from 'node:url';
+import React from 'react';
+
+import { once } from './src/cli-runtime.mjs';
+import {
+  InteractiveDashboardApp,
+  StaticDashboardApp,
+} from './src/DashboardApp.mjs';
 
 const e = React.createElement;
 
@@ -11,7 +14,7 @@ const isDirectRun =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isDirectRun) {
-  await import("ink").then(({ render }) => {
+  await import('ink').then(({ render }) => {
     render(once ? e(StaticDashboardApp) : e(InteractiveDashboardApp));
   });
 }
@@ -21,7 +24,7 @@ export {
   getPageLabel,
   rotateInstructionMode,
   rotatePersona,
-} from "./copy.mjs";
+} from './src/copy.mjs';
 export {
   accountCurrency,
   defaultRuntimeInterval,
@@ -29,13 +32,19 @@ export {
   defaultSingleSymbol,
   defaultSymbolsFromPreferences,
   getSupervisorLogLines,
-} from "./dashboard-defaults.mjs";
+} from './src/dashboard-defaults.mjs';
+export { useDashboardState } from './src/dashboard-state.mjs';
+export {
+  InteractiveDashboardApp,
+  StaticDashboardApp,
+} from './src/DashboardApp.mjs';
+export { DashboardView } from './src/DashboardView.mjs';
 export {
   handleChatInput,
   handleDashboardInput,
   handleGlobalInput,
   handleSettingsInput,
-} from "./input.mjs";
+} from './src/input.mjs';
 export {
   failedCheckNames,
   formatMarketSession,
@@ -61,8 +70,6 @@ export {
   renderLinesFallback,
   renderUnavailableMessage,
   sourceHealthSummaryLine,
-} from "./line-formatters.mjs";
-export { InteractiveDashboardApp, StaticDashboardApp } from "./DashboardApp.mjs";
-export { DashboardView } from "./DashboardView.mjs";
-export { useDashboardState } from "./dashboard-state.mjs";
-export { normalizeChatHistory };
+} from './src/line-formatters.mjs';
+
+export { normalizeChatHistory } from './src/chat-history.mjs';

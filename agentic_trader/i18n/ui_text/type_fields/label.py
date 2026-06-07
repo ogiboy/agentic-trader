@@ -223,6 +223,7 @@ class LabelTextFields:
     label_runtime: str
     label_runtime_daemon: str
     label_runtime_dir: str
+    label_runtime_mode: str
     label_risk: str
     label_role: str
     label_run_id: str

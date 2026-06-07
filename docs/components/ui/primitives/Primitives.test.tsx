@@ -7,6 +7,7 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from './Alert';
 import { Badge } from './Badge';
 import { Separator } from './Separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
+import { Textarea } from './Textarea';
 
 afterEach(() => {
   cleanup();
@@ -18,13 +19,16 @@ describe('docs ui primitives', () => {
       <>
         <Alert className='custom-alert' variant='destructive'>
           <AlertTitle>Release warning</AlertTitle>
-          <AlertDescription>Review the changelog before merging.</AlertDescription>
+          <AlertDescription>
+            Review the changelog before merging.
+          </AlertDescription>
           <AlertAction>Open</AlertAction>
         </Alert>
         <Badge variant='outline'>Stable</Badge>
         <Badge asChild variant='link'>
           <a href='https://example.com/docs'>Docs link</a>
         </Badge>
+        <Textarea placeholder='Review note' />
         <Separator decorative={false} orientation='vertical' />
         <Tabs defaultValue='overview' orientation='vertical'>
           <TabsList variant='line'>
@@ -37,12 +41,12 @@ describe('docs ui primitives', () => {
     );
 
     const alert = screen.getByRole('alert');
+    const textarea = screen.getByPlaceholderText('Review note');
     expect(alert.className).toContain('custom-alert');
+    expect(textarea.dataset.slot).toBe('textarea');
     expect(screen.getByText('Release warning')).toBeTruthy();
     expect(screen.getByText('Open')).toBeTruthy();
-    expect(screen.getByText('Stable').getAttribute('data-variant')).toBe(
-      'outline',
-    );
+    expect(screen.getByText('Stable').dataset.variant).toBe('outline');
     expect(screen.getByRole('link', { name: 'Docs link' })).toBeTruthy();
     expect(screen.getByText('Overview panel')).toBeTruthy();
   });

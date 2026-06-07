@@ -45,6 +45,8 @@ TR_HELP_COPY: dict[str, str] = {
     "help_model_service_app": "Istege bagli app-owned yerel model servisini yonet.",
     "help_model_service_host": "App-managed Ollama icin loopback bind host.",
     "help_model_service_port": "Tercih edilen app-managed Ollama portu.",
+    "help_model_service_probe_generation": "Lightweight service/model kontrollerine ek olarak kucuk bir "
+    "Ollama generation probe calistir.",
     "help_memory_explorer_limit": "Gosterilecek maksimum historical memory sayisi.",
     "help_memory_explorer_use_latest_run": "Varsa son kayitli run snapshot'ini kullan.",
     "help_ollama_owner": "Ollama sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
