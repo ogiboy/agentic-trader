@@ -125,6 +125,7 @@ class MessageTextFields:
     message_trading_runtime_ready: str
     message_training_diagnostic_fallback: str
     message_tui_missing: str
+    message_invalid_max_cycles_input: str
     message_unique_artifact_dir_unavailable: str
     message_waiting_for_last_outcome: str
     message_v1_readiness_status_unavailable: str

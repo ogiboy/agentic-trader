@@ -86,6 +86,20 @@ describe('ControlRoomIntlProvider', () => {
     expect(globalThis.document.cookie).toContain(`${WEBGUI_LOCALE_COOKIE}=tr`);
   });
 
+  it('applies a saved locale before persisting the initial locale', async () => {
+    installLocalStorage({ [WEBGUI_LOCALE_STORAGE_KEY]: 'en' });
+
+    render(withIntl('tr'));
+    await flushLocaleTimer();
+
+    expect(screen.getByLabelText('locale').textContent).toBe('en');
+    expect(globalThis.document.documentElement.lang).toBe('en');
+    expect(
+      globalThis.window.localStorage.getItem(WEBGUI_LOCALE_STORAGE_KEY),
+    ).toBe('en');
+    expect(globalThis.document.cookie).toContain(`${WEBGUI_LOCALE_COOKIE}=en`);
+  });
+
   it('keeps the active locale when localStorage is inaccessible', async () => {
     Object.defineProperty(globalThis.window, 'localStorage', {
       configurable: true,

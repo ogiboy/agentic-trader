@@ -344,7 +344,10 @@ def _register_replay_export_commands(app: typer.Typer, deps: RecordCommandDeps) 
     ) -> None:
         settings = deps.get_settings()
         db = deps.open_db(settings, read_only=True)
-        record = db.get_run(run_id) if run_id is not None else db.latest_run()
+        try:
+            record = db.get_run(run_id) if run_id is not None else db.latest_run()
+        finally:
+            db.close()
         if record is None:
             console.print(
                 Panel(

@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
 from pytest import MonkeyPatch
 from rich.console import Console
 
@@ -38,6 +39,7 @@ from agentic_trader.tui import (
     style_key,
     system_status_table,
 )
+from agentic_trader.tui_modules import runtime as runtime_module
 from agentic_trader.ui_text import UI_LOCALE_ENV, get_ui_text
 
 
@@ -230,6 +232,42 @@ def test_terminal_tui_pure_helpers_render_status_lines(
     assert last_outcome_lines(empty_activity) == [
         "Last Outcome: Waiting for a completed symbol, exit, or service result."
     ]
+
+
+@pytest.mark.parametrize(
+    ("max_cycles_input", "expected_max_cycles"),
+    (("", None), ("3", 3), ("0", None), ("-1", None), ("abc", None)),
+)
+def test_prompt_service_launch_options_normalizes_max_cycles(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    max_cycles_input: str,
+    expected_max_cycles: int | None,
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        default_poll_seconds=15,
+    )
+
+    def ask_continuous(*_args: object, **_kwargs: object) -> bool:
+        return True
+
+    def ask_poll_seconds(*_args: object, **_kwargs: object) -> int:
+        return 15
+
+    def ask_max_cycles(*_args: object, **_kwargs: object) -> str:
+        return max_cycles_input
+
+    monkeypatch.setattr(runtime_module.Confirm, "ask", ask_continuous)
+    monkeypatch.setattr(runtime_module.IntPrompt, "ask", ask_poll_seconds)
+    monkeypatch.setattr(runtime_module.Prompt, "ask", ask_max_cycles)
+
+    assert runtime_module.prompt_service_launch_options(settings) == (
+        True,
+        15,
+        expected_max_cycles,
+    )
 
 
 def test_terminal_tui_tables_and_menu_actions(

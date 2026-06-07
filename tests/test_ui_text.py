@@ -38,6 +38,10 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     assert catalog.title_launch_blocked == "Launch Blocked"
     assert catalog.title_service_started == "Background Service Started"
     assert catalog.title_service_stopped == "Service Stopped"
+    assert catalog.help_model_service_probe_generation.startswith(
+        "Run a tiny Ollama generation probe"
+    )
+    assert catalog.label_runtime_mode == "Runtime Mode"
     assert catalog.message_artifact_label_invalid == (
         "Artifact label must be a single directory name."
     )
@@ -46,6 +50,9 @@ def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> No
     )
     assert catalog.message_no_new_results_before_stop == (
         "No new results were produced before the orchestrator stopped."
+    )
+    assert catalog.message_invalid_max_cycles_input == (
+        "Invalid input {value!r}. Using unlimited cycles."
     )
     assert catalog.title_parsed_operator_instruction == (
         ui_text.TITLE_PARSED_OPERATOR_INSTRUCTION
@@ -323,6 +330,10 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_launch_blocked == "Launch Bloklandi"
     assert catalog.title_service_started == "Background Service Baslatildi"
     assert catalog.title_service_stopped == "Service Durdu"
+    assert catalog.help_model_service_probe_generation.startswith(
+        "Lightweight service/model kontrollerine"
+    )
+    assert catalog.label_runtime_mode == "Runtime Modu"
     assert catalog.message_artifact_label_invalid == (
         "Artifact etiketi tek bir dizin adi olmalidir."
     )
@@ -331,6 +342,9 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     )
     assert catalog.message_no_new_results_before_stop == (
         "Orchestrator durmadan once yeni sonuc uretmedi."
+    )
+    assert catalog.message_invalid_max_cycles_input == (
+        "Gecersiz girdi {value!r}. Sinirsiz dongu kullaniliyor."
     )
     assert catalog.title_positions == "Pozisyonlar"
     assert catalog.title_service_stdout_tail == "Service Stdout Kuyrugu"

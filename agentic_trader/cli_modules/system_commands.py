@@ -195,10 +195,7 @@ def _register_model_status_command(
         probe_generation: bool = typer.Option(
             False,
             "--probe-generation",
-            help=(
-                "Run a tiny Ollama generation probe in addition to lightweight "
-                "service/model checks."
-            ),
+            help=ui_t("help.model_service_probe_generation"),
         ),
     ) -> None:
         settings = deps.get_settings()

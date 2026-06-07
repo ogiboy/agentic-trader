@@ -221,7 +221,7 @@ def system_status_table(
     table.add_column(t("label.value"))
     table.add_row(t("label.runtime_dir"), str(settings.runtime_dir))
     table.add_row(
-        t("title.runtime_mode"),
+        t("label.runtime_mode"),
         (
             runtime_state.runtime_mode
             if runtime_state is not None

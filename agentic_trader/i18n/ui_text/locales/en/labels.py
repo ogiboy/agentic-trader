@@ -217,6 +217,7 @@ EN_LABELS_COPY: dict[str, str] = {
     "label_runtime": "Runtime",
     "label_runtime_daemon": "Runtime Daemon",
     "label_runtime_dir": "Runtime Dir",
+    "label_runtime_mode": "Runtime Mode",
     "label_risk": "Risk",
     "label_role": "Role",
     "label_run_id": "Run ID",

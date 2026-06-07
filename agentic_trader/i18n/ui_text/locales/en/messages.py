@@ -156,6 +156,7 @@ EN_MESSAGES_COPY: dict[str, str] = {
     "message_training_diagnostic_fallback": "Training mode is continuing this evaluation with deterministic diagnostic "
     "fallbacks because the LLM gate failed:\n\n{error}",
     "message_tui_missing": "The Ink UI directory was not found. Falling back to the Rich control room.",
+    "message_invalid_max_cycles_input": "Invalid input {value!r}. Using unlimited cycles.",
     "message_unique_artifact_dir_unavailable": "Unable to create a unique artifact directory for {label}",
     "message_waiting_for_last_outcome": "Waiting for a completed symbol, exit, or service result.",
     "message_v1_readiness_status_unavailable": "V1 readiness status unavailable.",

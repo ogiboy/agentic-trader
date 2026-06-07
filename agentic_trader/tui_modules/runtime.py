@@ -115,11 +115,24 @@ def prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | 
     max_cycles = None
     if max_cycles_input.strip():
         try:
-            max_cycles = int(max_cycles_input)
+            parsed_max_cycles = int(max_cycles_input)
+            if parsed_max_cycles >= 1:
+                max_cycles = parsed_max_cycles
+            else:
+                console.print(
+                    Panel(
+                        ui_t("message.invalid_max_cycles_input").format(
+                            value=max_cycles_input
+                        ),
+                        border_style="yellow",
+                    )
+                )
         except ValueError:
             console.print(
                 Panel(
-                    f"Invalid input '{max_cycles_input}'. Using unlimited cycles.",
+                    ui_t("message.invalid_max_cycles_input").format(
+                        value=max_cycles_input
+                    ),
                     border_style="yellow",
                 )
             )

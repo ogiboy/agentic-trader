@@ -155,6 +155,7 @@ TR_MESSAGES_COPY: dict[str, str] = {
     "message_training_diagnostic_fallback": "Training modu bu degerlendirmeye deterministic diagnostic fallback ile "
     "devam ediyor cunku LLM gate basarisiz oldu:\n\n{error}",
     "message_tui_missing": "Ink UI dizini bulunamadi. Rich control room'a dusuluyor.",
+    "message_invalid_max_cycles_input": "Gecersiz girdi {value!r}. Sinirsiz dongu kullaniliyor.",
     "message_unique_artifact_dir_unavailable": "{label} icin unique artifact dizini olusturulamadi",
     "message_waiting_for_last_outcome": "Tamamlanan symbol, exit veya service result bekleniyor.",
     "message_v1_readiness_status_unavailable": "V1 readiness durumu kullanilamiyor.",

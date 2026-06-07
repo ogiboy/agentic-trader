@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -73,19 +74,27 @@ export function ControlRoomIntlProvider({
   initialLocale: WebguiLocale;
 }>) {
   const [locale, setLocale] = useState<WebguiLocale>(initialLocale);
+  const initialLocaleRef = useRef(locale);
+  const skipInitialPersistRef = useRef(true);
 
   useEffect(() => {
     const localeTimer = globalThis.setTimeout(() => {
       const storedLocale = storedLocalePreference();
       if (storedLocale) {
         setLocale(storedLocale);
+        return;
       }
+      persistLocale(initialLocaleRef.current);
     }, 0);
     return () => globalThis.clearTimeout(localeTimer);
   }, []);
 
   useEffect(() => {
     globalThis.document.documentElement.lang = locale;
+    if (skipInitialPersistRef.current) {
+      skipInitialPersistRef.current = false;
+      return;
+    }
     persistLocale(locale);
   }, [locale]);
 
