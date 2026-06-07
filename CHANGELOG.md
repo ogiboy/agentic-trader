@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.1 (2026-06-07)
+
+### Chores
+
+- Bump fumadocs-mdx from 15.0.10 to 15.0.11
+  ([`4770741`](https://github.com/ogiboy/agentic-trader/commit/4770741ac32cc3de0b08daa4153eda0b205f65a9))
+
 ## v0.16.0 - 2026-06-07
 
 ### Features
