@@ -26,8 +26,14 @@ from scripts.qa.modularity_i18n_modules.scanners import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = (
-    "agentic_trader", "webgui/src", "docs", "tui", "scripts", "tools",
-    "sidecars/research_flow", ".ai",
+    "agentic_trader",
+    "webgui/src",
+    "docs",
+    "tui",
+    "scripts",
+    "tools",
+    "sidecars/research_flow",
+    ".ai",
 )
 
 
@@ -72,6 +78,7 @@ def build_report(
         scanned_files=len(paths),
     )
 
+
 def main(argv: Sequence[str] | None = None) -> int:
     """
     Run the repository modularity and i18n audit using provided CLI-style arguments and print the report to stdout.
@@ -97,10 +104,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             top=cast(int, args.top),
             fail_on_findings=cast(bool, args.fail_on_findings),
         )
-    return 1 if should_fail_gate(
-        report,
-        fail_on_findings=cast(bool, args.fail_on_findings),
-    ) else 0
+    return (
+        1
+        if should_fail_gate(
+            report,
+            fail_on_findings=cast(bool, args.fail_on_findings),
+        )
+        else 0
+    )
 
 
 if __name__ == "__main__":
