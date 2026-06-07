@@ -5,14 +5,21 @@ import type {
   InstructionMode,
   InstructionResult,
 } from '../control-room.helpers';
-import
-  {
-    asRecord,
-    asRecordArray,
-    asString,
-    formatList,
-    formatTimestamp,
-  } from '../control-room.helpers';
+import {
+  asRecord,
+  asRecordArray,
+  asString,
+  formatList,
+  formatTimestamp,
+} from '../control-room.helpers';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { KeyValueList, Panel, TextList } from './Primitives';
 
 function instructionButtonLabel(
@@ -83,46 +90,16 @@ export function SettingsView({
       <Panel title={t('panels.preferences')} accent='lime'>
         <KeyValueList
           items={[
-            [
-              t('fields.regions'),
-              formatList(preferences.regions),
-            ],
-            [
-              t('fields.exchanges'),
-              formatList(preferences.exchanges),
-            ],
-            [
-              t('fields.currencies'),
-              formatList(preferences.currencies),
-            ],
-            [
-              t('fields.sectors'),
-              formatList(preferences.sectors),
-            ],
-            [
-              t('fields.risk'),
-              asString(preferences.risk_profile),
-            ],
-            [
-              t('fields.style'),
-              asString(preferences.trade_style),
-            ],
-            [
-              t('fields.behavior'),
-              asString(preferences.behavior_preset),
-            ],
-            [
-              t('fields.agentProfile'),
-              asString(preferences.agent_profile),
-            ],
-            [
-              t('fields.tone'),
-              asString(preferences.agent_tone),
-            ],
-            [
-              t('fields.strictness'),
-              asString(preferences.strictness_preset),
-            ],
+            [t('fields.regions'), formatList(preferences.regions)],
+            [t('fields.exchanges'), formatList(preferences.exchanges)],
+            [t('fields.currencies'), formatList(preferences.currencies)],
+            [t('fields.sectors'), formatList(preferences.sectors)],
+            [t('fields.risk'), asString(preferences.risk_profile)],
+            [t('fields.style'), asString(preferences.trade_style)],
+            [t('fields.behavior'), asString(preferences.behavior_preset)],
+            [t('fields.agentProfile'), asString(preferences.agent_profile)],
+            [t('fields.tone'), asString(preferences.agent_tone)],
+            [t('fields.strictness'), asString(preferences.strictness_preset)],
           ]}
         />
       </Panel>
@@ -134,23 +111,31 @@ export function SettingsView({
       </Panel>
       <Panel title={t('panels.composer')} accent='rose'>
         <div className='form-row'>
-          <label className='field-label'>
+          <div className='field-label'>
             <span>{t('fields.mode')}</span>
-            <select
+            <Select
               value={instructionMode}
-              onChange={(event) =>
-                onInstructionModeChange(event.target.value as InstructionMode)
+              onValueChange={(value) =>
+                onInstructionModeChange(value as InstructionMode)
               }
             >
-              <option value='preview'>
-                {t('modeOptions.preview')}
-              </option>
-              <option value='apply'>{t('modeOptions.apply')}</option>
-            </select>
-          </label>
+              <SelectTrigger
+                aria-label={t('fields.mode')}
+                className='field-select'
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='preview'>
+                  {t('modeOptions.preview')}
+                </SelectItem>
+                <SelectItem value='apply'>{t('modeOptions.apply')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className='composer'>
-          <textarea
+          <Textarea
             value={instructionDraft}
             onChange={(event) => onInstructionDraftChange(event.target.value)}
             placeholder={t('placeholder')}

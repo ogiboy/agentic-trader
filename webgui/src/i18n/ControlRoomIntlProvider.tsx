@@ -39,13 +39,28 @@ function persistLocale(locale: WebguiLocale): void {
   }
 }
 
+function storedLocalePreference(): WebguiLocale | null {
+  try {
+    const storedLocale = globalThis.window.localStorage?.getItem(
+      WEBGUI_LOCALE_STORAGE_KEY,
+    );
+    return typeof storedLocale === 'string'
+      ? normalizeWebguiLocale(storedLocale)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useWebguiLocale(): readonly [
   WebguiLocale,
   (locale: WebguiLocale) => void,
 ] {
   const context = useContext(WebguiLocaleContext);
   if (!context) {
-    throw new Error('useWebguiLocale must be used inside ControlRoomIntlProvider');
+    throw new Error(
+      'useWebguiLocale must be used inside ControlRoomIntlProvider',
+    );
   }
   return [context.locale, context.selectLocale] as const;
 }
@@ -61,11 +76,10 @@ export function ControlRoomIntlProvider({
 
   useEffect(() => {
     const localeTimer = globalThis.setTimeout(() => {
-      setLocale(
-        normalizeWebguiLocale(
-          globalThis.window.localStorage?.getItem(WEBGUI_LOCALE_STORAGE_KEY),
-        ),
-      );
+      const storedLocale = storedLocalePreference();
+      if (storedLocale) {
+        setLocale(storedLocale);
+      }
     }, 0);
     return () => globalThis.clearTimeout(localeTimer);
   }, []);
@@ -86,7 +100,10 @@ export function ControlRoomIntlProvider({
 
   return (
     <WebguiLocaleContext.Provider value={contextValue}>
-      <NextIntlClientProvider locale={locale} messages={WEBGUI_MESSAGES[locale]}>
+      <NextIntlClientProvider
+        locale={locale}
+        messages={WEBGUI_MESSAGES[locale]}
+      >
         {children}
       </NextIntlClientProvider>
     </WebguiLocaleContext.Provider>

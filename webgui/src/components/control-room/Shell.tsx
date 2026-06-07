@@ -16,6 +16,13 @@ import {
   normalizeWebguiLocale,
   type WebguiLocale,
 } from '@/i18n/locales';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { WebguiTokenPrompt } from './Primitives';
 
 export type RuntimeActionKind =
@@ -141,21 +148,29 @@ export function ControlRoomShell({
         </nav>
 
         <div className='sidebar__meta'>
-          <label className='field-label'>
+          <div className='field-label'>
             <span>{t('language')}</span>
-            <select
+            <Select
               value={locale}
-              onChange={(event) =>
-                onSelectLocale(normalizeWebguiLocale(event.target.value))
+              onValueChange={(value) =>
+                onSelectLocale(normalizeWebguiLocale(value))
               }
             >
-              {WEBGUI_LOCALE_OPTIONS.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger
+                aria-label={t('language')}
+                className='field-select'
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WEBGUI_LOCALE_OPTIONS.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             {t('runtime')}: {asString(status.runtime_state)}
           </div>

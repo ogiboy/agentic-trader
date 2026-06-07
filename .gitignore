@@ -127,3 +127,4 @@ agentdb.rvf
 .flaskenv*
 !.env.project
 !.env.vault
+tui/runtime/agentic_trader.duckdb

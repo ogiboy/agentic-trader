@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '../ui/primitives/Card';
+import { Textarea } from '../ui/primitives/Textarea';
 import type { DocLanguage } from '../../lib/i18n/config';
 import { cn } from '../../lib/utils';
 import { MessageSquareText, ThumbsDown, ThumbsUp } from 'lucide-react';
@@ -161,10 +162,9 @@ export function Feedback({ locale, title }: FeedbackProps) {
         </div>
         <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
           {copy.noteLabel}
-          <textarea
+          <Textarea
             className={cn(
-              'min-h-28 rounded-none border border-input bg-background px-3 py-2 text-sm text-foreground',
-              'outline-none transition-all focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50',
+              'min-h-28 bg-background px-3 text-sm text-foreground',
             )}
             placeholder={copy.notePlaceholder}
             value={message}

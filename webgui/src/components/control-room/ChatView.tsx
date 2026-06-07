@@ -1,13 +1,20 @@
-import
-  {
-    CHAT_PERSONAS,
-    formatChatPersona,
-    type ChatPersona,
-  } from '@/lib/chat-personas';
+import {
+  CHAT_PERSONAS,
+  formatChatPersona,
+  type ChatPersona,
+} from '@/lib/chat-personas';
 import { useTranslations } from 'next-intl';
 
 import type { DashboardData } from '../control-room.helpers';
 import { asRecord, asString } from '../control-room.helpers';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Panel, TextList } from './Primitives';
 
 function chatPersonaLabel(
@@ -58,21 +65,26 @@ export function ChatView({
     <div className='grid grid--2'>
       <Panel title={t('panels.operatorChat')} accent='lime'>
         <div className='form-row'>
-          <label className='field-label'>
+          <div className='field-label'>
             <span>{t('role')}</span>
-            <select
+            <Select
               value={chatPersona}
-              onChange={(event) =>
-                onChatPersonaChange(event.target.value as ChatPersona)
+              onValueChange={(value) =>
+                onChatPersonaChange(value as ChatPersona)
               }
             >
-              {CHAT_PERSONAS.map((persona) => (
-                <option key={persona} value={persona}>
-                  {chatPersonaLabel(persona, personaLabels)}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger aria-label={t('role')} className='field-select'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CHAT_PERSONAS.map((persona) => (
+                  <SelectItem key={persona} value={persona}>
+                    {chatPersonaLabel(persona, personaLabels)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className='chat-log'>
           {chatHistory.length ? (
@@ -91,7 +103,7 @@ export function ChatView({
           )}
         </div>
         <div className='composer'>
-          <textarea
+          <Textarea
             value={chatDraft}
             onChange={(event) => onChatDraftChange(event.target.value)}
             placeholder={t('placeholder')}
