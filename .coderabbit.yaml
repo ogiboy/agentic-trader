@@ -1,11 +1,33 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: "en-US"
+enable_free_tier: true
 early_access: false
-
+issue_enrichment: { auto_enrich: { enabled: true } }
+knowledge_base:
+  {
+    code_guidelines:
+      {
+        enabled: true,
+        filePatterns: [".ai/*", "*.*.md", "*.md", "AGENTS", "CLAUDE", "CODEX"],
+      },
+  }
 reviews:
+  slop_detection: { enabled: true }
   profile: "assertive"
-  request_changes_workflow: false
   high_level_summary: true
+  collapse_walkthrough: true
+  auto_apply_labels: true
+  auto_assign_reviewers: true
+  finishing_touches:
+    docstrings: { enabled: true }
+    unit_tests: { enabled: false }
+    simplify: { enabled: true }
+  request_changes_workflow: false
+  pre_merge_checks:
+    {
+      docstrings: { mode: "warning", threshold: 90 },
+      issue_assessment: { mode: "warning" },
+    }
   auto_title_instructions: |
     Generate PR titles that are valid Conventional Commit subjects for this repository's semantic-release guard.
     Use exactly one type from: feat, fix, perf, docs, build, ci, chore, refactor, test, style.
@@ -13,12 +35,120 @@ reviews:
     Prefer "fix:" for bug fixes, "feat:" for user-visible behavior, "ci:" for workflow changes, "build:" for dependency or packaging changes, "docs:" for documentation-only changes, "test:" for test-only changes, and "chore:" only for maintenance that does not fit another allowed type.
     Do not generate untyped titles such as "Update dependencies", "Apply suggestions", "Address review comments", or "CodeRabbit suggestions".
   review_status: true
-  collapse_walkthrough: true
   auto_review:
-    enabled: true
-    drafts: false
-    auto_incremental_review: true
+    "enabled": true
+    "drafts": false
+    "auto_incremental_review": true
   path_filters:
+    - "!dist/**"
+    - "!**/*.app"
+    - "!**/*.bin"
+    - "!**/*.bz2"
+    - "!**/*.class"
+    - "!**/*.db"
+    - "!**/*.csv"
+    - "!**/*.tsv"
+    - "!**/*.dat"
+    - "!**/*.dll"
+    - "!**/*.dylib"
+    - "!**/*.egg"
+    - "!**/*.glif"
+    - "!**/*.gz"
+    - "!**/*.xz"
+    - "!**/*.zip"
+    - "!**/*.7z"
+    - "!**/*.rar"
+    - "!**/*.zst"
+    - "!**/*.ico"
+    - "!**/*.jar"
+    - "!**/*.tar"
+    - "!**/*.war"
+    - "!**/*.lo"
+    - "!**/*.log"
+    - "!**/*.mp3"
+    - "!**/*.wav"
+    - "!**/*.wma"
+    - "!**/*.mp4"
+    - "!**/*.avi"
+    - "!**/*.mkv"
+    - "!**/*.wmv"
+    - "!**/*.m4a"
+    - "!**/*.m4v"
+    - "!**/*.3gp"
+    - "!**/*.3g2"
+    - "!**/*.rm"
+    - "!**/*.mov"
+    - "!**/*.flv"
+    - "!**/*.iso"
+    - "!**/*.swf"
+    - "!**/*.flac"
+    - "!**/*.nar"
+    - "!**/*.o"
+    - "!**/*.ogg"
+    - "!**/*.otf"
+    - "!**/*.p"
+    - "!**/*.pdf"
+    - "!**/*.doc"
+    - "!**/*.docx"
+    - "!**/*.xls"
+    - "!**/*.xlsx"
+    - "!**/*.map"
+    - "!**/*.out"
+    - "!**/*.ppt"
+    - "!**/*.pptx"
+    - "!**/*.pkl"
+    - "!**/*.pickle"
+    - "!**/*.pyc"
+    - "!**/*.pyd"
+    - "!**/*.pyo"
+    - "!**/*.pub"
+    - "!**/*.pem"
+    - "!**/*.rkt"
+    - "!**/*.so"
+    - "!**/*.ss"
+    - "!**/*.eot"
+    - "!**/*.exe"
+    - "!**/*.pb.go"
+    - "!**/*.pb.gw.go"
+    - "!**/*.lock"
+    - "!**/*.ttf"
+    - "!**/*.yaml"
+    - "!**/*.yml"
+    - "!**/*.xml"
+    - "!**/*.cfg"
+    - "!**/*.toml"
+    - "!**/*.ini"
+    - "!**/*.mod"
+    - "!**/*.sum"
+    - "!**/*.work"
+    - "!**/*.json"
+    - "!**/*.mmd"
+    - "!**/*.svg"
+    - "!**/*.jpeg"
+    - "!**/*.jpg"
+    - "!**/*.png"
+    - "!**/*.gif"
+    - "!**/*.bmp"
+    - "!**/*.tiff"
+    - "!**/*.webm"
+    - "!**/*.woff"
+    - "!**/*.woff2"
+    - "!**/*.dot"
+    - "!**/*.md5sum"
+    - "!**/*.wasm"
+    - "!**/*.snap"
+    - "!**/*.parquet"
+    - "!**/gen/**"
+    - "!**/_gen/**"
+    - "!**/generated/**"
+    - "!**/@generated/**"
+    - "!**/vendor/**"
+    - "!**/*.min.js"
+    - "!**/*.min.js.map"
+    - "!**/*.min.js.css"
+    - "!**/*.tfstate"
+    - "!**/*.tfstate.backup"
+    - ""
     - "!.agents/**"
     - "!.claude/**"
     - "!.claude-flow/**"
@@ -46,6 +176,5 @@ reviews:
     - "sidecars/research_flow/**"
     - ".github/**"
     - ".ai/**"
-
 chat:
   auto_reply: true
