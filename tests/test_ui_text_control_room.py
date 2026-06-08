@@ -90,4 +90,4 @@ def test_control_room_full_subtitle_does_not_contain_format_placeholders() -> No
 
 def test_package_version_bumped_to_0_16_0() -> None:
     """Package __version__ was bumped to 0.16.0 in this PR."""
-    assert agentic_trader.__version__ == "0.16.0"
+    assert agentic_trader.__version__ == "0.16.1"
