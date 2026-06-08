@@ -7,6 +7,17 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.2 (2026-06-08)
+
+### Chores
+
+- Bump package version to 0.16.1
+  ([`407b401`](https://github.com/ogiboy/agentic-trader/commit/407b40143225ed70ebe0b3472c10cff7ad720256))
+
+- Update @types/node and @types/react to latest versions
+  ([`8e3ee20`](https://github.com/ogiboy/agentic-trader/commit/8e3ee2060bd7caf0e209894868b6d36167060abc))
+
+
 ## v0.16.1 (2026-06-07)
 
 ### Chores
