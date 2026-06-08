@@ -60,9 +60,12 @@ reviews:
   auto_apply_labels: true
 
   suggested_reviewers: true
-  auto_assign_reviewers: false
-  suggested_reviewers_instructions: []
-
+  auto_assign_reviewers: true
+  suggested_reviewers_instructions:
+    - reviewers:
+        - handle: "ogiboy"
+          type: user
+      instructions: "Assign for all PRs."
   in_progress_fortune: false
   poem: false
   enable_prompt_for_ai_agents: true
