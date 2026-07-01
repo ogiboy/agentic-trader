@@ -1,7 +1,12 @@
+import tomllib
+from pathlib import Path
+
 import pytest
 
 import agentic_trader
 from agentic_trader import ui_text
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_translation_facade_new_control_room_keys_english() -> None:
@@ -88,6 +93,7 @@ def test_control_room_full_subtitle_does_not_contain_format_placeholders() -> No
     assert "{" not in tr.message_control_room_compact_subtitle
 
 
-def test_package_version_bumped_to_0_16_0() -> None:
-    """Package __version__ was bumped to 0.16.0 in this PR."""
-    assert agentic_trader.__version__ == "0.16.1"
+def test_package_version_matches_project_metadata() -> None:
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"]
+
+    assert agentic_trader.__version__ == project["version"]
