@@ -7,6 +7,14 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.3 (2026-07-01)
+
+### Refactoring
+
+- Refactor trader runtme and review flow
+  ([`2594b2c`](https://github.com/ogiboy/agentic-trader/commit/2594b2c9b88d2c907944acb35c191e306e5f5040))
+
+
 ## v0.16.2 (2026-06-08)
 
 ### Chores
