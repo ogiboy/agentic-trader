@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.5 (2026-07-02)
+
+### Chores
+
+- Bump github/codeql-action/init
+  ([`f5284d6`](https://github.com/ogiboy/agentic-trader/commit/f5284d6e53cd6b8e6aba06eeb46ba6460c6f1144))
+
 ## v0.16.4 (2026-07-02)
 
 ### Bug Fixes
