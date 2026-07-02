@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.4 (2026-07-02)
+
+### Bug Fixes
+
+- Align dependabot uv python lane
+  ([`be25efc`](https://github.com/ogiboy/agentic-trader/commit/be25efc63f8b6e0129f134c581fee969d0250c45))
+
 ## v0.16.3 (2026-07-01)
 
 ### Refactoring
