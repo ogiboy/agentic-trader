@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.6 (2026-07-03)
+
+### Chores
+
+- Bump pnpm/action-setup from 6.0.3 to 6.0.9
+  ([`7bd80f0`](https://github.com/ogiboy/agentic-trader/commit/7bd80f0f76c7c2448bc82516fb0cae43585571b0))
+
 ## v0.16.5 (2026-07-02)
 
 ### Chores

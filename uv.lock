@@ -27,7 +27,7 @@ members = [
 
 [[package]]
 name = "agentic-trader"
-version = "0.16.5"
+version = "0.16.6"
 source = { editable = "." }
 dependencies = [
     { name = "alpaca-py", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -2645,7 +2645,7 @@ wheels = [
 
 [[package]]
 name = "research-flow"
-version = "0.16.5"
+version = "0.16.6"
 source = { editable = "sidecars/research_flow" }
 dependencies = [
     { name = "crewai", extra = ["tools"], marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
