@@ -3,17 +3,17 @@ name: Binaries
 on:
   push:
     branches:
-      - '**'
+      - "**"
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Optional release tag to build and attach assets for, for example v0.2.0'
+        description: "Optional release tag to build and attach assets for, for example v0.2.0"
         required: false
         type: string
       channel:
-        description: 'Override artifact channel for manual branch builds'
+        description: "Override artifact channel for manual branch builds"
         required: false
         default: auto
         type: choice
@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  UV_VERSION: '0.11.8'
+  UV_VERSION: "0.11.8"
 
 jobs:
   build:
@@ -53,11 +53,11 @@ jobs:
           - os: macos-14
             label: macOS Apple Silicon
             asset_suffix: macos-arm64
-            extension: ''
+            extension: ""
           - os: windows-latest
             label: Windows
             asset_suffix: windows-x64
-            extension: '.exe'
+            extension: ".exe"
 
     steps:
       - name: Resolve checkout ref
@@ -92,7 +92,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -179,7 +179,7 @@ jobs:
 
       - name: Smoke-test CLI binary
         shell: bash
-        run: './dist/agentic-trader${{ matrix.extension }} doctor --json'
+        run: "./dist/agentic-trader${{ matrix.extension }} doctor --json"
 
       - name: Package binary asset
         id: package
@@ -226,9 +226,9 @@ jobs:
           fetch-depth: 0
 
       - name: Download packaged binary artifacts
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: '*-${{ needs.build.outputs.artifact_version }}'
+          pattern: "*-${{ needs.build.outputs.artifact_version }}"
           path: release-assets
           merge-multiple: true
 

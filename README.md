@@ -138,11 +138,11 @@ uv python install 3.13
 pnpm run install:python
 ```
 
-Daily source development and GitHub Actions now default to uv-managed Python
-3.13 from the root `.python-version`. The root package metadata still declares
-`>=3.12,<3.15`, but 3.12 compatibility is no longer the primary CI lane unless
-a separate compatibility matrix is added. `scripts/install-python.sh` runs
-`uv sync --locked --python 3.13 --all-extras --group dev`.
+Daily source development, GitHub Actions, and package metadata now default to
+uv-managed Python 3.13 from the root `.python-version`. 3.12 compatibility is
+not a supported lane unless a separate compatibility matrix is added.
+`scripts/install-python.sh` runs `uv sync --locked --python 3.13 --all-extras
+--group dev`.
 
 When changing Python dependencies, use uv as the source of truth:
 `uv add <package>` for new packages, `uv lock --upgrade` for upgrades, and
