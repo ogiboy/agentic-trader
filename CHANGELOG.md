@@ -7,6 +7,17 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.7 (2026-07-03)
+
+### Chores
+
+- Bump github/codeql-action/analyze
+  ([`cb2d384`](https://github.com/ogiboy/agentic-trader/commit/cb2d384b8b1b1e69de32fc4a559933ab81ffbc98))
+- Bump actions/checkout from 6.0.3 to 7.0.0
+  ([`9353d34`](https://github.com/ogiboy/agentic-trader/commit/9353d34207e9371512aa8b6b6add775c7604f098))
+- Bump actions/checkout from 6.0.3 to 7.0.0
+  ([`c66c5c8`](https://github.com/ogiboy/agentic-trader/commit/c66c5c80fa10baf8e1a902ae09e75dcc2ae201a5))
+
 ## v0.16.6 (2026-07-03)
 
 ### Chores
