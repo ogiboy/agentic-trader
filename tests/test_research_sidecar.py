@@ -1,5 +1,6 @@
 import json
 import subprocess
+import tomllib
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -26,6 +27,33 @@ from agentic_trader.runtime_feed import (
 from agentic_trader.schemas import EvidenceInferenceBreakdown, RawEvidenceRecord
 from agentic_trader.system.camofox_service import CamofoxServiceStatus
 from agentic_trader.system.tool_ownership import write_tool_ownership
+
+
+def _specifier_allows_python(specifier: str, version: str) -> bool:
+    target = tuple(int(part) for part in version.split("."))
+    for clause in (part.strip() for part in specifier.split(",")):
+        if clause.startswith(">="):
+            if target < tuple(int(part) for part in clause[2:].split(".")):
+                return False
+        elif clause.startswith("<"):
+            if target >= tuple(int(part) for part in clause[1:].split(".")):
+                return False
+        else:
+            raise AssertionError(f"unsupported Python specifier clause: {clause}")
+    return True
+
+
+def test_root_python_range_does_not_admit_dependabot_uv_fallback_lane() -> None:
+    root = Path(__file__).resolve().parents[1]
+    root_pyproject = tomllib.loads(
+        (root / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    requires_python = root_pyproject["project"]["requires-python"]
+
+    assert _specifier_allows_python(
+        requires_python, f"{(root / '.python-version').read_text().strip()}.0"
+    )
+    assert not _specifier_allows_python(requires_python, "3.12.13")
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:

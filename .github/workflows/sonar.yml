@@ -12,7 +12,7 @@ permissions:
   pull-requests: read
 
 env:
-  UV_VERSION: '0.11.8'
+  UV_VERSION: "0.11.8"
   SONAR_HOST_URL: https://sonarcloud.io
   SONAR_ORGANIZATION: ogiboy
   SONAR_PROJECT_KEY: ogiboy_agentic-trader
@@ -26,14 +26,14 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -50,7 +50,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: '22'
+          node-version: "22"
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -75,7 +75,7 @@ jobs:
           SONAR_ARTIFACT_DIR: .ai/qa/artifacts/sonar
           SONAR_COVERAGE_XML: .ai/qa/artifacts/sonar/coverage.xml
           SONAR_JAVASCRIPT_LCOV: .ai/qa/artifacts/sonar/webgui-coverage/lcov.info
-          SONAR_SKIP_COVERAGE: '1'
+          SONAR_SKIP_COVERAGE: "1"
         run: scripts/qa/run_sonar_scan.sh pysonar
 
       - name: Explain skipped SonarCloud scan
