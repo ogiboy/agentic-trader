@@ -108,4 +108,7 @@
     "webgui/src/app/globals.css": "webgui/src/**/*",
     "docs/app/globals.css": "docs/**/*"
   },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
 }
