@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.9 (2026-07-07)
+
+### Chores
+
+- Bump crewai[tools] from 1.14.6 to 1.15.1
+  ([`ad02795`](https://github.com/ogiboy/agentic-trader/commit/ad02795a31e7ccb50fd7d500a9f7b1825f75de6a))
+
 ## v0.16.8 (2026-07-07)
 
 ### Chores
