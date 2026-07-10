@@ -90,7 +90,7 @@
     "@testing-library/react": "^16.3.2",
     "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^29.1.1",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "workspaces": [
     "webgui",
