@@ -15,11 +15,11 @@ dependencies = [
   "rich>=14.0.0",
   "typer>=0.15.2",
   "yfinance>=0.2.58",
-  "alpaca-py>=0.43.2,<0.44.0",
+  "alpaca-py>=0.43.5,<0.44.0",
   "massive>=2.5.0,<3.0.0",
   "firecrawl-py>=4.28.0",
   "ollama>=0.6.2",
-  "yt-dlp>=2026.3.17",
+  "yt-dlp>=2026.7.4",
   "research-flow>=0.14.0",
 ]
 description = "A guardrailed multi-agent paper trading system built around local LLMs."
