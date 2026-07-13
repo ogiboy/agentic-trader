@@ -7,6 +7,25 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.10 (2026-07-13)
+
+### Bug Fixes
+
+- Allow legacy release commit subject
+  ([`3064908`](https://github.com/ogiboy/agentic-trader/commit/3064908b45acefa6df52b20ffeb8de39520b1250))
+
+### Chores
+
+- Bump the next-apps group with 3 updates
+  ([`08d1c40`](https://github.com/ogiboy/agentic-trader/commit/08d1c407dd02420599127b86a690628babe0e307))
+- Bump vitest from 4.1.9 to 4.1.10
+  ([`b65d3a6`](https://github.com/ogiboy/agentic-trader/commit/b65d3a647a46ab1f2037ff75d54c392116a1a2f5))
+
+### Other Changes
+
+- Refactor code structure for improved readability and maintainability
+  ([`490b528`](https://github.com/ogiboy/agentic-trader/commit/490b528673f650077b5957b724b14c36c545b6bf))
+
 ## v0.16.9 (2026-07-07)
 
 ### Chores
