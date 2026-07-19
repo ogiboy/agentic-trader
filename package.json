@@ -98,6 +98,7 @@
     "tui"
   ],
   "overrides": {
+    "adm-zip": "0.6.0",
     "axios": "1.16.1",
     "fast-uri": "3.1.2",
     "form-data": "4.0.6",
