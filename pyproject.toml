@@ -19,7 +19,7 @@ dependencies = [
   "massive>=2.5.0,<3.0.0",
   "firecrawl-py>=4.28.0",
   "ollama>=0.6.2",
-  "yt-dlp>=2026.3.17",
+  "yt-dlp>=2026.7.4",
   "research-flow>=0.14.0",
 ]
 description = "A guardrailed multi-agent paper trading system built around local LLMs."
@@ -35,7 +35,7 @@ dev = [
   "coverage>=7.14.0",
   "iniconfig>=2.3.0",
   "isort>=6.0.1",
-  "mypy>=2.1.0",
+  "mypy>=2.3.0",
   "nodeenv>=1.10.0",
   "pandas-stubs>=3.0.0.260204",
   "pexpect>=4.9.0",
@@ -44,11 +44,11 @@ dev = [
   "ptyprocess>=0.7.0",
   "pyinstaller>=6.20.0,<7.0.0",
   "pyright>=1.1.409",
-  "pysonar>=1.6.0.4905,<2.0.0",
+  "pysonar>=1.7.0.5143,<2.0.0",
   "pytest>=9.0.3",
   "pytest-cov>=7.1.0",
   "python-semantic-release>=10.0.0,<11.0.0",
-  "ruff>=0.15.14",
+  "ruff>=0.15.21",
   "ty>=0.0.56",
 ]
 
