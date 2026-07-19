@@ -1,5 +1,6 @@
 import json
 import stat
+import tomllib
 from pathlib import Path
 
 from pytest import MonkeyPatch
@@ -44,6 +45,37 @@ def test_node_security_overrides_stay_in_sync() -> None:
     assert workspace_overrides["hono"] == "4.12.25"
     assert workspace_overrides["undici"] == "7.28.0"
     assert workspace_overrides["vite"] == "8.0.16"
+
+
+def test_camofox_security_override_stays_pinned() -> None:
+    workspace_config = (
+        REPO_ROOT / "tools" / "camofox-browser" / "pnpm-workspace.yaml"
+    ).read_text(encoding="utf-8")
+    lockfile = (
+        REPO_ROOT / "tools" / "camofox-browser" / "pnpm-lock.yaml"
+    ).read_text(encoding="utf-8")
+
+    assert "  adm-zip: 0.6.0" in workspace_config
+    assert "adm-zip@0.5" not in lockfile
+    assert "adm-zip@0.6.0" in lockfile
+
+
+def test_research_sidecar_security_constraints_stay_pinned() -> None:
+    root_config = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    sidecar_config = tomllib.loads(
+        (REPO_ROOT / "sidecars" / "research_flow" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert "json-repair>=0.60.1" in root_config["tool"]["uv"][
+        "override-dependencies"
+    ]
+    assert "crewai[tools]==1.15.4" in sidecar_config["project"]["dependencies"]
+    assert "json-repair>=0.60.1" in sidecar_config["project"]["dependencies"]
+    assert "mcp>=1.28.1" in sidecar_config["project"]["dependencies"]
 
 
 def test_redact_sensitive_text_masks_common_secret_shapes(

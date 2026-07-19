@@ -3,7 +3,9 @@ authors = [
   {name = "Oğuzcan Toptaş", email = "oguzcantoptas@gmail.com"},
 ]
 dependencies = [
-  "crewai[tools]==1.15.1",
+  "crewai[tools]==1.15.4",
+  "json-repair>=0.60.1",
+  "mcp>=1.28.1",
 ]
 description = "Tracked CrewAI research sidecar for Agentic Trader."
 license = "LGPL-3.0-or-later"
