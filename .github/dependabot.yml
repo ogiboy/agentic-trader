@@ -28,6 +28,9 @@ updates:
           - eslint*
           - "@types/*"
     ignore:
+      # @sonar/scan pins adm-zip@0.5.17; the pnpm workspace override enforces
+      # the patched 0.6.0 release instead.
+      - dependency-name: adm-zip
       # eslint-plugin-react@7.37.5 is still pulled by eslint-config-next@16.2.7
       # and is not compatible with ESLint 10 rule-context APIs.
       - dependency-name: eslint
