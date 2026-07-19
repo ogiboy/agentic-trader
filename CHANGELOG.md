@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.15 (2026-07-19)
+
+### Bug Fixes
+
+- Resolve remaining high severity alerts
+  ([`68b771f`](https://github.com/ogiboy/agentic-trader/commit/68b771ff17cb30e37b41534cf2cb5335b975e413))
+
 ## v0.16.14 (2026-07-19)
 
 ### Bug Fixes
