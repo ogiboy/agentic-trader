@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.13 (2026-07-19)
+
+### Chores
+
+- Bump actions/setup-node from 6.4.0 to 7.0.0
+  ([`a41f548`](https://github.com/ogiboy/agentic-trader/commit/a41f548b8f9fe182a7449a7e3cae7b7ee34176a8))
+
 ## v0.16.12 (2026-07-19)
 
 ### Bug Fixes
