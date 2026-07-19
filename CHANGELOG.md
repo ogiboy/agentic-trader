@@ -7,6 +7,13 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.12 (2026-07-19)
+
+### Bug Fixes
+
+- Override vulnerable adm-zip dependency
+  ([`21205cc`](https://github.com/ogiboy/agentic-trader/commit/21205cc637e49d25f5b999a987ead3a3886da2d5))
+
 ## v0.16.11 (2026-07-19)
 
 ### Chores
