@@ -39,6 +39,7 @@ def test_node_security_overrides_stay_in_sync() -> None:
     workspace_overrides = _read_flat_workspace_overrides()
 
     assert package_overrides == workspace_overrides
+    assert workspace_overrides["adm-zip"] == "0.6.0"
     assert workspace_overrides["form-data"] == "4.0.6"
     assert workspace_overrides["hono"] == "4.12.25"
     assert workspace_overrides["undici"] == "7.28.0"
