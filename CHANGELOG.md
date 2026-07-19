@@ -7,6 +7,14 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.16.11 (2026-07-19)
+
+### Chores
+
+- **deps**: Bump fumadocs-core from 16.10.7 to 16.11.3
+  ([`c683461`](https://github.com/ogiboy/agentic-trader/commit/c683461b27a79165d24163a34db13266cbd47be4))
+
+
 ## v0.16.10 (2026-07-13)
 
 ### Bug Fixes
